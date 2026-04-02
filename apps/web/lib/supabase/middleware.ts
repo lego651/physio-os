@@ -31,11 +31,16 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
-  // Patient auth guard: /chat requires auth
-  if (pathname.startsWith('/chat') && !user) {
+  // Patient auth guard: /chat and /onboarding require auth
+  if ((pathname.startsWith('/chat') || pathname.startsWith('/onboarding')) && !user) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
+  }
+
+  // API auth guard: /api/chat requires auth
+  if (pathname.startsWith('/api/chat') && !user) {
+    return new NextResponse('Unauthorized', { status: 401 })
   }
 
   // Admin auth guard: /dashboard requires admin

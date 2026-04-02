@@ -7,12 +7,17 @@
   "scripts": {
     "typecheck": "tsc --noEmit",
     "lint": "eslint src/",
-    "test": "echo 'no tests yet'"
+    "test": "vitest run"
   },
   "dependencies": {
-    "@physio-os/shared": "workspace:*"
+    "@ai-sdk/anthropic": "^3.0.66",
+    "@physio-os/shared": "workspace:*",
+    "@supabase/supabase-js": "^2.101.1",
+    "ai": "^6.0.144",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/node": "^20",
     "typescript": "^5.7.0"
   }
 }
