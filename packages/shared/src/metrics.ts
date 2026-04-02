@@ -17,11 +17,19 @@ export function isValidSittingTolerance(value: number): boolean {
   return Number.isInteger(value) && value >= 0
 }
 
-/** Normalize phone number to E.164 format (+1XXXXXXXXXX) */
+/** Validate a phone string has enough digits for E.164 (10-15 digits) */
+export function isValidPhone(phone: string): boolean {
+  const digits = phone.replace(/\D/g, '')
+  return digits.length >= 10 && digits.length <= 15
+}
+
+/** Normalize phone number to E.164 format (+1XXXXXXXXXX). Throws on invalid input. */
 export function normalizePhone(phone: string): string {
   const digits = phone.replace(/\D/g, '')
+  if (digits.length < 10 || digits.length > 15) {
+    throw new Error('Invalid phone number: must contain 10-15 digits')
+  }
   if (digits.length === 10) return `+1${digits}`
   if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`
-  if (phone.startsWith('+') && digits.length === 11) return `+${digits}`
   return `+${digits}`
 }

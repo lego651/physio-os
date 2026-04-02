@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import { Card } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -35,31 +35,36 @@ export default function ChatPage() {
   const [loading, setLoading] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages])
 
-  function handleSend(e: React.FormEvent) {
+  useEffect(() => {
+    return () => clearTimeout(timeoutRef.current)
+  }, [])
+
+  const handleSend = useCallback((e: React.FormEvent) => {
     e.preventDefault()
     if (!input.trim()) return
-    const userMsg: Message = { id: Date.now().toString(), role: 'user', content: input.trim() }
+    const userMsg: Message = { id: crypto.randomUUID(), role: 'user', content: input.trim() }
     setMessages((prev) => [...prev, userMsg])
     setInput('')
     setLoading(true)
     // AI integration comes in Sprint 2
-    setTimeout(() => {
+    timeoutRef.current = setTimeout(() => {
       setMessages((prev) => [
         ...prev,
         {
-          id: (Date.now() + 1).toString(),
+          id: crypto.randomUUID(),
           role: 'assistant',
           content: 'Thanks for sharing! (AI responses will be connected in Sprint 2)',
         },
       ])
       setLoading(false)
     }, 1000)
-  }
+  }, [input])
 
   return (
     <div className="flex flex-col h-dvh max-h-dvh">

@@ -9,3 +9,7 @@ coverage
 .vercel
 .DS_Store
 *.tsbuildinfo
+
+# Only root lockfile should exist
+apps/*/pnpm-lock.yaml
+packages/*/pnpm-lock.yaml

@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { normalizePhone } from '@physio-os/shared'
+import { normalizePhone, isValidPhone } from '@physio-os/shared'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,6 +22,11 @@ export function PatientLoginForm() {
     setError('')
     setLoading(true)
     try {
+      if (!isValidPhone(phone)) {
+        setError('Please enter a valid phone number (10-15 digits)')
+        setLoading(false)
+        return
+      }
       const normalized = normalizePhone(phone)
       const { error } = await supabase.auth.signInWithOtp({ phone: normalized })
       if (error) throw error
@@ -85,9 +90,10 @@ export function PatientLoginForm() {
               <Input
                 type="text"
                 inputMode="numeric"
+                pattern="[0-9]*"
                 placeholder="123456"
                 value={otp}
-                onChange={(e) => setOtp(e.target.value)}
+                onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
                 required
                 autoFocus
                 maxLength={6}

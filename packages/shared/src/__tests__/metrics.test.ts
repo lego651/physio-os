@@ -3,6 +3,7 @@ import {
   isValidPainLevel,
   isValidDiscomfort,
   isValidSittingTolerance,
+  isValidPhone,
   normalizePhone,
   PAIN_SCALE,
   DISCOMFORT_SCALE,
@@ -62,6 +63,32 @@ describe('Sitting tolerance validation', () => {
   })
 })
 
+describe('isValidPhone', () => {
+  it('accepts 10-digit number', () => {
+    expect(isValidPhone('6041234567')).toBe(true)
+  })
+
+  it('accepts formatted number', () => {
+    expect(isValidPhone('+1 (604) 123-4567')).toBe(true)
+  })
+
+  it('rejects empty string', () => {
+    expect(isValidPhone('')).toBe(false)
+  })
+
+  it('rejects letters only', () => {
+    expect(isValidPhone('abc')).toBe(false)
+  })
+
+  it('rejects too few digits', () => {
+    expect(isValidPhone('123')).toBe(false)
+  })
+
+  it('rejects more than 15 digits', () => {
+    expect(isValidPhone('1234567890123456')).toBe(false)
+  })
+})
+
 describe('Phone normalization', () => {
   it('normalizes 10-digit to E.164', () => {
     expect(normalizePhone('6041234567')).toBe('+16041234567')
@@ -81,5 +108,17 @@ describe('Phone normalization', () => {
 
   it('handles dashes and spaces', () => {
     expect(normalizePhone('604-123-4567')).toBe('+16041234567')
+  })
+
+  it('throws on empty string', () => {
+    expect(() => normalizePhone('')).toThrow('Invalid phone number')
+  })
+
+  it('throws on letters only', () => {
+    expect(() => normalizePhone('abc')).toThrow('Invalid phone number')
+  })
+
+  it('throws on too few digits', () => {
+    expect(() => normalizePhone('123')).toThrow('Invalid phone number')
   })
 })

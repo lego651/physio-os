@@ -28,7 +28,6 @@ const navItems = [
 export function DashboardShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
-  const supabase = createClient()
 
   // Don't wrap login page with sidebar
   if (pathname === '/dashboard/login') {
@@ -36,6 +35,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
   }
 
   async function handleLogout() {
+    const supabase = createClient()
     await supabase.auth.signOut()
     router.push('/dashboard/login')
   }
