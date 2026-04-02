@@ -1,0 +1,20 @@
+{
+  "name": "physio-os",
+  "private": true,
+  "packageManager": "pnpm@9.15.4",
+  "scripts": {
+    "build": "turbo build",
+    "dev": "turbo dev",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "test": "turbo test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "prettier": "^3.4.0",
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0",
+    "vitest": "^4.1.2"
+  }
+}

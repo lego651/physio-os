@@ -4,6 +4,8 @@ dist
 .next
 .env
 .env.local
+.env.*.local
 coverage
 .vercel
 .DS_Store
+*.tsbuildinfo
