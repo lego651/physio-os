@@ -2,7 +2,7 @@ import { jwtVerify } from 'jose'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient, createServiceClient } from '@/lib/supabase/server'
 import type { Database } from '@physio-os/shared'
 import { DiscomfortChart } from './discomfort-chart'
 import type { DailyDiscomfortPoint } from './discomfort-chart'
@@ -281,7 +281,14 @@ export default async function ReportPage({
     return { day, discomfort: avg }
   })
 
-  // 4. Parse metrics_summary and resolve patient name
+  // 4. Check if the visitor is authenticated to determine CTA destination
+  const authClient = await createClient()
+  const {
+    data: { user },
+  } = await authClient.auth.getUser()
+  const ctaHref = user ? '/chat' : '/login'
+
+  // 5. Parse metrics_summary and resolve patient name
   const metrics = report.metrics_summary as MetricsSummary | null
   const firstName = (report.patients?.name ?? 'there').split(' ')[0]
   const insights: string[] = Array.isArray(report.insights) ? report.insights : []
@@ -388,10 +395,10 @@ export default async function ReportPage({
         )}
 
         {/* ── CTA ── */}
-        <section className="pt-2">
-          <Link href="/chat" className="block w-full">
+        <section className="pt-2 pb-4">
+          <Link href={ctaHref} className="block w-full md:inline-block md:w-auto">
             <Button
-              className="w-full text-white"
+              className="w-full md:w-auto text-white"
               size="lg"
               style={{ backgroundColor: '#0F766E' }}
             >
