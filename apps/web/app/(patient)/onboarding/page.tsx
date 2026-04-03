@@ -21,7 +21,6 @@ export default function OnboardingPage() {
   const [currentStep, setCurrentStep] = useState<Step>('consent')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
-  const [patientId, setPatientId] = useState<string | null>(null)
 
   // Form state
   const [error, setError] = useState('')
@@ -33,44 +32,49 @@ export default function OnboardingPage() {
   // Check if onboarding is already complete or resume from last step
   useEffect(() => {
     async function checkStatus() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) {
-        router.push('/login')
-        return
-      }
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push('/login')
+          return
+        }
 
-      const { data: patient } = await supabase
-        .from('patients')
-        .select('*')
-        .eq('auth_user_id', user.id)
-        .single()
+        const { data: patient } = await supabase
+          .from('patients')
+          .select('id, consent_at, name, profile, language')
+          .eq('auth_user_id', user.id)
+          .single()
 
-      if (patient) {
-        setPatientId(patient.id)
-        // Resume from last incomplete step
-        if (patient.consent_at) {
-          if (patient.name) {
-            const profile = patient.profile as Record<string, unknown> | null
-            if (profile?.injury) {
-              // All done
-              router.push('/chat')
-              return
+        if (patient) {
+          // Resume from last incomplete step
+          if (patient.consent_at) {
+            if (patient.name) {
+              const profile = patient.profile as Record<string, unknown> | null
+              if (profile?.injury) {
+                // All done
+                router.push('/chat')
+                return
+              }
+              setName(patient.name)
+              setCondition((profile?.injury as string) || '')
+              setLanguage((patient.language as 'en' | 'zh') || 'en')
+              setConsentAgreed(true)
+              setCurrentStep('condition')
+            } else {
+              setConsentAgreed(true)
+              setLanguage((patient.language as 'en' | 'zh') || 'en')
+              setCurrentStep('name')
             }
-            setName(patient.name)
-            setCondition((profile?.injury as string) || '')
-            setLanguage((patient.language as 'en' | 'zh') || 'en')
-            setConsentAgreed(true)
-            setCurrentStep('condition')
-          } else {
-            setConsentAgreed(true)
-            setLanguage((patient.language as 'en' | 'zh') || 'en')
-            setCurrentStep('name')
           }
         }
+        // If no patient record exists, it will be created during onboarding
+      } catch (err) {
+        console.error('Failed to check onboarding status:', err)
+        setError('Failed to load. Please refresh the page.')
+      } finally {
+        setLoading(false)
       }
-      // If no patient record exists, it will be created during onboarding
-      setLoading(false)
     }
     checkStatus()
   }, [router])
@@ -81,60 +85,78 @@ export default function OnboardingPage() {
   async function handleNext() {
     if (currentStep === 'consent' && !consentAgreed) return
     if (currentStep === 'name' && !name.trim()) return
+    if (currentStep === 'condition' && !condition.trim()) return
 
     setSaving(true)
     setError('')
-    const supabase = createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    if (!user) return
 
     try {
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        setError('Session expired. Please log in again.')
+        return
+      }
+
       if (currentStep === 'consent') {
-        if (patientId) {
-          await supabase
-            .from('patients')
-            .update({ consent_at: new Date().toISOString() })
-            .eq('id', patientId)
-        } else {
-          // Create patient record if doesn't exist (phone-based auth)
-          const { data: newPatient } = await supabase
-            .from('patients')
-            .insert({
+        // Use upsert to prevent duplicate records on double-click
+        const { error: upsertError } = await supabase
+          .from('patients')
+          .upsert(
+            {
               auth_user_id: user.id,
               phone: user.phone || '',
               consent_at: new Date().toISOString(),
-            })
-            .select()
-            .single()
-          if (newPatient) setPatientId(newPatient.id)
+            },
+            { onConflict: 'auth_user_id' },
+          )
+
+        if (upsertError) {
+          throw new Error('Failed to save consent. Please try again.')
         }
         setCurrentStep('name')
       } else if (currentStep === 'name') {
-        await supabase
+        const { error: updateError } = await supabase
           .from('patients')
           .update({ name: name.trim() })
           .eq('auth_user_id', user.id)
+
+        if (updateError) {
+          throw new Error('Failed to save name. Please try again.')
+        }
         setCurrentStep('condition')
       } else if (currentStep === 'condition') {
-        const { data: patient } = await supabase
+        const { data: patient, error: fetchError } = await supabase
           .from('patients')
           .select('profile')
           .eq('auth_user_id', user.id)
           .single()
 
+        if (fetchError) {
+          throw new Error('Failed to load profile. Please try again.')
+        }
+
         const existingProfile = (patient?.profile as Record<string, unknown>) || {}
-        await supabase
+        const { error: updateError } = await supabase
           .from('patients')
           .update({
             profile: { ...existingProfile, injury: condition.trim() },
           })
           .eq('auth_user_id', user.id)
+
+        if (updateError) {
+          throw new Error('Failed to save condition. Please try again.')
+        }
         setCurrentStep('language')
       } else if (currentStep === 'language') {
-        await supabase
+        const { error: updateError } = await supabase
           .from('patients')
           .update({ language })
           .eq('auth_user_id', user.id)
+
+        if (updateError) {
+          throw new Error('Failed to save language. Please try again.')
+        }
         router.push('/chat')
         return
       }
@@ -163,7 +185,7 @@ export default function OnboardingPage() {
     <div className="flex min-h-dvh items-center justify-center px-4 py-8">
       <Card className="w-full max-w-md p-6 space-y-6">
         {/* Progress indicator */}
-        <div className="flex gap-2">
+        <div className="flex gap-2" role="progressbar" aria-valuenow={stepIndex + 1} aria-valuemin={1} aria-valuemax={STEPS.length}>
           {STEPS.map((step, i) => (
             <div
               key={step}
@@ -217,6 +239,7 @@ export default function OnboardingPage() {
               onChange={(e) => setName(e.target.value)}
               placeholder="Your name"
               className="h-12 text-base"
+              maxLength={100}
               autoFocus
             />
           </div>
@@ -235,8 +258,12 @@ export default function OnboardingPage() {
               onChange={(e) => setCondition(e.target.value)}
               placeholder="e.g., Lower back pain, recovering from ACL surgery..."
               className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[100px] resize-none"
+              maxLength={1000}
               autoFocus
             />
+            {condition.trim().length < 3 && condition.length > 0 && (
+              <p className="text-xs text-muted-foreground">Please provide more detail about your condition.</p>
+            )}
           </div>
         )}
 
@@ -248,8 +275,10 @@ export default function OnboardingPage() {
                 Choose the language you&apos;d like your recovery coach to use.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Language selection">
               <button
+                role="radio"
+                aria-checked={language === 'en'}
                 onClick={() => setLanguage('en')}
                 className={`rounded-lg border-2 p-4 text-center transition-colors ${
                   language === 'en'
@@ -261,6 +290,8 @@ export default function OnboardingPage() {
                 <span className="text-sm font-medium">English</span>
               </button>
               <button
+                role="radio"
+                aria-checked={language === 'zh'}
                 onClick={() => setLanguage('zh')}
                 className={`rounded-lg border-2 p-4 text-center transition-colors ${
                   language === 'zh'
@@ -289,7 +320,8 @@ export default function OnboardingPage() {
             disabled={
               saving ||
               (currentStep === 'consent' && !consentAgreed) ||
-              (currentStep === 'name' && !name.trim())
+              (currentStep === 'name' && !name.trim()) ||
+              (currentStep === 'condition' && condition.trim().length < 3)
             }
           >
             {saving ? (

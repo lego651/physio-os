@@ -9,18 +9,40 @@ export interface SystemPromptParams {
   appUrl?: string
 }
 
+/**
+ * Sanitize a value before interpolating into the system prompt.
+ * Strips control characters, newlines, and enforces max length.
+ * Wraps the value in delimiters to prevent instruction confusion.
+ */
+export function sanitizePromptValue(value: string, maxLen: number = 100): string {
+  // Strip newlines, carriage returns, and control characters
+  const cleaned = value
+    .replace(/[\r\n\t]/g, ' ')
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .trim()
+    .slice(0, maxLen)
+
+  // Wrap in delimiters the model can distinguish from instructions
+  return `«${cleaned}»`
+}
+
 export function buildSystemPrompt(params: SystemPromptParams): string {
   const {
-    clinicName,
-    patientName,
-    patientCondition,
+    clinicName: rawClinicName,
+    patientName: rawPatientName,
+    patientCondition: rawPatientCondition,
     channel,
-    practitionerName,
+    practitionerName: rawPractitionerName,
     conversationCount = 0,
     appUrl = 'https://vhealth.ai',
   } = params
 
+  const clinicName = sanitizePromptValue(rawClinicName, 100)
+  const patientName = rawPatientName ? sanitizePromptValue(rawPatientName, 100) : undefined
+  const patientCondition = rawPatientCondition ? sanitizePromptValue(rawPatientCondition, 500) : undefined
+  const practitionerName = rawPractitionerName ? sanitizePromptValue(rawPractitionerName, 100) : undefined
   const practitioner = practitionerName || 'your practitioner'
+
   const sections: string[] = []
 
   // 1. Persona

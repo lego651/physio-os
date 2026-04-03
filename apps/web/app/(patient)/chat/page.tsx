@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react'
 import { DefaultChatTransport } from 'ai'
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Card } from '@/components/ui/card'
@@ -13,6 +13,7 @@ import { SendHorizontal, HelpCircle, Loader2, AlertCircle, ChevronUp } from 'luc
 import type { UIMessage } from 'ai'
 
 const MESSAGES_PER_PAGE = 50
+const MAX_MESSAGE_LENGTH = 2000
 
 function MetricBadge({ metric }: { metric: { name: string; value: number | string; trend?: string } }) {
   const colorMap: Record<string, string> = {
@@ -55,62 +56,73 @@ export default function ChatPage() {
   const [initialMessages, setInitialMessages] = useState<UIMessage[] | undefined>(undefined)
   const [hasMore, setHasMore] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [patientId, setPatientId] = useState<string | null>(null)
 
+  // Stabilize transport identity across renders
+  const transport = useMemo(() => new DefaultChatTransport({ api: '/api/chat' }), [])
+
   const { messages, sendMessage, status, error, regenerate, setMessages } = useChat({
-    transport: new DefaultChatTransport({ api: '/api/chat' }),
+    transport,
     messages: initialMessages,
   })
 
   // Load message history from Supabase
   useEffect(() => {
     async function loadHistory() {
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
-      if (!user) return
+      try {
+        const supabase = createClient()
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) {
+          router.push('/login')
+          return
+        }
 
-      const { data: patient } = await supabase
-        .from('patients')
-        .select('id, consent_at, name, profile')
-        .eq('auth_user_id', user.id)
-        .single()
+        const { data: patient } = await supabase
+          .from('patients')
+          .select('id, consent_at, name, profile')
+          .eq('auth_user_id', user.id)
+          .single()
 
-      if (!patient) {
-        router.push('/onboarding')
-        return
+        if (!patient) {
+          router.push('/onboarding')
+          return
+        }
+
+        const profile = patient.profile as Record<string, unknown> | null
+        if (!patient.consent_at || !patient.name || !profile?.injury) {
+          router.push('/onboarding')
+          return
+        }
+
+        setPatientId(patient.id)
+
+        const { data: dbMessages, count } = await supabase
+          .from('messages')
+          .select('id, role, content, created_at', { count: 'exact' })
+          .eq('patient_id', patient.id)
+          .order('created_at', { ascending: false })
+          .limit(MESSAGES_PER_PAGE)
+
+        if (dbMessages && dbMessages.length > 0) {
+          const newTs = new Map<string, Date>()
+          const uiMessages: UIMessage[] = dbMessages.reverse().map(msg => {
+            newTs.set(msg.id, new Date(msg.created_at))
+            return {
+              id: msg.id,
+              role: msg.role as 'user' | 'assistant',
+              parts: [{ type: 'text' as const, text: msg.content }],
+            }
+          })
+          setTimestamps(newTs)
+          setInitialMessages(uiMessages)
+          setHasMore((count || 0) > MESSAGES_PER_PAGE)
+        }
+      } catch (err) {
+        console.error('Failed to load history:', err)
+      } finally {
+        setLoadingHistory(false)
       }
-
-      // Redirect to onboarding if incomplete
-      const profile = patient.profile as Record<string, unknown> | null
-      if (!patient.consent_at || !patient.name || !profile?.injury) {
-        router.push('/onboarding')
-        return
-      }
-
-      setPatientId(patient.id)
-
-      const { data: dbMessages, count } = await supabase
-        .from('messages')
-        .select('*', { count: 'exact' })
-        .eq('patient_id', patient.id)
-        .order('created_at', { ascending: false })
-        .limit(MESSAGES_PER_PAGE)
-
-      if (dbMessages && dbMessages.length > 0) {
-        const newTs = new Map<string, Date>()
-        const uiMessages: UIMessage[] = dbMessages.reverse().map(msg => {
-          newTs.set(msg.id, new Date(msg.created_at))
-          return {
-            id: msg.id,
-            role: msg.role as 'user' | 'assistant',
-            parts: [{ type: 'text' as const, text: msg.content }],
-          }
-        })
-        setTimestamps(newTs)
-        setInitialMessages(uiMessages)
-        setHasMore((count || 0) > MESSAGES_PER_PAGE)
-      }
-      setLoadingHistory(false)
     }
     loadHistory()
   }, [router])
@@ -130,35 +142,40 @@ export default function ChatPage() {
   }, [])
 
   const handleLoadMore = useCallback(async () => {
-    if (!patientId || messages.length === 0) return
+    if (!patientId || messages.length === 0 || loadingMore) return
 
-    const supabase = createClient()
-    const oldestTimestamp = timestamps.get(messages[0].id)
-    if (!oldestTimestamp) return
+    setLoadingMore(true)
+    try {
+      const supabase = createClient()
+      const oldestTimestamp = timestamps.get(messages[0].id)
+      if (!oldestTimestamp) return
 
-    const { data: olderMessages, count } = await supabase
-      .from('messages')
-      .select('*', { count: 'exact' })
-      .eq('patient_id', patientId)
-      .lt('created_at', oldestTimestamp.toISOString())
-      .order('created_at', { ascending: false })
-      .limit(MESSAGES_PER_PAGE)
+      const { data: olderMessages, count } = await supabase
+        .from('messages')
+        .select('id, role, content, created_at', { count: 'exact' })
+        .eq('patient_id', patientId)
+        .lt('created_at', oldestTimestamp.toISOString())
+        .order('created_at', { ascending: false })
+        .limit(MESSAGES_PER_PAGE)
 
-    if (olderMessages && olderMessages.length > 0) {
-      const uiMessages: UIMessage[] = olderMessages.reverse().map(msg => ({
-        id: msg.id,
-        role: msg.role as 'user' | 'assistant',
-        parts: [{ type: 'text' as const, text: msg.content }],
-      }))
-      setTimestamps(prev => {
-        const next = new Map(prev)
-        olderMessages.forEach(msg => next.set(msg.id, new Date(msg.created_at)))
-        return next
-      })
-      setMessages(prev => [...uiMessages, ...prev])
-      setHasMore((count || 0) > MESSAGES_PER_PAGE)
+      if (olderMessages && olderMessages.length > 0) {
+        const uiMessages: UIMessage[] = olderMessages.reverse().map(msg => ({
+          id: msg.id,
+          role: msg.role as 'user' | 'assistant',
+          parts: [{ type: 'text' as const, text: msg.content }],
+        }))
+        setTimestamps(prev => {
+          const next = new Map(prev)
+          olderMessages.forEach(msg => next.set(msg.id, new Date(msg.created_at)))
+          return next
+        })
+        setMessages(prev => [...uiMessages, ...prev])
+        setHasMore((count || 0) > MESSAGES_PER_PAGE)
+      }
+    } finally {
+      setLoadingMore(false)
     }
-  }, [patientId, messages, setMessages, timestamps])
+  }, [patientId, messages, setMessages, timestamps, loadingMore])
 
   const [input, setInput] = useState('')
 
@@ -184,12 +201,27 @@ export default function ChatPage() {
       </header>
 
       {/* Messages */}
-      <div ref={scrollRef} onScroll={handleScroll} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+      <div
+        ref={scrollRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4 space-y-3"
+        aria-live="polite"
+      >
         {/* Load more button */}
         {hasMore && (
           <div className="flex justify-center pb-2">
-            <Button variant="ghost" size="sm" onClick={handleLoadMore} className="text-xs">
-              <ChevronUp className="h-3 w-3 mr-1" />
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="text-xs"
+            >
+              {loadingMore ? (
+                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+              ) : (
+                <ChevronUp className="h-3 w-3 mr-1" />
+              )}
               Load older messages
             </Button>
           </div>
@@ -211,7 +243,7 @@ export default function ChatPage() {
                 >
                   {msg.parts.map((part, index) =>
                     part.type === 'text' ? (
-                      <p key={index} className="text-sm leading-relaxed whitespace-pre-wrap">
+                      <p key={`${msg.id}-part-${index}`} className="text-sm leading-relaxed whitespace-pre-wrap">
                         {part.text}
                       </p>
                     ) : null,
@@ -221,7 +253,7 @@ export default function ChatPage() {
                 {metrics.length > 0 && (
                   <div className="flex flex-wrap gap-1 px-1">
                     {metrics.map((m, i) => (
-                      <MetricBadge key={i} metric={m} />
+                      <MetricBadge key={`${msg.id}-metric-${i}`} metric={m} />
                     ))}
                   </div>
                 )}
@@ -280,6 +312,7 @@ export default function ChatPage() {
             className="h-12 text-base"
             autoComplete="off"
             disabled={isProcessing}
+            maxLength={MAX_MESSAGE_LENGTH}
           />
           <Button
             type="submit"

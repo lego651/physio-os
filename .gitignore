@@ -6,6 +6,8 @@ dist
 .env.local
 .env.*.local
 coverage
+.vitest
+.env.test.local
 .vercel
 .DS_Store
 *.tsbuildinfo

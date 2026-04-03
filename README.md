@@ -61,8 +61,8 @@ AI-powered recovery coaching platform — connecting patients and practitioners 
 
 | Sprint | Theme | Status |
 |--------|-------|--------|
-| S1 | Foundation & Schema (31 pts) | [ ] Not started |
-| S2 | AI Engine & Web Chat (30 pts) | [ ] Not started |
+| S1 | Foundation & Schema (31 pts) | [x] Complete |
+| S2 | AI Engine & Web Chat (31 pts) | [x] Complete |
 | S3 | SMS & Metric Extraction (30 pts) | [ ] Not started |
 | S4 | Reports & Active Features (29 pts) | [ ] Not started |
 | S5 | Clinic Dashboard (29 pts) | [ ] Not started |

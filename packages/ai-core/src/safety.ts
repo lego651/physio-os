@@ -8,6 +8,8 @@ export interface SafetyResult {
   reason?: string
 }
 
+const MAX_MESSAGE_LENGTH = 5000
+
 const EMERGENCY_PATTERNS = [
   // Severe pain (current, not historical)
   /\bpain\s*(?:is|at|of|level|:)?\s*(?:a\s+)?([89]|10)\b/i,
@@ -37,9 +39,9 @@ const EMERGENCY_PATTERNS = [
 ]
 
 const HISTORICAL_PAIN_PATTERNS = [
-  /(?:was|used\s+to\s+be|had\s+been|previously|last\s+(?:week|month|time)|before)\s+.*(?:pain|[89]|10)\s*(?:\/|out)/i,
-  /(?:pain|[89]|10)\s*(?:\/|out).*(?:but\s+now|now\s+it'?s|currently|today)/i,
-  /went\s+(?:down|from)\s+.*[89]/i,
+  /(?:was|used\s+to\s+be|had\s+been|previously|last\s+(?:week|month|time)|before)\s+[^.]{0,200}(?:pain|[89]|10)\s*(?:\/|out)/i,
+  /(?:pain|[89]|10)\s*(?:\/|out)[^.]{0,200}(?:but\s+now|now\s+it'?s|currently|today)/i,
+  /went\s+(?:down|from)\s+[^.]{0,50}[89]/i,
 ]
 
 const ADVERSARIAL_PATTERNS = [
@@ -48,8 +50,11 @@ const ADVERSARIAL_PATTERNS = [
   /you\s+are\s+now\s+(?:a\s+)?(?:doctor|physician|medical|therapist|DAN|evil|unrestricted|unfiltered|general\s+purpose|AI\s+assistant|chatbot|helpful\s+assistant)/i,
   /new\s+(?:instructions|rules|persona)/i,
   /pretend\s+(?:you\s+are|to\s+be)\s+(?:a\s+)?(?:doctor|physician|medical)/i,
-  /system\s*(?:prompt|message)/i,
-  /\bDAN\b/,
+  // Require adversarial context near "system prompt/message"
+  /(?:ignore|override|forget|reveal|show|print|output)\s+[^.]{0,50}system\s*(?:prompt|message)/i,
+  /system\s*(?:prompt|message)\s+[^.]{0,50}(?:ignore|override|forget|reveal|show|print|output)/i,
+  // DAN must be followed by "mode" to avoid matching the name Dan
+  /\bDAN\s+mode\b/i,
   /jailbreak/i,
   /bypass\s+(?:your|the)\s+(?:rules|safety|filters)/i,
 ]
@@ -71,6 +76,9 @@ const MEDICAL_ADVICE_PATTERNS = [
   /\bwhat\s+(?:exercises?|stretches?)\s+should\s+I\s+(?:do|add|try)\b/i,
 ]
 
+// Require "pain" within proximity of the number to avoid false positives like "8 out of 10 reps"
+const PAIN_PROXIMITY_PATTERN = /\bpain\b/i
+
 function isHistoricalPainReference(message: string): boolean {
   return HISTORICAL_PAIN_PATTERNS.some(pattern => pattern.test(message))
 }
@@ -79,15 +87,37 @@ function matchesAny(message: string, patterns: RegExp[]): boolean {
   return patterns.some(pattern => pattern.test(message))
 }
 
-export function classifyInput(message: string): SafetyResult {
+function isEmergencyPainScore(message: string): boolean {
+  // Check if a high numeric score (8-10 out of 10) is pain-related, not exercise-related
+  const hasHighScore = /\b([89]|10)\s*(?:\/|out\s*of)\s*10\b/i.test(message)
+  if (!hasHighScore) return false
+  return PAIN_PROXIMITY_PATTERN.test(message)
+}
+
+export function classifyInput(message: string, recentHistory?: string[]): SafetyResult {
   const trimmed = message.trim()
 
   if (!trimmed) {
     return { safe: true, category: 'safe', action: 'proceed' }
   }
 
-  // Check adversarial first (highest priority block)
-  if (matchesAny(trimmed, ADVERSARIAL_PATTERNS)) {
+  // Reject overly long messages before regex processing (ReDoS mitigation)
+  if (trimmed.length > MAX_MESSAGE_LENGTH) {
+    return {
+      safe: false,
+      category: 'adversarial',
+      action: 'block',
+      reason: 'Message exceeds maximum length',
+    }
+  }
+
+  // Build combined text for multi-turn analysis (cheap mitigation)
+  const combinedText = recentHistory
+    ? [...recentHistory.slice(-2), trimmed].join(' ')
+    : trimmed
+
+  // Check adversarial first (highest priority block) — check both single and combined
+  if (matchesAny(trimmed, ADVERSARIAL_PATTERNS) || (recentHistory && matchesAny(combinedText, ADVERSARIAL_PATTERNS))) {
     return {
       safe: false,
       category: 'adversarial',
@@ -97,7 +127,13 @@ export function classifyInput(message: string): SafetyResult {
   }
 
   // Check emergency (but exclude historical references)
-  if (matchesAny(trimmed, EMERGENCY_PATTERNS) && !isHistoricalPainReference(trimmed)) {
+  // For numeric scores (8-10/10), require pain context to avoid "8 out of 10 exercises"
+  const hasEmergencyPattern = EMERGENCY_PATTERNS.some((pattern, index) => {
+    if (index === 1) return isEmergencyPainScore(trimmed) // "X out of 10" pattern
+    return pattern.test(trimmed)
+  })
+
+  if (hasEmergencyPattern && !isHistoricalPainReference(trimmed)) {
     return {
       safe: false,
       category: 'emergency',

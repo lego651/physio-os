@@ -13,18 +13,32 @@ export interface ConversationContext {
 }
 
 const MAX_TOKEN_BUDGET = 4000
-const CHARS_PER_TOKEN = 4
-const MAX_CHARS = MAX_TOKEN_BUDGET * CHARS_PER_TOKEN // 16,000 characters
+const CHARS_PER_TOKEN_LATIN = 4
+const CHARS_PER_TOKEN_CJK = 1.5
+
+// Detect CJK characters (Chinese, Japanese, Korean)
+const CJK_RANGE = /[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u309f\u30a0-\u30ff\uac00-\ud7af]/
+
+function charsPerToken(text: string): number {
+  // Count CJK characters
+  const cjkCount = (text.match(new RegExp(CJK_RANGE.source, 'g')) || []).length
+  const totalLen = text.length
+  if (totalLen === 0) return CHARS_PER_TOKEN_LATIN
+  const cjkRatio = cjkCount / totalLen
+  // Weighted average
+  return cjkRatio * CHARS_PER_TOKEN_CJK + (1 - cjkRatio) * CHARS_PER_TOKEN_LATIN
+}
 
 export function estimateTokens(text: string): number {
-  return Math.ceil(text.length / CHARS_PER_TOKEN)
+  const ratio = charsPerToken(text)
+  return Math.ceil(text.length / ratio)
 }
 
 export async function buildContext(
   patientId: string,
   supabase: SupabaseClient<Database>,
 ): Promise<ConversationContext> {
-  // Load patient profile
+  // Load patient profile first (validates patient exists)
   const { data: profile, error: profileError } = await supabase
     .from('patients')
     .select('*')
@@ -35,58 +49,61 @@ export async function buildContext(
     throw new Error(`Patient not found: ${patientId}`)
   }
 
-  // Load messages in reverse chronological order (newest first for budgeting)
-  const { data: allMessages, error: messagesError } = await supabase
-    .from('messages')
-    .select('*')
-    .eq('patient_id', patientId)
-    .order('created_at', { ascending: false })
-    .limit(200)
-
-  if (messagesError) {
-    throw new Error(`Failed to load messages: ${messagesError.message}`)
-  }
-
-  // Budget messages within token limit
-  const messages = budgetMessages(allMessages || [])
-
-  // Count total conversations (user messages) for scale education
-  const { count: conversationCount } = await supabase
-    .from('messages')
-    .select('*', { count: 'exact', head: true })
-    .eq('patient_id', patientId)
-    .eq('role', 'user')
-
-  // Load last 7 days of metrics
+  // Run remaining queries in parallel — all independent after profile validation
   const sevenDaysAgo = new Date()
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
 
-  const { data: recentMetrics, error: metricsError } = await supabase
-    .from('metrics')
-    .select('*')
-    .eq('patient_id', patientId)
-    .gte('recorded_at', sevenDaysAgo.toISOString())
-    .order('recorded_at', { ascending: false })
+  const [messagesResult, countResult, metricsResult] = await Promise.all([
+    supabase
+      .from('messages')
+      .select('*')
+      .eq('patient_id', patientId)
+      .order('created_at', { ascending: false })
+      .limit(200),
+    supabase
+      .from('messages')
+      .select('*', { count: 'exact', head: true })
+      .eq('patient_id', patientId)
+      .eq('role', 'user'),
+    supabase
+      .from('metrics')
+      .select('*')
+      .eq('patient_id', patientId)
+      .gte('recorded_at', sevenDaysAgo.toISOString())
+      .order('recorded_at', { ascending: false }),
+  ])
 
-  if (metricsError) {
-    throw new Error(`Failed to load metrics: ${metricsError.message}`)
+  if (messagesResult.error) {
+    throw new Error(`Failed to load messages: ${messagesResult.error.message}`)
   }
+
+  if (metricsResult.error) {
+    throw new Error(`Failed to load metrics: ${metricsResult.error.message}`)
+  }
+
+  // Budget messages within token limit
+  const messages = budgetMessages(messagesResult.data || [])
 
   return {
     profile,
     messages,
-    recentMetrics: recentMetrics || [],
-    conversationCount: conversationCount || 0,
+    recentMetrics: metricsResult.data || [],
+    conversationCount: countResult.count || 0,
   }
 }
 
-function budgetMessages(messagesNewestFirst: MessageRow[]): MessageRow[] {
+export function budgetMessages(messagesNewestFirst: MessageRow[]): MessageRow[] {
   let totalChars = 0
   const budgeted: MessageRow[] = []
 
+  // Compute max chars based on content language
+  const sampleText = messagesNewestFirst.slice(0, 5).map(m => m.content).join('')
+  const ratio = charsPerToken(sampleText)
+  const maxChars = MAX_TOKEN_BUDGET * ratio
+
   for (const msg of messagesNewestFirst) {
     const msgChars = msg.content.length
-    if (totalChars + msgChars > MAX_CHARS) break
+    if (totalChars + msgChars > maxChars) break
     budgeted.push(msg)
     totalChars += msgChars
   }

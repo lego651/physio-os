@@ -1,35 +1,33 @@
-import { UIMessage } from 'ai'
 import { createClient } from '@/lib/supabase/server'
 import {
-  createConversation,
-  classifyInput,
+  handleMessage,
   AIUnavailableError,
 } from '@physio-os/ai-core'
+import { createUIMessageStreamResponse, type UIMessageChunk } from 'ai'
 import type { PatientProfile } from '@physio-os/shared'
+import { z } from 'zod'
 
 export const maxDuration = 30
 
-const RATE_LIMIT_MAX = 20
-const RATE_LIMIT_WINDOW_MS = 60 * 60 * 1000 // 1 hour
+const MAX_MESSAGE_LENGTH = 5000
 
-// Simple in-memory rate limiting (resets on cold start — acceptable for V1)
-const rateLimitMap = new Map<string, { count: number; windowStart: number }>()
+const ALLOWED_ORIGINS = new Set([
+  process.env.NEXT_PUBLIC_APP_URL,
+  'https://vhealth.ai',
+  'http://localhost:3000',
+].filter(Boolean))
 
-function checkRateLimit(patientId: string): boolean {
-  const now = Date.now()
-  const entry = rateLimitMap.get(patientId)
-
-  if (!entry || now - entry.windowStart > RATE_LIMIT_WINDOW_MS) {
-    rateLimitMap.set(patientId, { count: 1, windowStart: now })
-    return true
-  }
-
-  if (entry.count >= RATE_LIMIT_MAX) return false
-  entry.count++
-  return true
-}
+const requestSchema = z.object({
+  message: z.string().min(1, 'Message is required').max(MAX_MESSAGE_LENGTH, 'Message too long'),
+})
 
 export async function POST(req: Request) {
+  // Origin validation (CSRF protection)
+  const origin = req.headers.get('origin')
+  if (origin && !ALLOWED_ORIGINS.has(origin)) {
+    return new Response('Forbidden', { status: 403 })
+  }
+
   const supabase = await createClient()
 
   // Auth check
@@ -41,100 +39,63 @@ export async function POST(req: Request) {
     return new Response('Unauthorized', { status: 401 })
   }
 
-  // Get patient record
-  const { data: patient } = await supabase
+  // Get patient record with explicit columns
+  const { data: patient, error: patientError } = await supabase
     .from('patients')
-    .select('*')
+    .select('id, auth_user_id, name, language, phone, practitioner_name, profile, consent_at, opted_out')
     .eq('auth_user_id', user.id)
     .single()
 
-  if (!patient) {
+  if (patientError || !patient) {
     return new Response('Patient record not found', { status: 404 })
   }
 
-  // Check opted out
   if (patient.opted_out) {
     return new Response('Account has opted out of AI chat', { status: 403 })
   }
 
-  // Check onboarding complete
   if (!patient.consent_at || !patient.name) {
     return new Response('Please complete onboarding first', { status: 400 })
   }
 
-  // Rate limiting
-  if (!checkRateLimit(patient.id)) {
-    return new Response('Rate limit exceeded. Please try again later.', { status: 429 })
+  // Parse and validate request body
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // Parse request body
-  const { messages }: { messages: UIMessage[] } = await req.json()
-
-  if (!messages || messages.length === 0) {
-    return new Response('Message is required', { status: 400 })
-  }
-
-  const lastMessage = messages[messages.length - 1]
-  const lastTextPart = lastMessage?.parts?.find(p => p.type === 'text')
-  const currentMessageText = lastTextPart ? lastTextPart.text : ''
-
-  if (!currentMessageText.trim()) {
-    return new Response('Empty message', { status: 400 })
-  }
-
-  // Safety check
-  const safetyResult = classifyInput(currentMessageText)
-
-  if (safetyResult.action === 'block') {
-    return new Response(
-      JSON.stringify({
-        error: "I can only help with recovery-related topics. Let's focus on your progress!",
-      }),
-      { status: 400, headers: { 'Content-Type': 'application/json' } },
+  const parsed = requestSchema.safeParse(body)
+  if (!parsed.success) {
+    return Response.json(
+      { error: parsed.error.issues[0]?.message || 'Invalid request' },
+      { status: 400 },
     )
   }
 
-  // Emergency: return hard-coded response immediately — don't rely on LLM
-  if (safetyResult.category === 'emergency') {
-    console.warn(`[EMERGENCY] Patient ${patient.id}: ${safetyResult.reason}`)
-    const emergencyMsg =
-      "I'm concerned about what you're describing. Please contact your practitioner or call emergency services (911) right away. If you're in crisis, the 988 Suicide & Crisis Lifeline is available 24/7. Your safety is the top priority."
+  const currentMessageText = parsed.data.message.trim()
 
-    await supabase.from('messages').insert([
-      { patient_id: patient.id, role: 'user', content: currentMessageText, channel: 'web' },
-      { patient_id: patient.id, role: 'assistant', content: emergencyMsg, channel: 'web' },
-    ])
-
-    return new Response(
-      JSON.stringify({ emergencyMessage: emergencyMsg }),
-      { status: 200, headers: { 'Content-Type': 'application/json' } },
-    )
-  }
-
-  // Save user message to DB
-  const { data: savedUserMsg } = await supabase
+  // Reconstruct conversation history from server (don't trust client)
+  const { data: dbMessages, error: messagesError } = await supabase
     .from('messages')
-    .insert({
-      patient_id: patient.id,
-      role: 'user',
-      content: currentMessageText,
-      channel: 'web',
-    })
-    .select()
-    .single()
-
-  // Load recent metrics for context
-  const sevenDaysAgo = new Date()
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
-
-  // TODO: pass recentMetrics to context builder in S3 when get_history tool is wired
-  await supabase
-    .from('metrics')
-    .select('*')
+    .select('id, role, content, created_at')
     .eq('patient_id', patient.id)
-    .gte('recorded_at', sevenDaysAgo.toISOString())
-    .order('recorded_at', { ascending: false })
-    .limit(20)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (messagesError) {
+    console.error('[chat] Failed to load messages:', { patientId: patient.id })
+    return Response.json({ error: 'Failed to load conversation' }, { status: 500 })
+  }
+
+  const serverMessages = (dbMessages || []).reverse()
+
+  // Build recent message texts for multi-turn safety analysis
+  const recentUserTexts = serverMessages
+    .filter(m => m.role === 'user')
+    .slice(-2)
+    .map(m => m.content)
 
   // Count conversations for scale education
   const { count: conversationCount } = await supabase
@@ -144,45 +105,113 @@ export async function POST(req: Request) {
     .eq('role', 'user')
 
   const profile = (patient.profile || {}) as PatientProfile
+  const clinicName = process.env.CLINIC_NAME || 'V-Health'
 
-  try {
-    const result = createConversation({
-      systemPromptParams: {
-        clinicName: 'V-Health',
-        patientName: patient.name || undefined,
-        patientCondition: profile.injury,
-        patientLanguage: patient.language,
-        channel: 'web',
-        practitionerName: patient.practitioner_name || profile.practitionerName,
-        conversationCount: conversationCount || 0,
-      },
-      messages: messages.slice(0, -1).map(m => ({
-        role: m.role as 'user' | 'assistant' | 'system',
-        content: m.parts
-          .filter((p): p is { type: 'text'; text: string } => p.type === 'text')
-          .map(p => p.text)
-          .join(''),
-      })),
-      currentMessage: currentMessageText,
+  // Use handleMessage orchestrator (enforces safety)
+  const result = handleMessage({
+    systemPromptParams: {
+      clinicName,
+      patientName: patient.name || undefined,
+      patientCondition: profile.injury,
+      patientLanguage: patient.language,
+      channel: 'web',
+      practitionerName: patient.practitioner_name || profile.practitionerName,
+      conversationCount: conversationCount || 0,
+    },
+    messages: serverMessages.map(m => ({
+      role: m.role as 'user' | 'assistant' | 'system',
+      content: m.content,
+    })),
+    currentMessage: currentMessageText,
+    channel: 'web',
+    recentMessageTexts: recentUserTexts,
+  })
+
+  // Handle blocked messages
+  if (result.type === 'blocked') {
+    return Response.json(
+      { error: result.blockMessage },
+      { status: 400 },
+    )
+  }
+
+  // Handle emergency — save messages and return streaming format
+  if (result.type === 'emergency' && result.emergencyMessage) {
+    // Log without PHI: only patient ID and category
+    console.warn(JSON.stringify({
+      event: 'safety_classification',
+      category: result.safetyResult.category,
+      action: result.safetyResult.action,
+      patientId: patient.id,
+      timestamp: new Date().toISOString(),
+    }))
+
+    const { error: insertError } = await supabase.from('messages').insert([
+      { patient_id: patient.id, role: 'user', content: currentMessageText, channel: 'web' },
+      { patient_id: patient.id, role: 'assistant', content: result.emergencyMessage, channel: 'web' },
+    ])
+
+    if (insertError) {
+      console.error('[chat] Failed to save emergency messages:', { patientId: patient.id })
+    }
+
+    // Return emergency as streaming response so useChat can consume it
+    const msgId = crypto.randomUUID()
+    return createUIMessageStreamResponse({
+      status: 200,
+      stream: new ReadableStream<UIMessageChunk>({
+        start(controller) {
+          controller.enqueue({ type: 'text-start', id: msgId })
+          controller.enqueue({ type: 'text-delta', id: msgId, delta: result.emergencyMessage! })
+          controller.enqueue({ type: 'text-end', id: msgId })
+          controller.close()
+        },
+      }),
+    })
+  }
+
+  // Normal flow — stream LLM response
+  if (!result.stream) {
+    return Response.json({ error: 'Internal error' }, { status: 500 })
+  }
+
+  // Save user message to DB
+  const { data: savedUserMsg, error: saveError } = await supabase
+    .from('messages')
+    .insert({
+      patient_id: patient.id,
+      role: 'user',
+      content: currentMessageText,
+      channel: 'web',
+    })
+    .select('id')
+    .single()
+
+  if (saveError) {
+    console.error('[chat] Failed to save user message:', { patientId: patient.id })
+  }
+
+  // Save assistant response after stream completes
+  void Promise.resolve(result.stream.text).then(async (text: string) => {
+    const { error: assistantSaveError } = await supabase.from('messages').insert({
+      patient_id: patient.id,
+      role: 'assistant',
+      content: text,
       channel: 'web',
     })
 
-    // Save assistant response after stream completes
-    void Promise.resolve(result.text).then(async (text: string) => {
-      await supabase.from('messages').insert({
-        patient_id: patient.id,
-        role: 'assistant',
-        content: text,
-        channel: 'web',
-      })
+    if (assistantSaveError) {
+      console.error('[chat] Failed to save assistant message:', { patientId: patient.id })
+    }
 
-      // Handle tool calls — save metrics if log_metrics was called
-      const steps = await Promise.resolve(result.steps)
+    // Handle tool calls — save metrics if log_metrics was called
+    try {
+      const steps = await Promise.resolve(result.stream!.steps)
       for (const step of steps) {
         for (const toolCall of step.toolCalls) {
           if (toolCall.toolName === 'log_metrics') {
             const input = toolCall.input as Record<string, unknown>
-            await supabase.from('metrics').insert({
+            const { error: metricsError } = await supabase.from('metrics').insert({
               patient_id: patient.id,
               pain_level: input.pain_level as number | undefined,
               discomfort: input.discomfort as number | undefined,
@@ -192,36 +221,34 @@ export async function POST(req: Request) {
               notes: input.notes as string | undefined,
               source_message_id: savedUserMsg?.id,
             })
+            if (metricsError) {
+              console.error('[chat] Failed to save metrics:', { patientId: patient.id })
+            }
           }
         }
       }
-    }).catch((err: unknown) => {
-      console.error('Failed to save assistant message:', err)
-    })
+    } catch (err) {
+      console.error('[chat] Failed to process tool calls:', err)
+    }
+  }).catch((err: unknown) => {
+    console.error('[chat] Failed to save assistant message:', err)
+  })
 
-    return result.toUIMessageStreamResponse()
+  try {
+    return result.stream.toUIMessageStreamResponse()
   } catch (error) {
-    console.error('AI conversation error:', error)
+    console.error('[chat] AI conversation error:', error)
 
     if (error instanceof AIUnavailableError) {
-      // Save fallback message to DB
-      const fallbackMessage =
-        "I'm having trouble responding right now. Please try again in a moment, or contact V-Health directly."
-      await supabase.from('messages').insert({
-        patient_id: patient.id,
-        role: 'system',
-        content: fallbackMessage,
-        channel: 'web',
-      })
-      return new Response(JSON.stringify({ error: fallbackMessage }), {
-        status: 503,
-        headers: { 'Content-Type': 'application/json' },
-      })
+      return Response.json(
+        { error: "I'm having trouble responding right now. Please try again in a moment." },
+        { status: 503 },
+      )
     }
 
-    return new Response(
-      JSON.stringify({ error: 'Something went wrong. Please try again.' }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } },
+    return Response.json(
+      { error: 'Something went wrong. Please try again.' },
+      { status: 500 },
     )
   }
 }
