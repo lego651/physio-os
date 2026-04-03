@@ -74,9 +74,14 @@ export async function POST(req: Request) {
   const formData = await req.formData()
   const params = parseTwilioBody(formData)
 
-  // Reconstruct the full URL Twilio signed against
+  // Reconstruct the full URL Twilio signed against.
+  // Behind ngrok/proxies, req.url resolves to localhost — use forwarded headers instead.
+  const forwardedProto = req.headers.get('x-forwarded-proto')
+  const forwardedHost = req.headers.get('x-forwarded-host')
   const requestUrl = new URL(req.url)
-  const webhookUrl = `${requestUrl.origin}${requestUrl.pathname}`
+  const webhookUrl = forwardedHost
+    ? `${forwardedProto || 'https'}://${forwardedHost}${requestUrl.pathname}`
+    : `${requestUrl.origin}${requestUrl.pathname}`
 
   if (!validateTwilioSignature(authToken, signature, webhookUrl, params)) {
     return new Response('Invalid signature', { status: 403 })
