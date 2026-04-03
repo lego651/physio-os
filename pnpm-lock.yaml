@@ -29,6 +29,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@ai-sdk/anthropic':
+        specifier: ^3.0.66
+        version: 3.0.66(zod@4.3.6)
       '@ai-sdk/react':
         specifier: ^3.0.146
         version: 3.0.146(react@19.2.4)(zod@4.3.6)
