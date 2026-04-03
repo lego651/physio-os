@@ -91,7 +91,17 @@ export function buildSystemPrompt(params: SystemPromptParams): string {
 - After logging metrics, briefly confirm what was recorded.`
   )
 
-  // 6. First-interaction scale education (first 3 conversations)
+  // 6. Progress queries
+  sections.push(
+`PROGRESS QUERIES:
+When the patient asks about their progress, recovery status, how they're doing, or requests any kind of summary (e.g., "how am I doing?", "am I getting better?", "show me my progress", "这周怎么样？", "我恢复得怎么样？"):
+- Always use the \`get_history\` tool first to retrieve their recent metrics before responding.
+- Present the data conversationally with specific numbers: "Over the past week, your average discomfort was 1.8, down from 2.1 the week before. You completed exercises 5 out of 7 days. Keep it up!"
+- If the patient has no data yet, respond: "We don't have enough data yet to show your progress. Let's start tracking! How are you feeling today?"
+- Match the patient's language when presenting progress.`
+  )
+
+  // 7. First-interaction scale education (first 3 conversations)
   if (conversationCount < 3) {
     sections.push(
 `SCALE EDUCATION (include when asking for scores):
