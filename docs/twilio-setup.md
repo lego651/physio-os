@@ -6,6 +6,20 @@ This guide covers local development setup for the Twilio SMS integration used in
 
 Go to [twilio.com](https://www.twilio.com) and sign up for a free trial account. The trial includes enough credit to test SMS locally.
 
+### Trial Account Limitations
+
+If you are on a Twilio free trial, be aware of these restrictions:
+
+- **Verified numbers only** — You can only send SMS to phone numbers you have verified in the Twilio Console under **Phone Numbers > Verified Caller IDs**. Add your personal phone there first.
+- **Message prefix** — All outbound messages are prefixed with *"Sent from your Twilio trial account"*. This does not affect functionality.
+- **Limited credit** — Trial gives ~$15 of credit. SMS costs ~$0.0079/segment (US/Canada).
+- **No STOP/START auto-handling** — Twilio's built-in opt-out management may not be fully active on trial. Our code handles it manually anyway.
+
+To verify a phone number for testing:
+1. Go to **Phone Numbers > Manage > Verified Caller IDs**
+2. Click **Add a new Caller ID**
+3. Enter your personal phone number and verify via SMS code
+
 ## 2. Purchase a Canadian Phone Number
 
 In the Twilio Console:
