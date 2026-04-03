@@ -11,5 +11,3 @@ export { classifyInput } from './safety'
 export type { SafetyResult, SafetyCategory, SafetyAction } from './safety'
 
 export { AIUnavailableError, AIRateLimitError } from './errors'
-
-export { createGetHistoryTool } from './tools'
