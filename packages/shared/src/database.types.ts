@@ -207,6 +207,27 @@ export type Database = {
           },
         ]
       }
+      sms_usage: {
+        Row: {
+          month: string
+          segments: number
+          cost_estimate: number
+          updated_at: string
+        }
+        Insert: {
+          month: string
+          segments?: number
+          cost_estimate?: number
+          updated_at?: string
+        }
+        Update: {
+          month?: string
+          segments?: number
+          cost_estimate?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
