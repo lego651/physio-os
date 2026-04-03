@@ -1,4 +1,4 @@
-import { createHmac } from 'node:crypto'
+import { createHmac, timingSafeEqual } from 'node:crypto'
 
 /**
  * Validate Twilio request signature per https://www.twilio.com/docs/usage/security#validating-requests
@@ -19,11 +19,9 @@ export function validateTwilioSignature(
 
   const expected = createHmac('sha1', authToken).update(data, 'utf-8').digest('base64')
 
-  // Constant-time comparison
-  if (expected.length !== signature.length) return false
-  let mismatch = 0
-  for (let i = 0; i < expected.length; i++) {
-    mismatch |= expected.charCodeAt(i) ^ signature.charCodeAt(i)
-  }
-  return mismatch === 0
+  // Constant-time comparison using Node.js standard library
+  const expectedBuf = Buffer.from(expected, 'utf-8')
+  const signatureBuf = Buffer.from(signature, 'utf-8')
+  if (expectedBuf.length !== signatureBuf.length) return false
+  return timingSafeEqual(expectedBuf, signatureBuf)
 }

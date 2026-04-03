@@ -11,6 +11,9 @@ export interface ConversationParams {
   currentMessage: string
   channel: Channel
   temperature?: number
+  /** Additional server-executed tools to merge with the default conversation tools */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  additionalTools?: Record<string, any>
 }
 
 export interface HandleMessageParams extends ConversationParams {
@@ -44,10 +47,11 @@ const EMERGENCY_MESSAGE =
 const BLOCK_MESSAGE =
   "I can only help with recovery-related topics. Let's focus on your progress!"
 
+/** Base conversation tools (no execute — used as fallback for web chat without server tools) */
 export const conversationTools = {
   log_metrics: tool({
     description:
-      'Log patient recovery metrics extracted from the conversation. Call this whenever the patient mentions pain levels, discomfort, sitting tolerance, or exercises completed. This is a client-side tool — the caller is responsible for persisting the extracted metrics.',
+      'Log patient recovery metrics extracted from the conversation. Call this whenever the patient mentions pain levels, discomfort, sitting tolerance, or exercises completed.',
     inputSchema: z.object({
       pain_level: z.number().min(1).max(10).optional().describe('Pain level on a scale of 1-10'),
       discomfort: z.number().min(0).max(3).optional().describe('Discomfort on a scale of 0-3'),
@@ -104,7 +108,7 @@ export function handleMessage(params: HandleMessageParams): HandleMessageResult 
 }
 
 export function createConversation(params: ConversationParams): ConversationResult {
-  const { systemPromptParams, messages, currentMessage, channel, temperature } = params
+  const { systemPromptParams, messages, currentMessage, channel, temperature, additionalTools } = params
   const model = process.env.AI_MODEL || DEFAULT_MODEL
   const maxOutputTokens = channel === 'sms' ? MAX_TOKENS_SMS : MAX_TOKENS_WEB
   const defaultTemp = channel === 'sms' ? DEFAULT_TEMPERATURE_SMS : DEFAULT_TEMPERATURE
@@ -116,11 +120,16 @@ export function createConversation(params: ConversationParams): ConversationResu
     { role: 'user' as const, content: currentMessage },
   ]
 
+  // Merge default tools with caller-supplied server-executed tools (e.g., createLogMetricsTool)
+  const tools = additionalTools
+    ? { ...conversationTools, ...additionalTools }
+    : conversationTools
+
   return streamText({
     model: anthropic(model),
     system: systemPrompt,
     messages: allMessages,
-    tools: conversationTools,
+    tools,
     maxOutputTokens,
     temperature: temperature ?? defaultTemp,
     maxRetries: MAX_RETRIES,

@@ -1,20 +1,8 @@
 import { describe, it, expect } from 'vitest'
-
-// Test the keyword detection logic extracted from route.ts
-// Since detectKeyword is not exported, we replicate it here for unit testing
-
-type KeywordAction = 'stop' | 'start' | 'help' | null
-
-function detectKeyword(body: string): KeywordAction {
-  const trimmed = body.trim().toUpperCase()
-  if (trimmed === 'STOP' || trimmed.includes('STOP')) return 'stop'
-  if (trimmed === 'START') return 'start'
-  if (trimmed === 'HELP') return 'help'
-  return null
-}
+import { detectKeyword } from '@/lib/sms/keywords'
 
 describe('detectKeyword', () => {
-  // STOP variants
+  // STOP variants (exact match only)
   it('detects "STOP"', () => {
     expect(detectKeyword('STOP')).toBe('stop')
   })
@@ -31,8 +19,50 @@ describe('detectKeyword', () => {
     expect(detectKeyword('  STOP  ')).toBe('stop')
   })
 
-  it('detects "Please STOP" (contains STOP)', () => {
-    expect(detectKeyword('Please STOP')).toBe('stop')
+  // Twilio-recommended opt-out variants
+  it('detects "STOPALL"', () => {
+    expect(detectKeyword('STOPALL')).toBe('stop')
+  })
+
+  it('detects "UNSUBSCRIBE"', () => {
+    expect(detectKeyword('unsubscribe')).toBe('stop')
+  })
+
+  it('detects "CANCEL"', () => {
+    expect(detectKeyword('Cancel')).toBe('stop')
+  })
+
+  it('detects "END"', () => {
+    expect(detectKeyword('END')).toBe('stop')
+  })
+
+  it('detects "QUIT"', () => {
+    expect(detectKeyword('quit')).toBe('stop')
+  })
+
+  // False-positive regression tests (S3R-01)
+  it('returns null for "the pain stopped"', () => {
+    expect(detectKeyword('the pain stopped')).toBe(null)
+  })
+
+  it('returns null for "nonstop"', () => {
+    expect(detectKeyword('nonstop')).toBe(null)
+  })
+
+  it('returns null for "unstoppable"', () => {
+    expect(detectKeyword('unstoppable')).toBe(null)
+  })
+
+  it('returns null for "I can\'t stop sneezing"', () => {
+    expect(detectKeyword("I can't stop sneezing")).toBe(null)
+  })
+
+  it('returns null for "I stopped taking the medication"', () => {
+    expect(detectKeyword('I stopped taking the medication')).toBe(null)
+  })
+
+  it('returns null for "Please STOP" (not exact match)', () => {
+    expect(detectKeyword('Please STOP')).toBe(null)
   })
 
   // START variants

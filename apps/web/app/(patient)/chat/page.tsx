@@ -37,12 +37,13 @@ function MetricBadge({ metric }: { metric: { name: string; value: number | strin
 function extractMetricsFromParts(message: UIMessage): Array<{ name: string; value: number | string }> {
   const metrics: Array<{ name: string; value: number | string }> = []
   for (const part of message.parts) {
-    if (part.type.startsWith('tool-') && part.type === 'tool-log_metrics') {
-      const input = (part as { input: Record<string, unknown> }).input
-      if (input.pain_level != null) metrics.push({ name: 'pain', value: input.pain_level as number })
-      if (input.discomfort != null) metrics.push({ name: 'discomfort', value: input.discomfort as number })
-      if (input.sitting_tolerance_min != null) metrics.push({ name: 'sitting_tolerance', value: `${input.sitting_tolerance_min}min` })
-      if (input.exercise_count != null) metrics.push({ name: 'exercises', value: input.exercise_count as number })
+    // AI SDK v6: tool parts use `tool-<toolName>` pattern
+    if (part.type === 'tool-log_metrics') {
+      const args = (part as unknown as { args: Record<string, unknown> }).args
+      if (args.pain_level != null) metrics.push({ name: 'pain', value: args.pain_level as number })
+      if (args.discomfort != null) metrics.push({ name: 'discomfort', value: args.discomfort as number })
+      if (args.sitting_tolerance_min != null) metrics.push({ name: 'sitting_tolerance', value: `${args.sitting_tolerance_min}min` })
+      if (args.exercise_count != null) metrics.push({ name: 'exercises', value: args.exercise_count as number })
     }
   }
   return metrics

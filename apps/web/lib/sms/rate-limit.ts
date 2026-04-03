@@ -1,58 +1,77 @@
 /**
- * Simple in-memory rate limiter for SMS webhook.
- * Limits: 10 messages per phone number per hour.
+ * SMS webhook rate limiter.
+ * Uses Upstash Redis in production (works across cold starts and concurrent instances).
+ * Falls back to in-memory for local development when UPSTASH_REDIS_REST_URL is not set.
  */
 
-const WINDOW_MS = 60 * 60 * 1000 // 1 hour
+const WINDOW_SEC = 60 * 60 // 1 hour
 const MAX_REQUESTS = 10
 
-interface RateLimitEntry {
-  timestamps: number[]
+// ---------------------------------------------------------------------------
+// Upstash Redis rate limiter (production)
+// ---------------------------------------------------------------------------
+
+let upstashLimiter: { limit: (key: string) => Promise<{ success: boolean }> } | null = null
+
+async function getUpstashLimiter() {
+  if (upstashLimiter) return upstashLimiter
+
+  const url = process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !token) return null
+
+  const { Ratelimit } = await import('@upstash/ratelimit')
+  const { Redis } = await import('@upstash/redis')
+
+  upstashLimiter = new Ratelimit({
+    redis: new Redis({ url, token }),
+    limiter: Ratelimit.slidingWindow(MAX_REQUESTS, `${WINDOW_SEC} s`),
+    prefix: 'sms-rl',
+  })
+  return upstashLimiter
 }
 
-const store = new Map<string, RateLimitEntry>()
+// ---------------------------------------------------------------------------
+// In-memory fallback (local development only)
+// ---------------------------------------------------------------------------
 
-// Periodic cleanup to prevent memory leak
-const CLEANUP_INTERVAL_MS = 10 * 60 * 1000 // 10 minutes
-let cleanupTimer: ReturnType<typeof setInterval> | null = null
+const WINDOW_MS = WINDOW_SEC * 1000
+const memoryStore = new Map<string, number[]>()
 
-function ensureCleanup() {
-  if (cleanupTimer) return
-  cleanupTimer = setInterval(() => {
-    const now = Date.now()
-    for (const [key, entry] of store) {
-      entry.timestamps = entry.timestamps.filter(t => now - t < WINDOW_MS)
-      if (entry.timestamps.length === 0) store.delete(key)
-    }
-  }, CLEANUP_INTERVAL_MS)
-  // Allow process to exit without waiting for cleanup
-  if (typeof cleanupTimer === 'object' && 'unref' in cleanupTimer) {
-    cleanupTimer.unref()
+function checkMemoryRateLimit(phone: string): boolean {
+  const now = Date.now()
+  const timestamps = memoryStore.get(phone)
+
+  if (!timestamps) {
+    memoryStore.set(phone, [now])
+    return true
   }
+
+  const valid = timestamps.filter(t => now - t < WINDOW_MS)
+  if (valid.length >= MAX_REQUESTS) {
+    memoryStore.set(phone, valid)
+    return false
+  }
+
+  valid.push(now)
+  memoryStore.set(phone, valid)
+  return true
 }
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
 
 /**
  * Check if a phone number has exceeded the rate limit.
  * Returns true if the request should be allowed, false if rate limited.
  */
-export function checkRateLimit(phone: string): boolean {
-  ensureCleanup()
-
-  const now = Date.now()
-  const entry = store.get(phone)
-
-  if (!entry) {
-    store.set(phone, { timestamps: [now] })
-    return true
+export async function checkRateLimit(phone: string): Promise<boolean> {
+  const limiter = await getUpstashLimiter()
+  if (limiter) {
+    const { success } = await limiter.limit(phone)
+    return success
   }
-
-  // Remove expired timestamps
-  entry.timestamps = entry.timestamps.filter(t => now - t < WINDOW_MS)
-
-  if (entry.timestamps.length >= MAX_REQUESTS) {
-    return false
-  }
-
-  entry.timestamps.push(now)
-  return true
+  // Fallback for local dev without Redis
+  return checkMemoryRateLimit(phone)
 }

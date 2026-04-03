@@ -44,19 +44,52 @@ export async function sendSMS(options: SendSMSOptions): Promise<{ sid: string }>
 
   if (!response.ok) {
     const errorBody = await response.text()
-    throw new Error(`Twilio send failed (${response.status}): ${errorBody}`)
+    const err = new TwilioSendError(response.status, errorBody)
+    // Only retry on 429 (rate limit) or 5xx (server errors)
+    if (response.status !== 429 && response.status < 500) throw err
+    throw err
   }
 
   const result = await response.json() as { sid: string }
   return { sid: result.sid }
 }
 
-const GSM_SEGMENT_LIMIT = 160
+class TwilioSendError extends Error {
+  constructor(public readonly statusCode: number, body: string) {
+    super(`Twilio send failed (${statusCode}): ${body}`)
+    this.name = 'TwilioSendError'
+  }
+  get retryable() { return this.statusCode === 429 || this.statusCode >= 500 }
+}
+
+/**
+ * Send SMS with exponential backoff retry.
+ * Only retries on 429 or 5xx; 4xx client errors fail immediately.
+ */
+export async function sendSMSWithRetry(options: SendSMSOptions, maxAttempts = 3): Promise<{ sid: string }> {
+  const delays = [1000, 2000, 4000]
+  let lastError: Error | undefined
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await sendSMS(options)
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err))
+      if (err instanceof TwilioSendError && !err.retryable) throw err
+      if (attempt < maxAttempts - 1) {
+        await new Promise(r => setTimeout(r, delays[attempt]))
+      }
+    }
+  }
+  throw lastError
+}
+
 const UCS2_SEGMENT_LIMIT = 70
-const SMS_BUDGET_CHARS = 280
 const SMS_TRUNCATE_LIMIT = 320
 
-// GSM 03.38 basic character set detection
+// GSM 03.38 basic character set detection (approximate).
+// The range \u00A0-\u00FF includes a few non-GSM chars (e.g., \u00B9 superscript 1, \u00B8 cedilla)
+// but the impact is minimal — worst case a message gets classified as GSM when it should be UCS-2,
+// resulting in a slightly wrong segment budget. Precise detection would require an explicit 128-char Set.
 const NON_GSM_PATTERN = /[^\u0020-\u007E\u00A0-\u00FF\u0391-\u03C9\u20AC\n\r]/
 
 /**
@@ -74,11 +107,11 @@ export function requiresUCS2(text: string): boolean {
  */
 export function formatSMSResponse(text: string, appUrl: string = 'https://vhealth.ai'): string {
   const isUCS2 = requiresUCS2(text)
-  const budget = isUCS2 ? UCS2_SEGMENT_LIMIT * 2 : SMS_BUDGET_CHARS
   const truncateAt = isUCS2 ? UCS2_SEGMENT_LIMIT * 2 : SMS_TRUNCATE_LIMIT
 
-  if (text.length <= budget) return text
-  if (text.length <= truncateAt && !isUCS2) return text
+  // Under truncateAt = 1-2 GSM segments (ASCII 320 chars, UCS-2 140 chars) — send as-is.
+  // Over truncateAt = truncate at sentence boundary and append web link.
+  if (text.length <= truncateAt) return text
 
   const suffix = `\n\nMore: ${appUrl}/chat`
   const maxContent = truncateAt - suffix.length

@@ -11,3 +11,6 @@ export { classifyInput } from './safety'
 export type { SafetyResult, SafetyCategory, SafetyAction } from './safety'
 
 export { AIUnavailableError, AIRateLimitError } from './errors'
+
+export { createLogMetricsTool } from './tools/log-metrics'
+export { createGetHistoryTool } from './tools/get-history'

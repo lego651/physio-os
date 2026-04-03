@@ -10,15 +10,16 @@ const ACCEPTED_IMAGE_TYPES = new Set([
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
 
-interface MediaResult {
+export interface MediaResult {
   storagePath: string
-  publicUrl: string
   contentType: string
 }
 
 /**
  * Download MMS media from Twilio, validate, and upload to Supabase Storage.
- * Returns storage URLs for valid images; silently skips non-image media.
+ * Downloads run in parallel via Promise.allSettled so a slow/failed download
+ * doesn't block other media items.
+ * Returns storage paths for valid images; silently skips non-image media.
  */
 export async function processMMSMedia(
   params: Record<string, string>,
@@ -31,89 +32,79 @@ export async function processMMSMedia(
   if (!accountSid || !authToken) return []
 
   const twilioAuth = Buffer.from(`${accountSid}:${authToken}`).toString('base64')
-  const results: MediaResult[] = []
   const dateStr = new Date().toISOString().split('T')[0]
+
+  // Build download tasks for valid media items
+  const tasks: Array<Promise<MediaResult | null>> = []
 
   for (let i = 0; i < numMedia; i++) {
     const mediaUrl = params[`MediaUrl${i}`]
     const contentType = params[`MediaContentType${i}`]
 
-    if (!mediaUrl) continue
+    if (!mediaUrl || !contentType || !ACCEPTED_IMAGE_TYPES.has(contentType)) continue
 
-    // Only accept image types
-    if (!contentType || !ACCEPTED_IMAGE_TYPES.has(contentType)) {
-      continue
-    }
-
-    try {
-      // Download from Twilio (authenticated — Twilio URLs require credentials)
-      const response = await fetch(mediaUrl, {
-        headers: { Authorization: `Basic ${twilioAuth}` },
-      })
-
-      if (!response.ok) {
-        console.error(`[mms] Failed to download media ${i}:`, response.status)
-        continue
-      }
-
-      const blob = await response.blob()
-
-      // Reject oversized images
-      if (blob.size > MAX_IMAGE_SIZE) {
-        console.warn(`[mms] Image ${i} too large (${blob.size} bytes), skipping`)
-        continue
-      }
-
-      // Determine file extension
-      const ext = contentType.split('/')[1] || 'jpg'
-      const filename = `media_${i}_${Date.now()}.${ext}`
-      const storagePath = `${patientId}/${dateStr}/${filename}`
-
-      // Upload to Supabase Storage
-      const buffer = Buffer.from(await blob.arrayBuffer())
-      const { error: uploadError } = await supabase.storage
-        .from('patient-media')
-        .upload(storagePath, buffer, {
-          contentType,
-          upsert: false,
-        })
-
-      if (uploadError) {
-        console.error(`[mms] Failed to upload media ${i}:`, uploadError.message)
-        continue
-      }
-
-      // Get signed URL (24-hour expiry for dashboard viewing)
-      const { data: signedData } = await supabase.storage
-        .from('patient-media')
-        .createSignedUrl(storagePath, 24 * 60 * 60) // 24 hours
-
-      const publicUrl = signedData?.signedUrl || ''
-
-      results.push({ storagePath, publicUrl, contentType })
-    } catch (err) {
-      console.error(`[mms] Error processing media ${i}:`, err)
-    }
+    tasks.push(processOneMedia(i, mediaUrl, contentType, patientId, dateStr, twilioAuth, supabase))
   }
 
+  if (tasks.length === 0) return []
+
+  // Run all downloads in parallel — failures don't block other items
+  const settled = await Promise.allSettled(tasks)
+  const results: MediaResult[] = []
+  for (const outcome of settled) {
+    if (outcome.status === 'fulfilled' && outcome.value) {
+      results.push(outcome.value)
+    } else if (outcome.status === 'rejected') {
+      console.error('[mms] Media processing failed:', outcome.reason)
+    }
+  }
   return results
 }
 
-/**
- * Create a Supabase storage bucket for patient media if it doesn't exist.
- * Call this during app initialization or migration.
- */
-export async function ensureMediaBucket(
+async function processOneMedia(
+  index: number,
+  mediaUrl: string,
+  contentType: string,
+  patientId: string,
+  dateStr: string,
+  twilioAuth: string,
   supabase: ReturnType<typeof createClient<Database>>,
-): Promise<void> {
-  const { error } = await supabase.storage.createBucket('patient-media', {
-    public: false,
-    fileSizeLimit: MAX_IMAGE_SIZE,
-    allowedMimeTypes: Array.from(ACCEPTED_IMAGE_TYPES),
+): Promise<MediaResult | null> {
+  // Download from Twilio (authenticated — Twilio URLs require credentials)
+  const response = await fetch(mediaUrl, {
+    headers: { Authorization: `Basic ${twilioAuth}` },
+    signal: AbortSignal.timeout(8000), // Abort before the function timeout
   })
 
-  // Ignore "already exists" error
-  if (error && !error.message.includes('already exists')) {
-    console.error('[mms] Failed to create storage bucket:', error.message)
+  if (!response.ok) {
+    console.error(`[mms] Failed to download media ${index}:`, response.status)
+    return null
   }
+
+  const blob = await response.blob()
+
+  if (blob.size > MAX_IMAGE_SIZE) {
+    console.warn(`[mms] Image ${index} too large (${blob.size} bytes), skipping`)
+    return null
+  }
+
+  const ext = contentType.split('/')[1] || 'jpg'
+  const filename = `media_${index}_${Date.now()}.${ext}`
+  const storagePath = `${patientId}/${dateStr}/${filename}`
+
+  const buffer = Buffer.from(await blob.arrayBuffer())
+  const { error: uploadError } = await supabase.storage
+    .from('patient-media')
+    .upload(storagePath, buffer, {
+      contentType,
+      upsert: false,
+    })
+
+  if (uploadError) {
+    console.error(`[mms] Failed to upload media ${index}:`, uploadError.message)
+    return null
+  }
+
+  // Store the storagePath as primary reference — signed URLs are generated on demand
+  return { storagePath, contentType }
 }

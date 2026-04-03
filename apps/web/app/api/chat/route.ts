@@ -2,6 +2,8 @@ import { createClient } from '@/lib/supabase/server'
 import {
   handleMessage,
   AIUnavailableError,
+  createLogMetricsTool,
+  createGetHistoryTool,
 } from '@physio-os/ai-core'
 import { createUIMessageStreamResponse, type UIMessageChunk } from 'ai'
 import type { PatientProfile } from '@physio-os/shared'
@@ -107,6 +109,28 @@ export async function POST(req: Request) {
   const profile = (patient.profile || {}) as PatientProfile
   const clinicName = process.env.CLINIC_NAME || 'V-Health'
 
+  // Save user message to DB first (need the ID for tool context)
+  const { data: savedUserMsg, error: saveError } = await supabase
+    .from('messages')
+    .insert({
+      patient_id: patient.id,
+      role: 'user',
+      content: currentMessageText,
+      channel: 'web',
+    })
+    .select('id')
+    .single()
+
+  if (saveError) {
+    console.error('[chat] Failed to save user message:', { patientId: patient.id })
+  }
+
+  // Build server-executed tools (metrics persisted via tool execute, no manual step parsing)
+  const serverTools = {
+    log_metrics: createLogMetricsTool(patient.id, supabase, savedUserMsg?.id),
+    get_history: createGetHistoryTool(patient.id, supabase),
+  }
+
   // Use handleMessage orchestrator (enforces safety)
   const result = handleMessage({
     systemPromptParams: {
@@ -125,6 +149,7 @@ export async function POST(req: Request) {
     currentMessage: currentMessageText,
     channel: 'web',
     recentMessageTexts: recentUserTexts,
+    additionalTools: serverTools,
   })
 
   // Handle blocked messages
@@ -175,23 +200,7 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Internal error' }, { status: 500 })
   }
 
-  // Save user message to DB
-  const { data: savedUserMsg, error: saveError } = await supabase
-    .from('messages')
-    .insert({
-      patient_id: patient.id,
-      role: 'user',
-      content: currentMessageText,
-      channel: 'web',
-    })
-    .select('id')
-    .single()
-
-  if (saveError) {
-    console.error('[chat] Failed to save user message:', { patientId: patient.id })
-  }
-
-  // Save assistant response after stream completes
+  // Save assistant response after stream completes (metrics are handled by server-executed tools)
   void Promise.resolve(result.stream.text).then(async (text: string) => {
     const { error: assistantSaveError } = await supabase.from('messages').insert({
       patient_id: patient.id,
@@ -202,33 +211,6 @@ export async function POST(req: Request) {
 
     if (assistantSaveError) {
       console.error('[chat] Failed to save assistant message:', { patientId: patient.id })
-    }
-
-    // Handle tool calls — save metrics if log_metrics was called
-    try {
-      const steps = await Promise.resolve(result.stream!.steps)
-      for (const step of steps) {
-        for (const toolCall of step.toolCalls) {
-          if (toolCall.toolName === 'log_metrics') {
-            const input = toolCall.input as Record<string, unknown>
-            const { error: metricsError } = await supabase.from('metrics').insert({
-              patient_id: patient.id,
-              pain_level: input.pain_level as number | undefined,
-              discomfort: input.discomfort as number | undefined,
-              sitting_tolerance_min: input.sitting_tolerance_min as number | undefined,
-              exercises_done: input.exercises_done as string[] | undefined,
-              exercise_count: input.exercise_count as number | undefined,
-              notes: input.notes as string | undefined,
-              source_message_id: savedUserMsg?.id,
-            })
-            if (metricsError) {
-              console.error('[chat] Failed to save metrics:', { patientId: patient.id })
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error('[chat] Failed to process tool calls:', err)
     }
   }).catch((err: unknown) => {
     console.error('[chat] Failed to save assistant message:', err)

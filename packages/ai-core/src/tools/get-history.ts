@@ -4,6 +4,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@physio-os/shared'
 
 type MetricRow = Database['public']['Tables']['metrics']['Row']
+/** Subset of MetricRow matching the columns we actually query */
+type QueriedMetric = Pick<MetricRow, 'pain_level' | 'discomfort' | 'sitting_tolerance_min' | 'exercises_done' | 'exercise_count' | 'recorded_at'>
 
 function avg(values: number[]): number | null {
   if (values.length === 0) return null
@@ -14,7 +16,7 @@ function round1(n: number): number {
   return Math.round(n * 10) / 10
 }
 
-function countExerciseDays(rows: MetricRow[]): number {
+function countExerciseDays(rows: QueriedMetric[]): number {
   return rows.filter(
     (r) => (r.exercise_count ?? 0) > 0 || (r.exercises_done?.length ?? 0) > 0
   ).length
@@ -28,8 +30,8 @@ type Trend = 'improving' | 'stable' | 'worsening'
  * Returns null when there is insufficient data for a comparison.
  */
 function calcTrend(
-  thisWeek: MetricRow[],
-  lastWeek: MetricRow[]
+  thisWeek: QueriedMetric[],
+  lastWeek: QueriedMetric[]
 ): { trend: Trend; metric: string; thisAvg: number; lastAvg: number } | null {
   const thisPain = thisWeek.map((r) => r.pain_level).filter((v): v is number => v != null)
   const lastPain = lastWeek.map((r) => r.pain_level).filter((v): v is number => v != null)
@@ -91,7 +93,7 @@ export function createGetHistoryTool(patientId: string, supabase: SupabaseClient
         return 'Unable to retrieve history right now. Please try again.'
       }
 
-      const rows = (data ?? []) as MetricRow[]
+      const rows = (data ?? []) as QueriedMetric[]
 
       if (rows.length === 0) {
         return "No metrics recorded yet. Let's start tracking today!"
