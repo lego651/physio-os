@@ -51,6 +51,7 @@ function extractMetricsFromParts(message: UIMessage): Array<{ name: string; valu
 export default function ChatPage() {
   const router = useRouter()
   const [timestamps, setTimestamps] = useState<Map<string, Date>>(new Map())
+  const [channels, setChannels] = useState<Map<string, string>>(new Map())
   const scrollRef = useRef<HTMLDivElement>(null)
   const [userScrolledUp, setUserScrolledUp] = useState(false)
   const [initialMessages, setInitialMessages] = useState<UIMessage[] | undefined>(undefined)
@@ -99,15 +100,17 @@ export default function ChatPage() {
 
         const { data: dbMessages, count } = await supabase
           .from('messages')
-          .select('id, role, content, created_at', { count: 'exact' })
+          .select('id, role, content, channel, created_at', { count: 'exact' })
           .eq('patient_id', patient.id)
           .order('created_at', { ascending: false })
           .limit(MESSAGES_PER_PAGE)
 
         if (dbMessages && dbMessages.length > 0) {
           const newTs = new Map<string, Date>()
+          const newChannels = new Map<string, string>()
           const uiMessages: UIMessage[] = dbMessages.reverse().map(msg => {
             newTs.set(msg.id, new Date(msg.created_at))
+            if (msg.channel) newChannels.set(msg.id, msg.channel)
             return {
               id: msg.id,
               role: msg.role as 'user' | 'assistant',
@@ -115,6 +118,7 @@ export default function ChatPage() {
             }
           })
           setTimestamps(newTs)
+          setChannels(newChannels)
           setInitialMessages(uiMessages)
           setHasMore((count || 0) > MESSAGES_PER_PAGE)
         }
@@ -152,7 +156,7 @@ export default function ChatPage() {
 
       const { data: olderMessages, count } = await supabase
         .from('messages')
-        .select('id, role, content, created_at', { count: 'exact' })
+        .select('id, role, content, channel, created_at', { count: 'exact' })
         .eq('patient_id', patientId)
         .lt('created_at', oldestTimestamp.toISOString())
         .order('created_at', { ascending: false })
@@ -167,6 +171,11 @@ export default function ChatPage() {
         setTimestamps(prev => {
           const next = new Map(prev)
           olderMessages.forEach(msg => next.set(msg.id, new Date(msg.created_at)))
+          return next
+        })
+        setChannels(prev => {
+          const next = new Map(prev)
+          olderMessages.forEach(msg => { if (msg.channel) next.set(msg.id, msg.channel) })
           return next
         })
         setMessages(prev => [...uiMessages, ...prev])
@@ -230,6 +239,7 @@ export default function ChatPage() {
         {messages.map((msg) => {
           const metrics = msg.role === 'assistant' ? extractMetricsFromParts(msg) : []
           const timestamp = timestamps.get(msg.id)
+          const channel = channels.get(msg.id)
 
           return (
             <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -257,10 +267,13 @@ export default function ChatPage() {
                     ))}
                   </div>
                 )}
-                {/* Timestamp */}
+                {/* Timestamp and channel badge */}
                 {timestamp && (
-                  <p className="text-[10px] text-muted-foreground px-1">
+                  <p className="text-[10px] text-muted-foreground px-1 flex items-center gap-1">
                     {timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {channel === 'sms' && (
+                      <span className="text-[10px] text-muted-foreground">via SMS</span>
+                    )}
                   </p>
                 )}
               </div>
