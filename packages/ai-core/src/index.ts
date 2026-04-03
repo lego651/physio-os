@@ -14,3 +14,5 @@ export { AIUnavailableError, AIRateLimitError } from './errors'
 
 export { createLogMetricsTool } from './tools/log-metrics'
 export { createGetHistoryTool } from './tools/get-history'
+export { generateWeeklyReport } from './tools/generate-report'
+export type { Report } from './tools/generate-report'
