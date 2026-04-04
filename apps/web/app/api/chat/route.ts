@@ -8,6 +8,7 @@ import {
 import { createUIMessageStreamResponse, type UIMessageChunk } from 'ai'
 import type { PatientProfile } from '@physio-os/shared'
 import { z } from 'zod'
+import { checkChatRateLimit } from '@/lib/chat/rate-limit'
 
 export const maxDuration = 30
 
@@ -58,6 +59,15 @@ export async function POST(req: Request) {
 
   if (!patient.consent_at || !patient.name) {
     return new Response('Please complete onboarding first', { status: 400 })
+  }
+
+  // Rate limit: 20 messages per patient per hour
+  const allowed = await checkChatRateLimit(patient.id)
+  if (!allowed) {
+    return Response.json(
+      { error: 'Too many messages. Please wait before sending another.' },
+      { status: 429 },
+    )
   }
 
   // Parse and validate request body
