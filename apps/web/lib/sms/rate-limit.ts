@@ -48,6 +48,13 @@ function checkMemoryRateLimit(phone: string): boolean {
   }
 
   const valid = timestamps.filter(t => now - t < WINDOW_MS)
+  if (valid.length === 0) {
+    // All entries expired — evict and allow
+    memoryStore.delete(phone)
+    memoryStore.set(phone, [now])
+    return true
+  }
+
   if (valid.length >= MAX_REQUESTS) {
     memoryStore.set(phone, valid)
     return false

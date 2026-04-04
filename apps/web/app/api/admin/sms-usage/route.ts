@@ -1,4 +1,5 @@
 import { getCurrentMonthUsage } from '@/lib/sms/cost-tracker'
+import { verifyBearerToken } from '@/lib/auth/verify-bearer'
 
 /**
  * GET /api/admin/sms-usage
@@ -13,9 +14,7 @@ export async function GET(req: Request) {
     return Response.json({ error: 'Server configuration error' }, { status: 500 })
   }
 
-  const authHeader = req.headers.get('authorization') ?? ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (token !== adminKey) {
+  if (!verifyBearerToken(req, adminKey)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

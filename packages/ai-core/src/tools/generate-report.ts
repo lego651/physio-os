@@ -5,16 +5,11 @@ import { SignJWT } from 'jose'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@physio-os/shared'
 import { detectPatterns } from './pattern-detection'
+import { avg, round1, countExerciseDays, type QueriedMetric } from './utils'
 
-type MetricRow = Database['public']['Tables']['metrics']['Row']
 type PatientRow = Database['public']['Tables']['patients']['Row']
 type MessageRow = Database['public']['Tables']['messages']['Row']
 type ReportRow = Database['public']['Tables']['reports']['Row']
-
-type QueriedMetric = Pick<
-  MetricRow,
-  'pain_level' | 'discomfort' | 'sitting_tolerance_min' | 'exercises_done' | 'exercise_count' | 'recorded_at'
->
 
 type Trend = 'improving' | 'stable' | 'worsening'
 
@@ -23,25 +18,6 @@ export type Report = ReportRow
 
 const MAX_SUMMARY_CHARS = 500
 const DEFAULT_MODEL = 'claude-sonnet-4.5'
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-function avg(values: number[]): number | null {
-  if (values.length === 0) return null
-  return values.reduce((sum, v) => sum + v, 0) / values.length
-}
-
-function round1(n: number): number {
-  return Math.round(n * 10) / 10
-}
-
-function countExerciseDays(rows: QueriedMetric[]): number {
-  return rows.filter(
-    (r) => (r.exercise_count ?? 0) > 0 || (r.exercises_done?.length ?? 0) > 0,
-  ).length
-}
 
 /**
  * Compare this week's average to last week's for a "bad" metric (lower = better).

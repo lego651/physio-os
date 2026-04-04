@@ -1,9 +1,12 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { verifyBearerToken } from '@/lib/auth/verify-bearer'
 import { sendSMS } from '@/lib/sms/send'
 import { generateWeeklyReport } from '@physio-os/ai-core'
 
 // Allow enough time for AI generation across all patients
 export const maxDuration = 300
+
+const AI_CONCURRENCY = 5
 
 const SMS_SEGMENT_LIMIT_GSM = 160
 const SMS_SEGMENT_LIMIT_UCS2 = 70
@@ -18,8 +21,7 @@ function isAuthorized(req: Request): boolean {
     console.error('[weekly-report] CRON_SECRET is not set')
     return false
   }
-  const authHeader = req.headers.get('authorization')
-  return authHeader === `Bearer ${cronSecret}`
+  return verifyBearerToken(req, cronSecret)
 }
 
 // ---------------------------------------------------------------------------
@@ -150,42 +152,46 @@ export async function GET(req: Request) {
 
   console.log(`[weekly-report] ${eligiblePatients.length} eligible patient(s)`)
 
-  // Process each patient independently — don't let one failure block the rest
-  const results = await Promise.allSettled(
-    eligiblePatients.map(async (patient) => {
-      const report = await generateWeeklyReport(patient.id, weekStart, supabase)
-
-      if (!report) {
-        console.log(`[weekly-report] Skipping patient ${patient.id} — no data points`)
-        return { patientId: patient.id, skipped: true }
-      }
-
-      const reportUrl = `${appUrl}/report/${report.token}`
-      const avgDiscomfort = (report.metrics_summary as { avgDiscomfort?: number | null } | null)
-        ?.avgDiscomfort ?? null
-
-      const smsText = buildSMSText(patient as Patient, avgDiscomfort, reportUrl)
-
-      await sendSMS({ to: patient.phone, body: smsText })
-
-      console.log(`[weekly-report] SMS sent to patient ${patient.id}`)
-      return { patientId: patient.id, skipped: false }
-    }),
-  )
-
+  // Process patients in batches to avoid hitting Anthropic rate limits.
+  // Each generateWeeklyReport call may trigger 1-2 Claude calls (report + pattern detection).
   let reportsGenerated = 0
   let smsSent = 0
   let failures = 0
 
-  for (const result of results) {
-    if (result.status === 'fulfilled') {
-      if (!result.value.skipped) {
-        reportsGenerated++
-        smsSent++
+  for (let i = 0; i < eligiblePatients.length; i += AI_CONCURRENCY) {
+    const batch = eligiblePatients.slice(i, i + AI_CONCURRENCY)
+    const results = await Promise.allSettled(
+      batch.map(async (patient) => {
+        const report = await generateWeeklyReport(patient.id, weekStart, supabase)
+
+        if (!report) {
+          console.log(`[weekly-report] Skipping patient ${patient.id} — no data points`)
+          return { patientId: patient.id, skipped: true }
+        }
+
+        const reportUrl = `${appUrl}/report/${report.token}`
+        const avgDiscomfort = (report.metrics_summary as { avgDiscomfort?: number | null } | null)
+          ?.avgDiscomfort ?? null
+
+        const smsText = buildSMSText(patient as Patient, avgDiscomfort, reportUrl)
+
+        await sendSMS({ to: patient.phone, body: smsText })
+
+        console.log(`[weekly-report] SMS sent to patient ${patient.id}`)
+        return { patientId: patient.id, skipped: false }
+      }),
+    )
+
+    for (const result of results) {
+      if (result.status === 'fulfilled') {
+        if (!result.value.skipped) {
+          reportsGenerated++
+          smsSent++
+        }
+      } else {
+        failures++
+        console.error('[weekly-report] Patient processing failed', result.reason)
       }
-    } else {
-      failures++
-      console.error('[weekly-report] Patient processing failed', result.reason)
     }
   }
 

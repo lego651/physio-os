@@ -2,7 +2,7 @@ import { jwtVerify } from 'jose'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createServiceClient } from '@/lib/supabase/server'
 import type { Database } from '@physio-os/shared'
 import { DiscomfortChart } from './discomfort-chart'
 import type { DailyDiscomfortPoint } from './discomfort-chart'
@@ -281,12 +281,9 @@ export default async function ReportPage({
     return { day, discomfort: avg }
   })
 
-  // 4. Check if the visitor is authenticated to determine CTA destination
-  const authClient = await createClient()
-  const {
-    data: { user },
-  } = await authClient.auth.getUser()
-  const ctaHref = user ? '/chat' : '/login'
+  // CTA always points to /chat — middleware handles auth redirect if needed.
+  // This page is accessed via SMS links where users won't have session cookies.
+  const ctaHref = '/chat'
 
   // 5. Parse metrics_summary and resolve patient name
   const metrics = report.metrics_summary as MetricsSummary | null

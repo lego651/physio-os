@@ -19,6 +19,7 @@ export function mockPatient(overrides: Partial<PatientRow> = {}): PatientRow {
     opted_out: false,
     active: true,
     auth_user_id: null,
+    last_nudged_at: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     ...overrides,

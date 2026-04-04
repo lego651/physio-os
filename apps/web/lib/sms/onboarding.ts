@@ -81,6 +81,11 @@ export async function handleSMSOnboarding(
   }
 
   // Step 4: Language
+  // KNOWN FRAGILITY: `_languageSet` is a flag stored in the profile JSON to
+  // track whether the language step has been completed. If the profile object
+  // is ever overwritten without preserving this field (e.g. by a future admin
+  // tool or bulk update), the patient will be re-prompted. When we add more
+  // languages, consider replacing this with a dedicated `onboarding_step` column.
   if (patient.language === 'en' && !profile._languageSet) {
     let language = 'en'
     if (trimmed === '2') language = 'zh'

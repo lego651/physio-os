@@ -1,6 +1,7 @@
 import { generateText } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { verifyBearerToken } from '@/lib/auth/verify-bearer'
 import { sendSMS } from '@/lib/sms/send'
 import type { PatientProfile } from '@physio-os/shared'
 
@@ -18,17 +19,13 @@ export async function GET(req: Request) {
     return Response.json({ error: 'Server configuration error' }, { status: 500 })
   }
 
-  const authHeader = req.headers.get('authorization')
-  if (authHeader !== `Bearer ${cronSecret}`) {
+  if (!verifyBearerToken(req, cronSecret)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   const supabase = createAdminClient()
 
-  // Fetch all candidates: active, not opted out, have consented.
-  // Per-patient message recency is evaluated below because the Supabase JS
-  // client does not support correlated subqueries in .filter(). For a physio
-  // clinic's patient volume (hundreds) this is acceptable.
+  // ── 1. Fetch candidates ──
   const { data: candidatePatients, error: fetchError } = await supabase
     .from('patients')
     .select('id, phone, name, profile, language, created_at, last_nudged_at')
@@ -41,60 +38,67 @@ export async function GET(req: Request) {
     return Response.json({ error: 'Database error' }, { status: 500 })
   }
 
+  if (!candidatePatients || candidatePatients.length === 0) {
+    return Response.json({ nudgesSent: 0, failed: 0 })
+  }
+
+  const patientIds = candidatePatients.map((p) => p.id)
   const threeDaysAgo = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
 
+  // ── 2. Batch-fetch last user message per patient (eliminates 2N queries) ──
+  const { data: messageRows } = await supabase
+    .from('messages')
+    .select('patient_id, created_at')
+    .eq('role', 'user')
+    .in('patient_id', patientIds)
+    .order('created_at', { ascending: false })
+
+  // Build lookup: patient_id → most recent user message timestamp
+  const lastMessageByPatient = new Map<string, string>()
+  for (const row of messageRows ?? []) {
+    if (!lastMessageByPatient.has(row.patient_id)) {
+      lastMessageByPatient.set(row.patient_id, row.created_at)
+    }
+  }
+
+  // ── 3. Batch-fetch latest metric per patient (eliminates N queries) ──
+  const { data: metricRows } = await supabase
+    .from('metrics')
+    .select('patient_id, discomfort, pain_level, recorded_at')
+    .in('patient_id', patientIds)
+    .order('recorded_at', { ascending: false })
+
+  const lastMetricByPatient = new Map<string, { discomfort: number | null; pain_level: number | null }>()
+  for (const row of metricRows ?? []) {
+    if (!lastMetricByPatient.has(row.patient_id)) {
+      lastMetricByPatient.set(row.patient_id, { discomfort: row.discomfort, pain_level: row.pain_level })
+    }
+  }
+
+  // ── 4. Filter eligible patients in-memory ──
+  const eligiblePatients = candidatePatients.filter((patient) => {
+    const lastMessageAt = lastMessageByPatient.get(patient.id) ?? null
+
+    // Skip if recent message within 3 days
+    if (lastMessageAt && lastMessageAt > threeDaysAgo) return false
+
+    // Skip if already nudged during this inactive period
+    if (patient.last_nudged_at && lastMessageAt && patient.last_nudged_at >= lastMessageAt) return false
+
+    // Never-messaged patients: only nudge if account > 3 days old and not already nudged
+    if (!lastMessageAt) {
+      const accountAgeDays =
+        (Date.now() - new Date(patient.created_at as string).getTime()) / (1000 * 60 * 60 * 24)
+      if (accountAgeDays < 3 || patient.last_nudged_at) return false
+    }
+
+    return true
+  })
+
+  // ── 5. Send nudges ──
   const nudgeResults = await Promise.allSettled(
-    (candidatePatients ?? []).map(async (patient) => {
-      // Skip if the patient sent a message within the last 3 days
-      const { data: recentMessages } = await supabase
-        .from('messages')
-        .select('created_at')
-        .eq('patient_id', patient.id)
-        .eq('role', 'user')
-        .gt('created_at', threeDaysAgo)
-        .limit(1)
-
-      if (recentMessages && recentMessages.length > 0) {
-        return { patientId: patient.id, skipped: true }
-      }
-
-      // Get the timestamp of their most recent user message (null = no messages ever)
-      const { data: lastMessages } = await supabase
-        .from('messages')
-        .select('created_at')
-        .eq('patient_id', patient.id)
-        .eq('role', 'user')
-        .order('created_at', { ascending: false })
-        .limit(1)
-
-      const lastMessageAt = lastMessages?.[0]?.created_at ?? null
-
-      // Skip if already nudged during this inactive period
-      // (last_nudged_at >= last_message_at means the current inactive window is covered)
-      if (patient.last_nudged_at && lastMessageAt && patient.last_nudged_at >= lastMessageAt) {
-        return { patientId: patient.id, skipped: true }
-      }
-
-      // Edge case: never-messaged patients — only nudge if account is older than 3 days
-      // and they haven't been nudged before
-      if (!lastMessageAt) {
-        const accountAgeDays =
-          (Date.now() - new Date(patient.created_at as string).getTime()) / (1000 * 60 * 60 * 24)
-        if (accountAgeDays < 3 || patient.last_nudged_at) {
-          return { patientId: patient.id, skipped: true }
-        }
-      }
-
-      // Fetch last recorded discomfort level from metrics
-      const { data: lastMetric } = await supabase
-        .from('metrics')
-        .select('discomfort, pain_level')
-        .eq('patient_id', patient.id)
-        .order('recorded_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-
-      // Generate a personalized nudge via Claude
+    eligiblePatients.map(async (patient) => {
+      const lastMetric = lastMetricByPatient.get(patient.id)
       const profile = (patient.profile ?? {}) as PatientProfile
       const condition = profile.injury ?? profile.diagnosis ?? 'their condition'
       const lastDiscomfort =
@@ -117,10 +121,8 @@ export async function GET(req: Request) {
         throw aiError
       }
 
-      // Send SMS
       await sendSMS({ to: patient.phone, body: nudgeText })
 
-      // Record that this patient has been nudged
       const { error: updateError } = await supabase
         .from('patients')
         .update({ last_nudged_at: new Date().toISOString() })

@@ -236,7 +236,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_sms_usage: {
+        Args: {
+          p_month: string
+          p_segments: number
+          p_cost: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

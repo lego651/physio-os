@@ -2,25 +2,7 @@ import { tool } from 'ai'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@physio-os/shared'
-
-type MetricRow = Database['public']['Tables']['metrics']['Row']
-/** Subset of MetricRow matching the columns we actually query */
-type QueriedMetric = Pick<MetricRow, 'pain_level' | 'discomfort' | 'sitting_tolerance_min' | 'exercises_done' | 'exercise_count' | 'recorded_at'>
-
-function avg(values: number[]): number | null {
-  if (values.length === 0) return null
-  return values.reduce((sum, v) => sum + v, 0) / values.length
-}
-
-function round1(n: number): number {
-  return Math.round(n * 10) / 10
-}
-
-function countExerciseDays(rows: QueriedMetric[]): number {
-  return rows.filter(
-    (r) => (r.exercise_count ?? 0) > 0 || (r.exercises_done?.length ?? 0) > 0
-  ).length
-}
+import { avg, round1, countExerciseDays, type QueriedMetric } from './utils'
 
 type Trend = 'improving' | 'stable' | 'worsening'
 

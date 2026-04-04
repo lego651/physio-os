@@ -3,13 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@physio-os/shared'
-
-type MetricRow = Database['public']['Tables']['metrics']['Row']
-
-type QueriedMetric = Pick<
-  MetricRow,
-  'pain_level' | 'discomfort' | 'sitting_tolerance_min' | 'exercises_done' | 'exercise_count' | 'recorded_at'
->
+import { avg, round1, type QueriedMetric } from './utils'
 
 const MIN_DAYS_FOR_PATTERNS = 14
 const DEFAULT_MODEL = 'claude-sonnet-4.6'
@@ -21,17 +15,6 @@ const DEFAULT_MODEL = 'claude-sonnet-4.6'
 /** Extract the YYYY-MM-DD date string from an ISO timestamp. */
 function toDateKey(isoString: string): string {
   return isoString.slice(0, 10)
-}
-
-/** Average of a numeric array; returns null if empty. */
-function avg(values: number[]): number | null {
-  if (values.length === 0) return null
-  return values.reduce((sum, v) => sum + v, 0) / values.length
-}
-
-/** Round to one decimal place. */
-function round1(n: number): number {
-  return Math.round(n * 10) / 10
 }
 
 /** Returns true if the day's metrics indicate exercises were completed. */

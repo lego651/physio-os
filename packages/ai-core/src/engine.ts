@@ -64,7 +64,6 @@ export const conversationTools = {
         .array(z.string())
         .optional()
         .describe('List of exercise names the patient completed'),
-      exercise_count: z.number().min(0).optional().describe('Number of exercises done'),
       notes: z.string().optional().describe('Additional context or notes'),
     }),
   }),

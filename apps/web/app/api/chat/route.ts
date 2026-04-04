@@ -171,10 +171,10 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString(),
     }))
 
-    const { error: insertError } = await supabase.from('messages').insert([
-      { patient_id: patient.id, role: 'user', content: currentMessageText, channel: 'web' },
-      { patient_id: patient.id, role: 'assistant', content: result.emergencyMessage, channel: 'web' },
-    ])
+    // User message already saved at L113 — only insert the assistant response
+    const { error: insertError } = await supabase.from('messages').insert({
+      patient_id: patient.id, role: 'assistant', content: result.emergencyMessage, channel: 'web',
+    })
 
     if (insertError) {
       console.error('[chat] Failed to save emergency messages:', { patientId: patient.id })

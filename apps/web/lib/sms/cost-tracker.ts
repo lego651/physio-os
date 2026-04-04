@@ -8,39 +8,22 @@ function currentMonthKey(): string {
 }
 
 /**
- * Increment segment count and cost estimate for the current month.
- * Reads the current row first, then upserts with the accumulated totals.
- * Not atomic under concurrent writes, but SMS sends are low-frequency enough
- * that this is acceptable without a DB-side function.
+ * Atomically increment segment count and cost estimate for the current month.
+ * Uses a Supabase RPC (DB function) to avoid read-then-write race conditions
+ * under concurrent SMS sends (e.g. during nudge cron).
  */
 export async function trackSMSUsage(segments: number): Promise<void> {
   const supabase = createAdminClient()
   const month = currentMonthKey()
 
-  const { data: existing, error: readError } = await supabase
-    .from('sms_usage')
-    .select('segments, cost_estimate')
-    .eq('month', month)
-    .maybeSingle()
+  const { error } = await supabase.rpc('increment_sms_usage', {
+    p_month: month,
+    p_segments: segments,
+    p_cost: segments * COST_PER_SEGMENT,
+  })
 
-  if (readError) {
-    throw new Error(`[cost-tracker] Failed to read sms_usage: ${readError.message}`)
-  }
-
-  const newSegments = (existing?.segments ?? 0) + segments
-  const newCost = Number(existing?.cost_estimate ?? 0) + segments * COST_PER_SEGMENT
-
-  const { error: upsertError } = await supabase
-    .from('sms_usage')
-    .upsert({
-      month,
-      segments: newSegments,
-      cost_estimate: newCost,
-      updated_at: new Date().toISOString(),
-    })
-
-  if (upsertError) {
-    throw new Error(`[cost-tracker] Failed to upsert sms_usage: ${upsertError.message}`)
+  if (error) {
+    throw new Error(`[cost-tracker] Failed to increment sms_usage: ${error.message}`)
   }
 }
 
