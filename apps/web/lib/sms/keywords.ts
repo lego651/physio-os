@@ -31,7 +31,7 @@ export async function handleKeyword(
 
   if (action === 'start') {
     await supabase.from('patients').update({ opted_out: false }).eq('phone', phone)
-    return 'Welcome back! How are you feeling today?'
+    return 'V-Health Recovery Coach: Welcome back! How are you feeling today? Reply STOP to unsubscribe.'
   }
 
   if (action === 'help') {
