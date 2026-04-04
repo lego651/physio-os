@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { SignJWT } from 'jose'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database } from '@physio-os/shared'
+import { detectPatterns } from './pattern-detection'
 
 type MetricRow = Database['public']['Tables']['metrics']['Row']
 type PatientRow = Database['public']['Tables']['patients']['Row']
@@ -21,7 +22,7 @@ type Trend = 'improving' | 'stable' | 'worsening'
 export type Report = ReportRow
 
 const MAX_SUMMARY_CHARS = 500
-const DEFAULT_MODEL = 'claude-sonnet-4-20250514'
+const DEFAULT_MODEL = 'claude-sonnet-4.5'
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -272,14 +273,26 @@ export async function generateWeeklyReport(
   result.metricsSummary.exerciseDays = exerciseDays
 
   // -------------------------------------------------------------------------
-  // 7. Truncate summary if needed
+  // 7. Run pattern detection (14+ days of data) and merge insights
+  // -------------------------------------------------------------------------
+  try {
+    const patternInsights = await detectPatterns(patientId, supabase)
+    if (patternInsights.length > 0) {
+      result.insights = [...result.insights, ...patternInsights]
+    }
+  } catch (err) {
+    console.error('[generate-report] Pattern detection failed, continuing without', err)
+  }
+
+  // -------------------------------------------------------------------------
+  // 8. Truncate summary if needed
   // -------------------------------------------------------------------------
   if (result.summary.length > MAX_SUMMARY_CHARS) {
     result.summary = result.summary.slice(0, MAX_SUMMARY_CHARS - 1) + '\u2026'
   }
 
   // -------------------------------------------------------------------------
-  // 8. Generate a temporary report ID for the token, then insert
+  // 9. Generate a temporary report ID for the token, then insert
   //    We need the DB-assigned id so we insert first without token,
   //    then update with the signed token.
   // -------------------------------------------------------------------------
