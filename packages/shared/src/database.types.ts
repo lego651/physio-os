@@ -20,6 +20,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_emergency: boolean
           media_urls: string[] | null
           patient_id: string
           role: string
@@ -30,6 +31,7 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
+          is_emergency?: boolean
           media_urls?: string[] | null
           patient_id: string
           role: string
@@ -40,6 +42,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_emergency?: boolean
           media_urls?: string[] | null
           patient_id?: string
           role?: string
