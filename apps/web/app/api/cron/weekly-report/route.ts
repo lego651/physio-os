@@ -1,0 +1,197 @@
+import { createAdminClient } from '@/lib/supabase/admin'
+import { sendSMS } from '@/lib/sms/send'
+import { generateWeeklyReport } from '@physio-os/ai-core'
+
+// Allow enough time for AI generation across all patients
+export const maxDuration = 300
+
+const SMS_SEGMENT_LIMIT_GSM = 160
+const SMS_SEGMENT_LIMIT_UCS2 = 70
+
+// ---------------------------------------------------------------------------
+// Auth
+// ---------------------------------------------------------------------------
+
+function isAuthorized(req: Request): boolean {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) {
+    console.error('[weekly-report] CRON_SECRET is not set')
+    return false
+  }
+  const authHeader = req.headers.get('authorization')
+  return authHeader === `Bearer ${cronSecret}`
+}
+
+// ---------------------------------------------------------------------------
+// Week calculation
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the Monday that started the week containing the given date.
+ * e.g. if today is Sunday 2026-04-05, returns Monday 2026-03-30.
+ */
+function getWeekStart(from: Date): Date {
+  const d = new Date(from)
+  // getDay(): 0=Sun, 1=Mon, ..., 6=Sat
+  // Days since last Monday: (dayOfWeek + 6) % 7
+  const dayOfWeek = d.getUTCDay()
+  const daysSinceMonday = (dayOfWeek + 6) % 7
+  d.setUTCDate(d.getUTCDate() - daysSinceMonday)
+  d.setUTCHours(0, 0, 0, 0)
+  return d
+}
+
+// ---------------------------------------------------------------------------
+// SMS formatting
+// ---------------------------------------------------------------------------
+
+interface Patient {
+  id: string
+  phone: string
+  name: string | null
+  language: string | null
+}
+
+/**
+ * Build a report-ready SMS for the given patient.
+ * Respects per-encoding segment limits:
+ *   - Chinese (UCS-2): 70 chars
+ *   - English (GSM):  160 chars
+ */
+function buildSMSText(patient: Patient, avgDiscomfort: number | null, reportUrl: string): string {
+  const name = patient.name ?? 'there'
+  const avg = avgDiscomfort != null ? avgDiscomfort.toFixed(1) : 'N/A'
+  const isZh = patient.language === 'zh'
+
+  if (isZh) {
+    // UCS-2: 70 chars per segment. Keep to 1 segment.
+    const full = `嗨${name}，您的周报已生成！不适感均值：${avg}/3。查看：${reportUrl}`
+    if (full.length <= SMS_SEGMENT_LIMIT_UCS2) return full
+
+    // If too long (name or URL), shorten the name to first char
+    const shortName = name.length > 1 ? name[0] : name
+    const shortened = `嗨${shortName}，您的周报已生成！不适感均值：${avg}/3。查看：${reportUrl}`
+    if (shortened.length <= SMS_SEGMENT_LIMIT_UCS2) return shortened
+
+    // Last resort: omit name entirely
+    return `您的周报已生成！不适感均值：${avg}/3。查看：${reportUrl}`.slice(0, SMS_SEGMENT_LIMIT_UCS2)
+  }
+
+  // GSM: 160 chars per segment.
+  const full = `Hi ${name}, your weekly recovery report is ready! Discomfort avg: ${avg}/3. View: ${reportUrl}`
+  if (full.length <= SMS_SEGMENT_LIMIT_GSM) return full
+
+  // Shorten name to first name if multi-word
+  const firstName = name.split(' ')[0]
+  const withFirstName = `Hi ${firstName}, your weekly recovery report is ready! Discomfort avg: ${avg}/3. View: ${reportUrl}`
+  if (withFirstName.length <= SMS_SEGMENT_LIMIT_GSM) return withFirstName
+
+  // Drop name entirely
+  const noName = `Your weekly recovery report is ready! Discomfort avg: ${avg}/3. View: ${reportUrl}`
+  if (noName.length <= SMS_SEGMENT_LIMIT_GSM) return noName
+
+  // Final fallback: truncate URL won't help (it's load-bearing), so just truncate at limit
+  return noName.slice(0, SMS_SEGMENT_LIMIT_GSM)
+}
+
+// ---------------------------------------------------------------------------
+// GET handler
+// ---------------------------------------------------------------------------
+
+export async function GET(req: Request) {
+  if (!isAuthorized(req)) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!appUrl) {
+    console.error('[weekly-report] NEXT_PUBLIC_APP_URL is not set')
+    return Response.json({ error: 'Server configuration error' }, { status: 500 })
+  }
+
+  const supabase = createAdminClient()
+
+  // Cron runs Sunday at 17:00 UTC; report the Mon–Sun week that just ended.
+  const weekStart = getWeekStart(new Date())
+  const weekStartISO = weekStart.toISOString()
+
+  console.log(`[weekly-report] Running for week starting ${weekStart.toISOString().slice(0, 10)}`)
+
+  // Query eligible patients: active, not opted out, with >= 1 metric in the past 7 days
+  const { data: patients, error: patientsError } = await supabase
+    .from('patients')
+    .select('id, phone, name, language')
+    .eq('active', true)
+    .eq('opted_out', false)
+
+  if (patientsError) {
+    console.error('[weekly-report] Failed to query patients', patientsError)
+    return Response.json({ error: 'Database error' }, { status: 500 })
+  }
+
+  if (!patients || patients.length === 0) {
+    return Response.json({ reportsGenerated: 0, smsSent: 0 })
+  }
+
+  // Filter to patients with at least 1 metric in the week window
+  const { data: activePatientIds, error: metricsFilterError } = await supabase
+    .from('metrics')
+    .select('patient_id')
+    .gte('recorded_at', weekStartISO)
+    .in('patient_id', patients.map((p) => p.id))
+
+  if (metricsFilterError) {
+    console.error('[weekly-report] Failed to filter patients by metrics', metricsFilterError)
+    return Response.json({ error: 'Database error' }, { status: 500 })
+  }
+
+  const eligibleIds = new Set((activePatientIds ?? []).map((r) => r.patient_id))
+  const eligiblePatients = patients.filter((p) => eligibleIds.has(p.id))
+
+  console.log(`[weekly-report] ${eligiblePatients.length} eligible patient(s)`)
+
+  // Process each patient independently — don't let one failure block the rest
+  const results = await Promise.allSettled(
+    eligiblePatients.map(async (patient) => {
+      const report = await generateWeeklyReport(patient.id, weekStart, supabase)
+
+      if (!report) {
+        console.log(`[weekly-report] Skipping patient ${patient.id} — no data points`)
+        return { patientId: patient.id, skipped: true }
+      }
+
+      const reportUrl = `${appUrl}/report/${report.token}`
+      const avgDiscomfort = (report.metrics_summary as { avgDiscomfort?: number | null } | null)
+        ?.avgDiscomfort ?? null
+
+      const smsText = buildSMSText(patient as Patient, avgDiscomfort, reportUrl)
+
+      await sendSMS({ to: patient.phone, body: smsText })
+
+      console.log(`[weekly-report] SMS sent to patient ${patient.id}`)
+      return { patientId: patient.id, skipped: false }
+    }),
+  )
+
+  let reportsGenerated = 0
+  let smsSent = 0
+  let failures = 0
+
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      if (!result.value.skipped) {
+        reportsGenerated++
+        smsSent++
+      }
+    } else {
+      failures++
+      console.error('[weekly-report] Patient processing failed', result.reason)
+    }
+  }
+
+  console.log(
+    `[weekly-report] Done. reports=${reportsGenerated} sms=${smsSent} failures=${failures}`,
+  )
+
+  return Response.json({ reportsGenerated, smsSent, failures })
+}
