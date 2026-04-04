@@ -10,6 +10,7 @@ import { createUIMessageStreamResponse, type UIMessageChunk } from 'ai'
 import type { PatientProfile } from '@physio-os/shared'
 import { z } from 'zod'
 import { checkChatRateLimit } from '@/lib/chat/rate-limit'
+import { sendEmergencyAlert } from '@/lib/email/send-emergency-alert'
 
 export const maxDuration = 30
 
@@ -202,24 +203,57 @@ export async function POST(req: Request) {
 
   // Handle emergency — save messages and return streaming format
   if (result.type === 'emergency' && result.emergencyMessage) {
-    // Log without PHI: only patient ID and category
+    const emergencyTimestamp = new Date().toISOString()
+
+    // Log to Sentry as warning-level (no PHI — only patient ID and category)
+    Sentry.captureMessage('Emergency safety classification triggered', {
+      level: 'warning',
+      tags: { component: 'chat-route', category: result.safetyResult.category },
+      extra: { patientId: patient.id, channel: 'web', timestamp: emergencyTimestamp },
+    })
+
     console.warn(JSON.stringify({
       event: 'safety_classification',
       category: result.safetyResult.category,
       action: result.safetyResult.action,
       patientId: patient.id,
-      timestamp: new Date().toISOString(),
+      timestamp: emergencyTimestamp,
     }))
 
-    // User message already saved above — only insert the assistant response
+    // Mark the user message (already saved above) as an emergency
+    if (savedUserMsg?.id) {
+      void supabase
+        .from('messages')
+        .update({ is_emergency: true })
+        .eq('id', savedUserMsg.id)
+        .then(({ error }) => {
+          if (error) console.error('[chat] Failed to flag user message as emergency:', { patientId: patient.id })
+        })
+    }
+
+    // Save assistant emergency response
     const { error: insertError } = await supabase.from('messages').insert({
-      patient_id: patient.id, role: 'assistant', content: result.emergencyMessage, channel: 'web',
+      patient_id: patient.id,
+      role: 'assistant',
+      content: result.emergencyMessage,
+      channel: 'web',
+      is_emergency: true,
     })
 
     if (insertError) {
       console.error('[chat] Failed to save emergency messages:', { patientId: patient.id })
     }
 
+    // Notify admin — fire-and-forget, must not block patient response
+    void sendEmergencyAlert({
+      patientName: patient.name,
+      patientPhone: patient.phone,
+      triggeringMessage: currentMessageText,
+      timestamp: emergencyTimestamp,
+      channel: 'web',
+    })
+
+    // Return emergency as streaming response so useChat can consume it
     const msgId = crypto.randomUUID()
     return createUIMessageStreamResponse({
       status: 200,

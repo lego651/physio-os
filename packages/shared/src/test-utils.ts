@@ -33,6 +33,7 @@ export function mockMessage(overrides: Partial<MessageRow> = {}): MessageRow {
     role: 'user',
     content: 'Test message',
     channel: 'web',
+    is_emergency: false,
     media_urls: [],
     twilio_sid: null,
     created_at: new Date().toISOString(),

@@ -6,6 +6,8 @@ import { buildContext } from '@physio-os/ai-core'
 import { sendSMSWithRetry, formatSMSResponse } from './send'
 import { processMMSMedia } from './mms'
 import { handleSMSOnboarding } from './onboarding'
+import * as Sentry from '@sentry/nextjs'
+import { sendEmergencyAlert } from '@/lib/email/send-emergency-alert'
 
 // In-memory failure tracker for the Sentry alert threshold.
 // Keys: patientId -> array of failure timestamps (ms).
@@ -179,11 +181,51 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
     })
 
     let replyText: string
+    let isEmergency = false
 
     if (result.type === 'blocked') {
       replyText = result.blockMessage || "I can only help with recovery-related topics."
     } else if (result.type === 'emergency' && result.emergencyMessage) {
       replyText = result.emergencyMessage
+      isEmergency = true
+
+      const emergencyTimestamp = new Date().toISOString()
+
+      // Log to Sentry as warning-level (no PHI — only patient ID and category)
+      Sentry.captureMessage('Emergency safety classification triggered', {
+        level: 'warning',
+        tags: { component: 'sms-process', category: result.safetyResult.category },
+        extra: { patientId: patient.id, channel: 'sms', timestamp: emergencyTimestamp },
+      })
+
+      console.warn(JSON.stringify({
+        event: 'safety_classification',
+        category: result.safetyResult.category,
+        action: result.safetyResult.action,
+        patientId: patient.id,
+        channel: 'sms',
+        timestamp: emergencyTimestamp,
+      }))
+
+      // Mark the user message as emergency
+      if (savedMsgId) {
+        void supabase
+          .from('messages')
+          .update({ is_emergency: true })
+          .eq('id', savedMsgId)
+          .then(({ error }) => {
+            if (error) console.error('[sms] Failed to flag user message as emergency:', { patientId: patient.id })
+          })
+      }
+
+      // Notify admin — fire-and-forget, must not block patient SMS response
+      void sendEmergencyAlert({
+        patientName: patient.name,
+        patientPhone: normalizedPhone,
+        triggeringMessage: body,
+        timestamp: emergencyTimestamp,
+        channel: 'sms',
+      })
     } else if (result.stream) {
       try {
         const fullText = await result.stream.text
@@ -211,6 +253,7 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
       role: 'assistant',
       content: replyText,
       channel: 'sms',
+      is_emergency: isEmergency,
     })
   } catch (err) {
     console.error('[sms] Error processing message:', err)
