@@ -2,7 +2,7 @@
 
 > Sprint goal: Adversarial AI testing, privacy/compliance, performance, production deployment to vhealth.ai.
 > Deliverable: App is safe, compliant, performant, and live. Ready for first patients.
-> Total: 31 points across 12 tickets.
+> Total: 32 points across 13 tickets.
 
 ---
 
@@ -319,6 +319,30 @@
 2. Twilio console opt-out configured
 3. All outbound messages identify sender
 4. Compliance checklist documented and signed off
+
+---
+
+### S613 — Provision Upstash Redis for SMS rate limiting
+**Type:** setup
+**Points:** 1
+**Depends on:** S608
+
+**Goal:** Production SMS rate limiter backed by Upstash Redis instead of in-memory fallback.
+
+**Details:**
+The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and wired into `apps/web/lib/sms/rate-limit.ts` (S3 review fix). The code automatically uses Upstash when env vars are present, falling back to in-memory (which is ineffective on Vercel serverless). This ticket provisions the backing store.
+
+**Scope:**
+- Provision Upstash Redis via Vercel Marketplace (auto-sets env vars) or Upstash console
+- Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel production env vars
+- Verify rate limiting works across cold starts (send 11+ messages from same number within 1 hour, confirm the 11th is dropped)
+- Select a region close to the Vercel deployment region for low latency
+
+**Acceptance criteria:**
+1. `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set in Vercel production
+2. Rate limiting persists across cold starts and concurrent function instances
+3. Rate-limited requests return 200 (silent drop) with `console.warn` in logs
+4. Local dev still works without Redis (in-memory fallback)
 
 ---
 
