@@ -1,3 +1,5 @@
+import { trackSMSUsage } from '@/lib/sms/cost-tracker'
+
 const TWILIO_API_BASE = 'https://api.twilio.com/2010-04-01'
 
 interface SendSMSOptions {
@@ -50,7 +52,14 @@ export async function sendSMS(options: SendSMSOptions): Promise<{ sid: string }>
     throw err
   }
 
-  const result = await response.json() as { sid: string }
+  const result = await response.json() as { sid: string; num_segments: string }
+
+  // Fire-and-forget: track usage without blocking the caller.
+  const segments = parseInt(result.num_segments ?? '1', 10)
+  void trackSMSUsage(segments).catch((err: unknown) => {
+    console.error('[sendSMS] cost tracking failed:', err)
+  })
+
   return { sid: result.sid }
 }
 
