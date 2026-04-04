@@ -8,8 +8,13 @@ export const maxDuration = 300
 
 const AI_CONCURRENCY = 5
 
-const SMS_SEGMENT_LIMIT_GSM = 160
-const SMS_SEGMENT_LIMIT_UCS2 = 70
+// CASL requires sender identification and opt-out instructions in every outbound message.
+const STOP_FOOTER_EN = ' Reply STOP to unsubscribe.'
+const STOP_FOOTER_ZH = ' 回复STOP退订。'
+
+// Effective body limits after reserving space for the mandatory footers
+const SMS_SEGMENT_LIMIT_GSM = 160 - STOP_FOOTER_EN.length // ~133 chars for content
+const SMS_SEGMENT_LIMIT_UCS2 = 70 - STOP_FOOTER_ZH.length // ~62 chars for content
 
 // ---------------------------------------------------------------------------
 // Auth
@@ -49,34 +54,39 @@ function buildSMSText(patient: Patient, avgDiscomfort: number | null, reportUrl:
   const isZh = patient.language === 'zh'
 
   if (isZh) {
-    // UCS-2: 70 chars per segment. Keep to 1 segment.
+    // UCS-2: 70 chars per segment. Reserve chars for STOP_FOOTER_ZH.
+    const body = (text: string) => text + STOP_FOOTER_ZH
+
     const full = `嗨${name}，您的周报已生成！不适感均值：${avg}/3。查看：${reportUrl}`
-    if (full.length <= SMS_SEGMENT_LIMIT_UCS2) return full
+    if (full.length <= SMS_SEGMENT_LIMIT_UCS2) return body(full)
 
     // If too long (name or URL), shorten the name to first char
     const shortName = name.length > 1 ? name[0] : name
     const shortened = `嗨${shortName}，您的周报已生成！不适感均值：${avg}/3。查看：${reportUrl}`
-    if (shortened.length <= SMS_SEGMENT_LIMIT_UCS2) return shortened
+    if (shortened.length <= SMS_SEGMENT_LIMIT_UCS2) return body(shortened)
 
     // Last resort: omit name entirely
-    return `您的周报已生成！不适感均值：${avg}/3。查看：${reportUrl}`.slice(0, SMS_SEGMENT_LIMIT_UCS2)
+    const noName = `您的周报已生成！不适感均值：${avg}/3。查看：${reportUrl}`
+    return body(noName.slice(0, SMS_SEGMENT_LIMIT_UCS2))
   }
 
-  // GSM: 160 chars per segment.
+  // GSM: reserve chars for STOP_FOOTER_EN.
+  const body = (text: string) => text + STOP_FOOTER_EN
+
   const full = `Hi ${name}, your weekly recovery report is ready! Discomfort avg: ${avg}/3. View: ${reportUrl}`
-  if (full.length <= SMS_SEGMENT_LIMIT_GSM) return full
+  if (full.length <= SMS_SEGMENT_LIMIT_GSM) return body(full)
 
   // Shorten name to first name if multi-word
   const firstName = name.split(' ')[0]
   const withFirstName = `Hi ${firstName}, your weekly recovery report is ready! Discomfort avg: ${avg}/3. View: ${reportUrl}`
-  if (withFirstName.length <= SMS_SEGMENT_LIMIT_GSM) return withFirstName
+  if (withFirstName.length <= SMS_SEGMENT_LIMIT_GSM) return body(withFirstName)
 
   // Drop name entirely
   const noName = `Your weekly recovery report is ready! Discomfort avg: ${avg}/3. View: ${reportUrl}`
-  if (noName.length <= SMS_SEGMENT_LIMIT_GSM) return noName
+  if (noName.length <= SMS_SEGMENT_LIMIT_GSM) return body(noName)
 
-  // Final fallback: truncate URL won't help (it's load-bearing), so just truncate at limit
-  return noName.slice(0, SMS_SEGMENT_LIMIT_GSM)
+  // Final fallback: truncate at content limit (URL is load-bearing, truncate from middle)
+  return body(noName.slice(0, SMS_SEGMENT_LIMIT_GSM))
 }
 
 // ---------------------------------------------------------------------------
@@ -159,6 +169,16 @@ export async function GET(req: Request) {
         const smsText = buildSMSText(patient as Patient, avgDiscomfort, reportUrl)
 
         await sendSMS({ to: patient.phone, body: smsText })
+
+        // Persist audit record (required for CASL compliance logging)
+        await supabase.from('messages').insert({
+          patient_id: patient.id,
+          role: 'assistant',
+          content: smsText,
+          channel: 'sms',
+        }).then(({ error }) => {
+          if (error) console.error('[weekly-report] Failed to save SMS audit record for patient:', patient.id, error)
+        })
 
         console.log(`[weekly-report] SMS sent to patient ${patient.id}`)
         return { patientId: patient.id, skipped: false }

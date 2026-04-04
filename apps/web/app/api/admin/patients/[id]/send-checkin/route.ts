@@ -31,6 +31,9 @@ export async function POST(
   if (!patient) {
     return Response.json({ error: 'Patient not found' }, { status: 404 })
   }
+  if (!patient.active) {
+    return Response.json({ error: 'Patient is inactive' }, { status: 400 })
+  }
   if (patient.opted_out) {
     return Response.json({ error: 'Patient has opted out' }, { status: 400 })
   }
@@ -59,9 +62,27 @@ export async function POST(
   }
 
   // Get message body from request or use default
+  const MAX_MESSAGE_LENGTH = 1600 // 10 SMS segments — hard ceiling
   const body = await request.json().catch(() => ({})) as { message?: string }
-  const messageText = body.message ||
-    `Hi ${patient.name ?? 'there'}, this is V-Health. How are you feeling? We'd love to hear an update.`
+
+  if (body.message !== undefined) {
+    if (typeof body.message !== 'string') {
+      return Response.json({ error: 'message must be a string' }, { status: 400 })
+    }
+    if (body.message.trim().length === 0) {
+      return Response.json({ error: 'message must not be empty' }, { status: 400 })
+    }
+    if (body.message.length > MAX_MESSAGE_LENGTH) {
+      return Response.json(
+        { error: `message exceeds maximum length of ${MAX_MESSAGE_LENGTH} characters` },
+        { status: 400 },
+      )
+    }
+  }
+
+  const messageText = (typeof body.message === 'string' && body.message.trim().length > 0)
+    ? body.message.trim()
+    : `Hi ${patient.name ?? 'there'}, this is V-Health. How are you feeling? We'd love to hear an update.`
 
   // Send SMS
   try {

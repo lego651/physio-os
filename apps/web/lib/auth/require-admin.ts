@@ -20,7 +20,11 @@ export async function requireAdminAuth(): Promise<
   }
 
   const adminEmail = process.env.ADMIN_EMAIL
-  if (!adminEmail || user.email !== adminEmail) {
+  if (!adminEmail) {
+    console.error('[require-admin] ADMIN_EMAIL env var is not set — all admin access denied')
+    return { error: Response.json({ error: 'Forbidden' }, { status: 403 }) }
+  }
+  if (user.email !== adminEmail) {
     return { error: Response.json({ error: 'Forbidden' }, { status: 403 }) }
   }
 

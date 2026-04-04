@@ -8,6 +8,10 @@ import type { PatientProfile } from '@physio-os/shared'
 export const maxDuration = 60
 
 const NUDGE_MAX_TOKENS = 100
+// Reserve characters for CASL-required sender ID + unsubscribe footer.
+// Footer = "\nV-Health Recovery Coach. Reply STOP to unsubscribe." (52 chars)
+const NUDGE_FOOTER = '\nV-Health Recovery Coach. Reply STOP to unsubscribe.'
+const NUDGE_BODY_LIMIT = 160 - NUDGE_FOOTER.length // 108 chars for AI content
 const NUDGE_CHAR_LIMIT = 160
 const DEFAULT_MODEL = 'claude-sonnet-4.5'
 
@@ -112,10 +116,11 @@ export async function GET(req: Request) {
       try {
         const { text } = await generateText({
           model: anthropic(process.env.AI_MODEL ?? DEFAULT_MODEL),
-          prompt: `Generate a brief, warm check-in message for ${patient.name} who has ${condition}. Last known discomfort was ${lastDiscomfort}. Keep under 160 characters. Do not include any medical advice.`,
+          prompt: `Generate a brief, warm check-in message for ${patient.name} who has ${condition}. Last known discomfort was ${lastDiscomfort}. Keep under ${NUDGE_BODY_LIMIT} characters. Do not include any medical advice.`,
           maxOutputTokens: NUDGE_MAX_TOKENS,
         })
-        nudgeText = text.trim().slice(0, NUDGE_CHAR_LIMIT)
+        // Append CASL-required sender identification and unsubscribe instruction
+        nudgeText = text.trim().slice(0, NUDGE_BODY_LIMIT) + NUDGE_FOOTER
       } catch (aiError) {
         console.error('[nudge-cron] AI generation failed for patient:', patient.id, aiError)
         throw aiError
@@ -123,9 +128,21 @@ export async function GET(req: Request) {
 
       await sendSMS({ to: patient.phone, body: nudgeText })
 
+      const now = new Date().toISOString()
+
+      // Persist audit record (required for CASL compliance logging)
+      await supabase.from('messages').insert({
+        patient_id: patient.id,
+        role: 'assistant',
+        content: nudgeText,
+        channel: 'sms',
+      }).then(({ error }) => {
+        if (error) console.error('[nudge-cron] Failed to save nudge message for audit:', patient.id, error)
+      })
+
       const { error: updateError } = await supabase
         .from('patients')
-        .update({ last_nudged_at: new Date().toISOString() })
+        .update({ last_nudged_at: now })
         .eq('id', patient.id)
 
       if (updateError) {

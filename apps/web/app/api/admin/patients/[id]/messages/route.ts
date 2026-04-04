@@ -15,8 +15,10 @@ export async function GET(
   }
 
   const { searchParams } = new URL(request.url)
-  const limit = Math.min(parseInt(searchParams.get('limit') ?? '50', 10), 100)
-  const offset = parseInt(searchParams.get('offset') ?? '0', 10)
+  const rawLimit = parseInt(searchParams.get('limit') ?? '50', 10)
+  const rawOffset = parseInt(searchParams.get('offset') ?? '0', 10)
+  const limit = Math.min(isNaN(rawLimit) || rawLimit < 1 ? 50 : rawLimit, 100)
+  const offset = isNaN(rawOffset) || rawOffset < 0 ? 0 : rawOffset
   const channel = searchParams.get('channel')
 
   const supabase = createAdminClient()
