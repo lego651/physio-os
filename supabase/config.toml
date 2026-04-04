@@ -1,6 +1,4 @@
-[project]
-id = ""
-name = "physio-os"
+# project_id = ""
 
 [db]
 port = 54322
@@ -19,7 +17,10 @@ jwt_expiry = 3600
 enable_signup = true
 
 [auth.external.phone]
-enabled = true
+enabled = false
+client_id = ""
+secret = ""
+url = ""
 
 [auth.sms.twilio]
 enabled = false
