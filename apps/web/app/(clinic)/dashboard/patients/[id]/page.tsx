@@ -1,13 +1,34 @@
 import { notFound } from 'next/navigation'
+import nextDynamic from 'next/dynamic'
 import Link from 'next/link'
+import { Suspense } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 import { ArrowLeft, Globe, User, Calendar, Stethoscope } from 'lucide-react'
 import { MetricOverviewCards } from './metric-overview-cards'
-import { TrendChart } from './trend-chart'
 import { MetricsTable } from './metrics-table'
+import { ConversationLog } from './conversation-log'
+import { WeeklyReports } from './weekly-reports'
+import { SendCheckinButton } from './send-checkin-button'
+import { ToggleActiveButton } from './toggle-active-button'
+import { EditPatientDialog } from '../edit-patient-dialog'
+
+const TrendChart = nextDynamic(() => import('./trend-chart').then((m) => ({ default: m.TrendChart })), {
+  ssr: false,
+  loading: () => (
+    <Card>
+      <CardHeader>
+        <Skeleton className="h-5 w-48" />
+      </CardHeader>
+      <CardContent>
+        <Skeleton className="h-[300px] w-full" />
+      </CardContent>
+    </Card>
+  ),
+})
 
 export const dynamic = 'force-dynamic'
 
@@ -51,6 +72,7 @@ async function getPatientDetail(id: string) {
     .select('id, recorded_at, pain_level, discomfort, sitting_tolerance_min, exercises_done, exercise_count, notes')
     .eq('patient_id', id)
     .order('recorded_at', { ascending: false })
+    .limit(200)
 
   return {
     patient: patient as PatientDetail,
@@ -72,12 +94,16 @@ export default async function PatientDetailPage({
 
   return (
     <div className="space-y-6">
-      {/* Back button */}
-      <div className="flex items-center gap-2">
+      {/* Back button + actions */}
+      <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" render={<Link href="/dashboard/patients" />}>
           <ArrowLeft className="mr-1 h-4 w-4" />
           Back
         </Button>
+        <div className="flex items-center gap-2">
+          <EditPatientDialog patient={patient} />
+          <ToggleActiveButton patientId={patient.id} active={patient.active} />
+        </div>
       </div>
 
       {/* Profile card */}
@@ -134,14 +160,30 @@ export default async function PatientDetailPage({
         </CardContent>
       </Card>
 
+      {/* Send check-in */}
+      <SendCheckinButton
+        patientId={patient.id}
+        patientName={patient.name}
+        optedOut={patient.opted_out}
+        hasPhone={!!patient.phone}
+      />
+
       {/* Metric overview cards */}
       <MetricOverviewCards metrics={metrics} />
 
-      {/* Trend chart */}
+      {/* Trend chart (lazy-loaded) */}
       <TrendChart metrics={metrics} />
 
       {/* Metrics table */}
       <MetricsTable metrics={metrics} />
+
+      {/* Conversation log */}
+      <ConversationLog patientId={patient.id} />
+
+      {/* Weekly reports */}
+      <Suspense fallback={<Skeleton className="h-48 w-full" />}>
+        <WeeklyReports patientId={patient.id} />
+      </Suspense>
     </div>
   )
 }

@@ -1,4 +1,5 @@
 import { createAdminClient } from '@/lib/supabase/admin'
+import { getWeekStartUTC } from '@/lib/date'
 import { PatientList } from './patient-list'
 import { OverviewCards } from './overview-cards'
 
@@ -24,63 +25,104 @@ export interface PatientWithAggregates {
   alert_detail: string | null
 }
 
-async function getPatients(): Promise<PatientWithAggregates[]> {
+/** Stats computed from patient data, passed to OverviewCards to avoid duplicate queries. */
+export interface OverviewStats {
+  totalPatients: number
+  activeThisWeek: number
+  messagesThisWeek: number
+  avgDiscomfortThisWeek: number | null
+  avgDiscomfortLastWeek: number | null
+}
+
+async function getPatients() {
   const supabase = createAdminClient()
   const now = new Date()
   const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
-  const weekStart = getWeekStart(now)
+  const weekStart = getWeekStartUTC(now)
+  const lastWeekStart = new Date(weekStart)
+  lastWeekStart.setUTCDate(lastWeekStart.getUTCDate() - 7)
 
-  // Fetch patients
+  // Fetch patients, messages, and metrics in parallel
   const { data: patients, error } = await supabase
     .from('patients')
     .select('id, name, phone, language, active, opted_out, created_at, practitioner_name, profile')
     .order('created_at', { ascending: false })
 
   if (error) throw error
-  if (!patients || patients.length === 0) return []
+  if (!patients || patients.length === 0) {
+    return {
+      patients: [] as PatientWithAggregates[],
+      stats: {
+        totalPatients: 0,
+        activeThisWeek: 0,
+        messagesThisWeek: 0,
+        avgDiscomfortThisWeek: null,
+        avgDiscomfortLastWeek: null,
+      } satisfies OverviewStats,
+    }
+  }
 
   const patientIds = patients.map((p) => p.id)
+  const weekStartIso = weekStart.toISOString()
+  const lastWeekStartIso = lastWeekStart.toISOString()
+  const nowIso = now.toISOString()
 
-  // Fetch last message per patient
-  const { data: messages } = await supabase
-    .from('messages')
-    .select('patient_id, created_at')
-    .in('patient_id', patientIds)
-    .order('created_at', { ascending: false })
+  const [messagesResult, metricsResult, messagesThisWeekResult, discomfortThisWeekResult, discomfortLastWeekResult] = await Promise.all([
+    // Latest message per patient — fetch all but only use first per patient
+    supabase
+      .from('messages')
+      .select('patient_id, created_at')
+      .in('patient_id', patientIds)
+      .order('created_at', { ascending: false }),
 
-  // Fetch latest metrics per patient
-  const { data: metrics } = await supabase
-    .from('metrics')
-    .select('patient_id, pain_level, discomfort, recorded_at, exercises_done')
-    .in('patient_id', patientIds)
-    .order('recorded_at', { ascending: false })
+    // All metrics for computations
+    supabase
+      .from('metrics')
+      .select('patient_id, pain_level, discomfort, recorded_at, exercises_done')
+      .in('patient_id', patientIds)
+      .order('recorded_at', { ascending: false }),
+
+    // Overview: messages this week count
+    supabase
+      .from('messages')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', weekStartIso)
+      .lte('created_at', nowIso),
+
+    // Overview: discomfort this week
+    supabase
+      .from('metrics')
+      .select('discomfort')
+      .gte('recorded_at', weekStartIso)
+      .lte('recorded_at', nowIso)
+      .not('discomfort', 'is', null),
+
+    // Overview: discomfort last week
+    supabase
+      .from('metrics')
+      .select('discomfort')
+      .gte('recorded_at', lastWeekStartIso)
+      .lt('recorded_at', weekStartIso)
+      .not('discomfort', 'is', null),
+  ])
+
+  const messages = messagesResult.data ?? []
+  const metrics = metricsResult.data ?? []
 
   // Build lookup maps
   const lastMessageMap = new Map<string, string>()
-  for (const m of messages ?? []) {
+  for (const m of messages) {
     if (!lastMessageMap.has(m.patient_id)) {
       lastMessageMap.set(m.patient_id, m.created_at)
     }
   }
 
   const latestMetricMap = new Map<string, { pain_level: number | null; discomfort: number | null }>()
-  const avgPain7dMap = new Map<string, number>()
   const exerciseDaysMap = new Map<string, Set<string>>()
 
-  for (const m of metrics ?? []) {
-    // Latest metric
+  for (const m of metrics) {
     if (!latestMetricMap.has(m.patient_id)) {
       latestMetricMap.set(m.patient_id, { pain_level: m.pain_level, discomfort: m.discomfort })
-    }
-
-    // 7-day average pain
-    if (new Date(m.recorded_at) >= sevenDaysAgo && m.pain_level != null) {
-      const existing = avgPain7dMap.get(m.patient_id)
-      if (existing === undefined) {
-        avgPain7dMap.set(m.patient_id, m.pain_level)
-      } else {
-        // We'll compute properly below
-      }
     }
 
     // Exercise days this week
@@ -91,9 +133,9 @@ async function getPatients(): Promise<PatientWithAggregates[]> {
     }
   }
 
-  // Compute proper 7-day averages
+  // Compute 7-day average pain per patient
   const painSums = new Map<string, { sum: number; count: number }>()
-  for (const m of metrics ?? []) {
+  for (const m of metrics) {
     if (new Date(m.recorded_at) >= sevenDaysAgo && m.pain_level != null) {
       const entry = painSums.get(m.patient_id) ?? { sum: 0, count: 0 }
       entry.sum += m.pain_level
@@ -101,11 +143,34 @@ async function getPatients(): Promise<PatientWithAggregates[]> {
       painSums.set(m.patient_id, entry)
     }
   }
+  const avgPain7dMap = new Map<string, number>()
   for (const [pid, { sum, count }] of painSums) {
     avgPain7dMap.set(pid, sum / count)
   }
 
-  return patients.map((p) => {
+  // Compute overview stats
+  const activePatientIds = new Set<string>()
+  for (const m of messages) {
+    if (new Date(m.created_at) >= weekStart) {
+      activePatientIds.add(m.patient_id)
+    }
+  }
+
+  function avgDiscomfort(rows: { discomfort: number | null }[]): number | null {
+    const values = rows.map((r) => r.discomfort).filter((v): v is number => v !== null)
+    if (values.length === 0) return null
+    return values.reduce((sum, v) => sum + v, 0) / values.length
+  }
+
+  const stats: OverviewStats = {
+    totalPatients: patients.filter((p) => p.active).length,
+    activeThisWeek: activePatientIds.size,
+    messagesThisWeek: messagesThisWeekResult.count ?? 0,
+    avgDiscomfortThisWeek: avgDiscomfort(discomfortThisWeekResult.data ?? []),
+    avgDiscomfortLastWeek: avgDiscomfort(discomfortLastWeekResult.data ?? []),
+  }
+
+  const patientList = patients.map((p) => {
     const lastMsg = lastMessageMap.get(p.id)
     const latestMetric = latestMetricMap.get(p.id)
     const avgPain = avgPain7dMap.get(p.id)
@@ -147,12 +212,6 @@ async function getPatients(): Promise<PatientWithAggregates[]> {
       status = 'new'
     }
 
-    // Active if messaged within last 3 days and no other status
-    if (status === 'active' && daysSinceMsg != null && daysSinceMsg > 3) {
-      // Not truly active by our definition, but not inactive/alert/new either
-      // Keep as active (default)
-    }
-
     return {
       id: p.id,
       name: p.name,
@@ -173,22 +232,15 @@ async function getPatients(): Promise<PatientWithAggregates[]> {
       alert_detail: alertDetail,
     }
   })
-}
 
-function getWeekStart(date: Date): Date {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1) // Monday
-  d.setDate(diff)
-  d.setHours(0, 0, 0, 0)
-  return d
+  return { patients: patientList, stats }
 }
 
 export default async function PatientsPage() {
-  const patients = await getPatients()
+  const { patients, stats } = await getPatients()
   return (
     <div className="space-y-6">
-      <OverviewCards />
+      <OverviewCards stats={stats} />
       <PatientList patients={patients} />
     </div>
   )

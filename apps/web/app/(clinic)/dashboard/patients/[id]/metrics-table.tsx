@@ -97,7 +97,9 @@ export function MetricsTable({ metrics }: { metrics: MetricRow[] }) {
             <Button
               variant="ghost"
               size="sm"
+              className="min-h-[44px]"
               onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+              aria-label={`Load ${Math.min(PAGE_SIZE, metrics.length - visibleCount)} more metrics`}
             >
               Load more ({metrics.length - visibleCount} remaining)
             </Button>

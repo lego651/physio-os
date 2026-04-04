@@ -1,12 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendSMSWithRetry } from '@/lib/sms/send'
+import { requireAdminAuth } from '@/lib/auth/require-admin'
+import { isValidUUID } from '@/lib/validation'
 
 export async function POST(
-  request: NextRequest,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAdminAuth()
+  if (auth.error) return auth.error
+
   const { id } = await params
+  if (!isValidUUID(id)) {
+    return Response.json({ error: 'Invalid patient ID' }, { status: 400 })
+  }
+
   const supabase = createAdminClient()
 
   // Get patient
@@ -17,21 +25,22 @@ export async function POST(
     .maybeSingle()
 
   if (patientError) {
-    return NextResponse.json({ error: patientError.message }, { status: 500 })
+    console.error('[send-checkin] Patient lookup failed:', patientError)
+    return Response.json({ error: 'Failed to look up patient' }, { status: 500 })
   }
   if (!patient) {
-    return NextResponse.json({ error: 'Patient not found' }, { status: 404 })
+    return Response.json({ error: 'Patient not found' }, { status: 404 })
   }
   if (patient.opted_out) {
-    return NextResponse.json({ error: 'Patient has opted out' }, { status: 400 })
+    return Response.json({ error: 'Patient has opted out' }, { status: 400 })
   }
   if (!patient.phone) {
-    return NextResponse.json({ error: 'Patient has no phone number' }, { status: 400 })
+    return Response.json({ error: 'Patient has no phone number' }, { status: 400 })
   }
 
-  // Rate limit: max 1 admin check-in per patient per day
+  // Rate limit: max 1 admin check-in per patient per day (UTC)
   const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
+  todayStart.setUTCHours(0, 0, 0, 0)
 
   const { count } = await supabase
     .from('messages')
@@ -40,9 +49,10 @@ export async function POST(
     .eq('role', 'assistant')
     .eq('channel', 'sms')
     .gte('created_at', todayStart.toISOString())
+    .contains('metadata', { admin_initiated: true })
 
   if ((count ?? 0) > 0) {
-    return NextResponse.json(
+    return Response.json(
       { error: 'Check-in already sent today. Max 1 per patient per day.' },
       { status: 429 }
     )
@@ -58,16 +68,17 @@ export async function POST(
     await sendSMSWithRetry({ to: patient.phone, body: messageText })
   } catch (err) {
     console.error('[send-checkin] SMS failed:', err)
-    return NextResponse.json({ error: 'Failed to send. Please try again.' }, { status: 500 })
+    return Response.json({ error: 'Failed to send. Please try again.' }, { status: 500 })
   }
 
-  // Save to DB
+  // Save to DB with admin_initiated metadata
   await supabase.from('messages').insert({
     patient_id: id,
     role: 'assistant',
     content: messageText,
     channel: 'sms',
+    metadata: { admin_initiated: true },
   })
 
-  return NextResponse.json({ success: true })
+  return Response.json({ success: true })
 }

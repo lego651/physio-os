@@ -1,9 +1,13 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendSMSWithRetry } from '@/lib/sms/send'
+import { requireAdminAuth } from '@/lib/auth/require-admin'
 
 const E164_REGEX = /^\+[1-9]\d{7,14}$/
 
 export async function POST(req: Request) {
+  const auth = await requireAdminAuth()
+  if (auth.error) return auth.error
+
   let body: unknown
   try {
     body = await req.json()

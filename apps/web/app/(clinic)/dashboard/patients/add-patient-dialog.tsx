@@ -16,9 +16,15 @@ import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
 import { PlusIcon } from 'lucide-react'
 
+const COUNTRY_CODES = [
+  { code: '+1', label: '+1 (NA)', digits: 10 },
+  { code: '+86', label: '+86 (CN)', digits: 11 },
+] as const
+
 interface FormState {
   name: string
   phoneLocal: string
+  countryCode: string
   language: 'en' | 'zh'
   condition: string
 }
@@ -26,6 +32,7 @@ interface FormState {
 const DEFAULT_FORM: FormState = {
   name: '',
   phoneLocal: '',
+  countryCode: '+1',
   language: 'en',
   condition: '',
 }
@@ -42,16 +49,25 @@ export function AddPatientDialog() {
     setError(null)
   }
 
-  function buildPhone(local: string) {
+  function buildPhone(local: string, code: string) {
     const digits = local.replace(/\D/g, '')
-    return `+1${digits}`
+    const expected = COUNTRY_CODES.find((c) => c.code === code)
+    if (expected && digits.length !== expected.digits) {
+      return null // Invalid digit count
+    }
+    return `${code}${digits}`
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
 
-    const phone = buildPhone(form.phoneLocal)
+    const phone = buildPhone(form.phoneLocal, form.countryCode)
+    if (!phone) {
+      const expected = COUNTRY_CODES.find((c) => c.code === form.countryCode)
+      setError(`Please enter ${expected?.digits ?? 10} digits for ${form.countryCode} numbers`)
+      return
+    }
 
     setSubmitting(true)
     try {
@@ -123,13 +139,21 @@ export function AddPatientDialog() {
               Phone <span className="text-destructive">*</span>
             </label>
             <div className="flex items-center gap-1.5">
-              <span className="flex h-8 items-center rounded-lg border border-input bg-muted px-2.5 text-sm text-muted-foreground select-none">
-                +1
-              </span>
+              <select
+                value={form.countryCode}
+                onChange={(e) => handleChange('countryCode', e.target.value)}
+                disabled={submitting}
+                className="flex h-8 items-center rounded-lg border border-input bg-muted px-2 text-sm"
+                aria-label="Country code"
+              >
+                {COUNTRY_CODES.map((cc) => (
+                  <option key={cc.code} value={cc.code}>{cc.label}</option>
+                ))}
+              </select>
               <Input
                 id="ap-phone"
                 type="tel"
-                placeholder="604 555 1234"
+                placeholder={form.countryCode === '+86' ? '138 0000 0000' : '604 555 1234'}
                 value={form.phoneLocal}
                 onChange={(e) => handleChange('phoneLocal', e.target.value)}
                 required
@@ -138,7 +162,7 @@ export function AddPatientDialog() {
               />
             </div>
             <p className="text-xs text-muted-foreground">
-              North American numbers only (+1). Enter 10 digits.
+              Enter {COUNTRY_CODES.find((c) => c.code === form.countryCode)?.digits ?? 10} digits.
             </p>
           </div>
 

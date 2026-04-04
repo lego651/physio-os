@@ -27,9 +27,9 @@ const RANGES: { key: Range; label: string }[] = [
 
 export function TrendChart({ metrics }: { metrics: MetricRow[] }) {
   const [range, setRange] = useState<Range>('30d')
+  const [now] = useState(() => Date.now())
 
   const chartData = useMemo(() => {
-    const now = Date.now()
     const rangeMs: Record<Range, number> = {
       '7d': 7 * 86400000,
       '14d': 14 * 86400000,
@@ -48,7 +48,7 @@ export function TrendChart({ metrics }: { metrics: MetricRow[] }) {
         discomfort: m.discomfort,
       }))
       .sort((a, b) => a.rawDate - b.rawDate)
-  }, [metrics, range])
+  }, [metrics, range, now])
 
   if (metrics.length === 0) {
     return (
@@ -82,7 +82,9 @@ export function TrendChart({ metrics }: { metrics: MetricRow[] }) {
                 key={r.key}
                 variant={range === r.key ? 'default' : 'ghost'}
                 size="sm"
+                className="min-h-[44px] min-w-[44px]"
                 onClick={() => setRange(r.key)}
+                aria-label={`Show ${r.label} range`}
               >
                 {r.label}
               </Button>

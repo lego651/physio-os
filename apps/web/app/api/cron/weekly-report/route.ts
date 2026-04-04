@@ -24,24 +24,7 @@ function isAuthorized(req: Request): boolean {
   return verifyBearerToken(req, cronSecret)
 }
 
-// ---------------------------------------------------------------------------
-// Week calculation
-// ---------------------------------------------------------------------------
-
-/**
- * Return the Monday that started the week containing the given date.
- * e.g. if today is Sunday 2026-04-05, returns Monday 2026-03-30.
- */
-function getWeekStart(from: Date): Date {
-  const d = new Date(from)
-  // getDay(): 0=Sun, 1=Mon, ..., 6=Sat
-  // Days since last Monday: (dayOfWeek + 6) % 7
-  const dayOfWeek = d.getUTCDay()
-  const daysSinceMonday = (dayOfWeek + 6) % 7
-  d.setUTCDate(d.getUTCDate() - daysSinceMonday)
-  d.setUTCHours(0, 0, 0, 0)
-  return d
-}
+import { getWeekStartUTC as getWeekStart } from '@/lib/date'
 
 // ---------------------------------------------------------------------------
 // SMS formatting

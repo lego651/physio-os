@@ -75,7 +75,9 @@ export function ConversationLog({ patientId }: { patientId: string }) {
                 key={ch}
                 variant={channelFilter === ch ? 'default' : 'ghost'}
                 size="sm"
+                className="min-h-[44px] min-w-[44px]"
                 onClick={() => setChannelFilter(ch)}
+                aria-label={`Filter messages: ${ch === 'all' ? 'all channels' : ch.toUpperCase()}`}
               >
                 {ch === 'all' ? 'All' : ch.toUpperCase()}
               </Button>
@@ -100,7 +102,7 @@ export function ConversationLog({ patientId }: { patientId: string }) {
 
         {hasMore && !loading && (
           <div className="mt-4 flex justify-center">
-            <Button variant="ghost" size="sm" onClick={loadMore}>
+            <Button variant="ghost" size="sm" className="min-h-[44px]" onClick={loadMore}>
               Load older messages
             </Button>
           </div>
@@ -140,6 +142,14 @@ function MessageBubble({ message }: { message: Message }) {
                 alt={`Attachment ${i + 1}`}
                 className="max-h-48 rounded border object-cover"
                 loading="lazy"
+                onError={(e) => {
+                  const img = e.currentTarget
+                  img.style.display = 'none'
+                  const placeholder = document.createElement('div')
+                  placeholder.className = 'flex h-24 w-32 items-center justify-center rounded border bg-muted text-xs text-muted-foreground'
+                  placeholder.textContent = 'Image unavailable'
+                  img.parentElement?.replaceChild(placeholder, img)
+                }}
               />
             ))}
           </div>

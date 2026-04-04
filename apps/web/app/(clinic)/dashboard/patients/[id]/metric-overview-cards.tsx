@@ -1,19 +1,11 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Activity, TrendingDown, Clock, Dumbbell } from 'lucide-react'
+import { getWeekStartUTC } from '@/lib/date'
 import type { MetricRow } from './page'
-
-function getWeekStart(date: Date): Date {
-  const d = new Date(date)
-  const day = d.getDay()
-  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
-  d.setDate(diff)
-  d.setHours(0, 0, 0, 0)
-  return d
-}
 
 export function MetricOverviewCards({ metrics }: { metrics: MetricRow[] }) {
   const now = new Date()
-  const weekStart = getWeekStart(now)
+  const weekStart = getWeekStartUTC(now)
 
   const thisWeek = metrics.filter((m) => new Date(m.recorded_at) >= weekStart)
 

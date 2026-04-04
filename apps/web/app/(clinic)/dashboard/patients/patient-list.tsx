@@ -6,7 +6,8 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, Search, ArrowUpDown, AlertTriangle, Clock, TrendingDown, TrendingUp, Activity, MessageSquare } from 'lucide-react'
+import { Users, Search, ArrowUpDown, AlertTriangle, Clock, TrendingDown, Activity, MessageSquare } from 'lucide-react'
+import { AddPatientDialog } from './add-patient-dialog'
 import type { PatientWithAggregates } from './page'
 
 type SortKey = 'activity' | 'name' | 'status'
@@ -21,10 +22,11 @@ const STATUS_ORDER: Record<PatientWithAggregates['status'], number> = {
 export function PatientList({ patients }: { patients: PatientWithAggregates[] }) {
   const [search, setSearch] = useState('')
   const [sortBy, setSortBy] = useState<SortKey>('activity')
+  const [now] = useState(() => Date.now())
 
   const alertCount = patients.filter((p) => p.status === 'alert').length
   const inactiveCount = patients.filter((p) => {
-    const days = p.days_since_last_message ?? Math.floor((Date.now() - new Date(p.created_at).getTime()) / 86400000)
+    const days = p.days_since_last_message ?? Math.floor((now - new Date(p.created_at).getTime()) / 86400000)
     return days >= 5
   }).length
 
@@ -52,7 +54,10 @@ export function PatientList({ patients }: { patients: PatientWithAggregates[] })
   if (patients.length === 0) {
     return (
       <div className="space-y-6">
-        <h1 className="text-2xl font-semibold">Patients</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-semibold">Patients</h1>
+          <AddPatientDialog />
+        </div>
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground">
             <Users className="mb-4 h-12 w-12" />
@@ -66,7 +71,10 @@ export function PatientList({ patients }: { patients: PatientWithAggregates[] })
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">Patients</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-semibold">Patients</h1>
+        <AddPatientDialog />
+      </div>
 
       {/* Alert / Inactive summaries */}
       {(alertCount > 0 || inactiveCount > 0) && (
@@ -103,7 +111,9 @@ export function PatientList({ patients }: { patients: PatientWithAggregates[] })
               key={key}
               variant={sortBy === key ? 'default' : 'ghost'}
               size="sm"
+              className="min-h-[44px] min-w-[44px]"
               onClick={() => setSortBy(key)}
+              aria-label={`Sort by ${key === 'activity' ? 'recent activity' : key}`}
             >
               <ArrowUpDown className="mr-1 h-3 w-3" />
               {key === 'activity' ? 'Recent' : key === 'name' ? 'A-Z' : 'Status'}
@@ -130,7 +140,7 @@ function PatientCard({ patient }: { patient: PatientWithAggregates }) {
   return (
     <Link href={`/dashboard/patients/${patient.id}`}>
       <Card className="cursor-pointer transition-colors hover:bg-muted/50">
-        <CardContent className="py-3">
+        <CardContent className="py-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             {/* Left: Name + badges */}
             <div className="flex items-center gap-3">
@@ -186,7 +196,8 @@ function StatusBadge({
   daysSinceMessage: number | null
   createdAt: string
 }) {
-  const inactiveDays = daysSinceMessage ?? Math.floor((Date.now() - new Date(createdAt).getTime()) / 86400000)
+  const [now] = useState(() => Date.now())
+  const inactiveDays = daysSinceMessage ?? Math.floor((now - new Date(createdAt).getTime()) / 86400000)
 
   switch (status) {
     case 'alert':
@@ -243,6 +254,9 @@ function relativeTime(dateStr: string): string {
   const now = Date.now()
   const date = new Date(dateStr).getTime()
   const diff = now - date
+
+  if (diff < 0) return 'Just now'
+
   const minutes = Math.floor(diff / 60000)
   const hours = Math.floor(diff / 3600000)
   const days = Math.floor(diff / 86400000)

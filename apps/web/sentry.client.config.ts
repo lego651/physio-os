@@ -1,13 +1,17 @@
 import * as Sentry from "@sentry/nextjs";
 
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  environment: process.env.NODE_ENV,
+const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
-  // No performance monitoring yet
-  tracesSampleRate: 0,
+if (dsn) {
+  Sentry.init({
+    dsn,
+    environment: process.env.NODE_ENV,
 
-  // No session replay yet
-  replaysSessionSampleRate: 0,
-  replaysOnErrorSampleRate: 0,
-});
+    // No performance monitoring yet
+    tracesSampleRate: 0,
+
+    // No session replay yet
+    replaysSessionSampleRate: 0,
+    replaysOnErrorSampleRate: 0,
+  });
+}
