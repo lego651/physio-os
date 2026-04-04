@@ -122,6 +122,7 @@ export type Database = {
           daily_routine: Json | null
           id: string
           language: string
+          last_nudged_at: string | null
           name: string | null
           opted_out: boolean
           phone: string
@@ -139,6 +140,7 @@ export type Database = {
           daily_routine?: Json | null
           id?: string
           language?: string
+          last_nudged_at?: string | null
           name?: string | null
           opted_out?: boolean
           phone: string
@@ -156,6 +158,7 @@ export type Database = {
           daily_routine?: Json | null
           id?: string
           language?: string
+          last_nudged_at?: string | null
           name?: string | null
           opted_out?: boolean
           phone?: string
