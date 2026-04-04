@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import { createClient } from '@/lib/supabase/server'
 import {
   handleMessage,
@@ -22,6 +23,27 @@ const ALLOWED_ORIGINS = new Set([
 const requestSchema = z.object({
   message: z.string().min(1, 'Message is required').max(MAX_MESSAGE_LENGTH, 'Message too long'),
 })
+
+/**
+ * Return an AI error as a streaming chat message so useChat renders it
+ * inline rather than throwing a client-side error that breaks the UI.
+ * The canRetry flag tells the client to show a Retry button.
+ */
+function streamErrorAsMessage(text: string): Response {
+  const msgId = crypto.randomUUID()
+  return createUIMessageStreamResponse({
+    status: 200,
+    headers: { 'x-can-retry': '1' },
+    stream: new ReadableStream<UIMessageChunk>({
+      start(controller) {
+        controller.enqueue({ type: 'text-start', id: msgId })
+        controller.enqueue({ type: 'text-delta', id: msgId, delta: text })
+        controller.enqueue({ type: 'text-end', id: msgId })
+        controller.close()
+      },
+    }),
+  })
+}
 
 export async function POST(req: Request) {
   // Origin validation (CSRF protection)
@@ -49,6 +71,10 @@ export async function POST(req: Request) {
     .single()
 
   if (patientError || !patient) {
+    Sentry.captureException(patientError ?? new Error('Patient record not found'), {
+      tags: { component: 'chat-api' },
+      extra: { userId: user.id },
+    })
     return new Response('Patient record not found', { status: 404 })
   }
 
@@ -88,6 +114,10 @@ export async function POST(req: Request) {
 
   if (messagesError) {
     console.error('[chat] Failed to load messages:', { patientId: patient.id })
+    Sentry.captureException(messagesError, {
+      tags: { component: 'chat-api', step: 'load-messages' },
+      extra: { patientId: patient.id },
+    })
     return Response.json({ error: 'Failed to load conversation' }, { status: 500 })
   }
 
@@ -171,7 +201,7 @@ export async function POST(req: Request) {
       timestamp: new Date().toISOString(),
     }))
 
-    // User message already saved at L113 — only insert the assistant response
+    // User message already saved above — only insert the assistant response
     const { error: insertError } = await supabase.from('messages').insert({
       patient_id: patient.id, role: 'assistant', content: result.emergencyMessage, channel: 'web',
     })
@@ -180,7 +210,6 @@ export async function POST(req: Request) {
       console.error('[chat] Failed to save emergency messages:', { patientId: patient.id })
     }
 
-    // Return emergency as streaming response so useChat can consume it
     const msgId = crypto.randomUUID()
     return createUIMessageStreamResponse({
       status: 200,
@@ -220,17 +249,19 @@ export async function POST(req: Request) {
     return result.stream.toUIMessageStreamResponse()
   } catch (error) {
     console.error('[chat] AI conversation error:', error)
+    Sentry.captureException(error, {
+      tags: { component: 'chat-api', step: 'stream' },
+      extra: { patientId: patient.id },
+    })
 
     if (error instanceof AIUnavailableError) {
-      return Response.json(
-        { error: "I'm having trouble responding right now. Please try again in a moment." },
-        { status: 503 },
+      return streamErrorAsMessage(
+        "I'm having trouble responding right now. Please try again in a moment.",
       )
     }
 
-    return Response.json(
-      { error: 'Something went wrong. Please try again.' },
-      { status: 500 },
+    return streamErrorAsMessage(
+      "Something went wrong. Please try again.",
     )
   }
 }

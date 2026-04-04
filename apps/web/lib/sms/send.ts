@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import { trackSMSUsage } from '@/lib/sms/cost-tracker'
 
 const TWILIO_API_BASE = 'https://api.twilio.com/2010-04-01'
@@ -74,8 +75,12 @@ class TwilioSendError extends Error {
 /**
  * Send SMS with exponential backoff retry.
  * Only retries on 429 or 5xx; 4xx client errors fail immediately.
+ * Logs to Sentry after all retries are exhausted.
  */
-export async function sendSMSWithRetry(options: SendSMSOptions, maxAttempts = 3): Promise<{ sid: string }> {
+export async function sendSMSWithRetry(
+  options: SendSMSOptions & { patientId?: string },
+  maxAttempts = 3,
+): Promise<{ sid: string }> {
   const delays = [1000, 2000, 4000]
   let lastError: Error | undefined
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -83,12 +88,24 @@ export async function sendSMSWithRetry(options: SendSMSOptions, maxAttempts = 3)
       return await sendSMS(options)
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err))
-      if (err instanceof TwilioSendError && !err.retryable) throw err
+      if (err instanceof TwilioSendError && !err.retryable) {
+        // Non-retryable Twilio error (e.g. invalid number) — log immediately
+        Sentry.captureException(err, {
+          tags: { component: 'twilio', retryable: false },
+          extra: { patientId: options.patientId, statusCode: err.statusCode },
+        })
+        throw err
+      }
       if (attempt < maxAttempts - 1) {
         await new Promise(r => setTimeout(r, delays[attempt]))
       }
     }
   }
+  // All retries exhausted — log to Sentry with patient context
+  Sentry.captureException(lastError, {
+    tags: { component: 'twilio', retryable: true, exhausted: true },
+    extra: { patientId: options.patientId, attempts: maxAttempts },
+  })
   throw lastError
 }
 

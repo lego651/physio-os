@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs'
 import type { Database } from '@physio-os/shared'
 import type { AdminClient } from '@/lib/supabase/admin'
 import { handleMessage, createLogMetricsTool, createGetHistoryTool } from '@physio-os/ai-core'
@@ -5,6 +6,34 @@ import { buildContext } from '@physio-os/ai-core'
 import { sendSMSWithRetry, formatSMSResponse } from './send'
 import { processMMSMedia } from './mms'
 import { handleSMSOnboarding } from './onboarding'
+
+// In-memory failure tracker for the Sentry alert threshold.
+// Keys: patientId -> array of failure timestamps (ms).
+// This is intentionally in-process; for multi-instance deployments a
+// persistent store (Redis / Supabase) would be needed.
+const aiFailureLog = new Map<string, number[]>()
+const AI_FAILURE_WINDOW_MS = 60 * 60 * 1000 // 1 hour
+const AI_FAILURE_THRESHOLD = 3
+
+/**
+ * Record an AI failure for a patient and trigger a Sentry alert if
+ * the patient has hit AI_FAILURE_THRESHOLD failures within the window.
+ */
+function recordAIFailure(patientId: string, error: unknown): void {
+  const now = Date.now()
+  const windowStart = now - AI_FAILURE_WINDOW_MS
+  const timestamps = (aiFailureLog.get(patientId) ?? []).filter(t => t > windowStart)
+  timestamps.push(now)
+  aiFailureLog.set(patientId, timestamps)
+
+  if (timestamps.length >= AI_FAILURE_THRESHOLD) {
+    Sentry.captureException(error instanceof Error ? error : new Error(String(error)), {
+      level: 'error',
+      tags: { component: 'ai-sms', alert: 'repeated-failure' },
+      extra: { patientId, failuresInWindow: timestamps.length },
+    })
+  }
+}
 
 type PatientRow = Database['public']['Tables']['patients']['Row']
 type PatientSMS = Pick<
@@ -156,15 +185,25 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
     } else if (result.type === 'emergency' && result.emergencyMessage) {
       replyText = result.emergencyMessage
     } else if (result.stream) {
-      const fullText = await result.stream.text
-      replyText = formatSMSResponse(fullText, appUrl)
+      try {
+        const fullText = await result.stream.text
+        replyText = formatSMSResponse(fullText, appUrl)
+      } catch (aiErr) {
+        // Claude API failure — send a reassuring fallback SMS and record for Sentry threshold
+        console.error('[sms] Claude API error for patient:', patient.id, aiErr)
+        recordAIFailure(patient.id, aiErr)
+        const clinicPhone = process.env.CLINIC_PHONE || 'V-Health'
+        const fallback = `I'm having trouble right now. Please try again in a few minutes or call ${clinicPhone}.`
+        await sendSMSWithRetry({ to: normalizedPhone, body: fallback, patientId: patient.id })
+        return
+      }
     } else {
       console.error('[sms] Unexpected result type:', result.type)
       return
     }
 
     // Send reply via Twilio (with exponential backoff retry)
-    await sendSMSWithRetry({ to: normalizedPhone, body: replyText })
+    await sendSMSWithRetry({ to: normalizedPhone, body: replyText, patientId: patient.id })
 
     // Save assistant message to DB
     await supabase.from('messages').insert({
