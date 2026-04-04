@@ -2,7 +2,8 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "crons": [
     { "path": "/api/cron/weekly-report", "schedule": "0 17 * * 0" },
-    { "path": "/api/cron/nudge", "schedule": "0 18 * * *" }
+    { "path": "/api/cron/nudge", "schedule": "0 18 * * *" },
+    { "path": "/api/cron/sms-cost-alert", "schedule": "0 9 * * *" }
   ]
 }
 
