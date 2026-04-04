@@ -79,12 +79,12 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
             </SidebarFooter>
           </Sidebar>
 
-          <div className="flex flex-1 flex-col">
-            <header className="flex items-center gap-2 border-b px-4 py-3">
-              <SidebarTrigger />
-              <h2 className="font-semibold">V-Health Dashboard</h2>
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <header className="flex min-h-[44px] items-center gap-2 border-b px-3 py-2 sm:px-4 sm:py-3">
+              <SidebarTrigger className="min-h-[44px] min-w-[44px]" />
+              <h2 className="truncate font-semibold">V-Health Dashboard</h2>
             </header>
-            <main className="flex-1 p-4 md:p-6">{children}</main>
+            <main className="flex-1 overflow-y-auto p-3 pb-16 sm:p-4 sm:pb-4 md:p-6">{children}</main>
           </div>
         </div>
       </SidebarProvider>
