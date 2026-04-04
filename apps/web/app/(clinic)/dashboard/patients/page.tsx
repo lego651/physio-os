@@ -1,5 +1,6 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 import { PatientList } from './patient-list'
+import { OverviewCards } from './overview-cards'
 
 export const dynamic = 'force-dynamic'
 
@@ -185,5 +186,10 @@ function getWeekStart(date: Date): Date {
 
 export default async function PatientsPage() {
   const patients = await getPatients()
-  return <PatientList patients={patients} />
+  return (
+    <div className="space-y-6">
+      <OverviewCards />
+      <PatientList patients={patients} />
+    </div>
+  )
 }
