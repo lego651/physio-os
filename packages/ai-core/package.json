@@ -14,6 +14,7 @@
     "@physio-os/shared": "workspace:*",
     "@supabase/supabase-js": "^2.101.1",
     "ai": "^6.0.144",
+    "jose": "^6.2.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
