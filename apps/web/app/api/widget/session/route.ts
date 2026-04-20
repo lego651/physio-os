@@ -6,6 +6,7 @@ import { isWidgetEnabled } from '@/lib/widget/kill-switch'
 import { getAllowedOrigins, isAllowedOrigin } from '@/lib/widget/origin'
 import { verifyTurnstile } from '@/lib/widget/turnstile'
 import { checkWidgetRateLimit, hashIp } from '@/lib/widget/rate-limit'
+import { signSessionToken } from '@/lib/widget/session-token'
 import { WIDGET_MESSAGES as M } from '@/lib/widget/constants'
 
 export const runtime = 'nodejs'
@@ -55,5 +56,18 @@ export async function POST(req: Request) {
     .single()
   if (error || !conv) return NextResponse.json({ error: M.ERROR_GENERIC }, { status: 500 })
 
-  return NextResponse.json({ conversationId: conv.id, sessionId: conv.session_id })
+  // Best-effort: bump today's conversations_count rollup. Non-blocking.
+  const today = new Date().toISOString().slice(0, 10)
+  await supabase
+    .rpc('widget_conversation_started', { p_clinic_id: clinic.id, p_date: today })
+    .catch(() => {/* migration may not be applied yet — ignore */})
+
+  let token: string
+  try {
+    token = await signSessionToken({ cid: conv.id, clinic: body.data.clinicSlug, iph: ipHash })
+  } catch {
+    return NextResponse.json({ error: M.ERROR_GENERIC }, { status: 500 })
+  }
+
+  return NextResponse.json({ conversationId: conv.id, sessionId: conv.session_id, token })
 }

@@ -54,8 +54,9 @@ SAFETY:
 
 OUTPUT CONTRACT (REQUIRED):
 - You MUST respond ONLY with a single JSON object, no prose around it, with exactly these fields:
-  {"reply": "<your message to the visitor, Markdown allowed>", "on_topic": true | false}
+  {"reply": "<your message to the visitor, Markdown allowed>", "on_topic": true | false, "show_lead_form": true | false}
 - "on_topic": true if the message is within ALLOWED TOPICS; false otherwise.
 - When on_topic is false, the "reply" should politely redirect to allowed topics in one sentence.
+- "show_lead_form": set to true if the visitor has shown clear booking intent or you've recommended a therapist, otherwise false.
 `
 }

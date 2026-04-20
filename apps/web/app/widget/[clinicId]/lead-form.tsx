@@ -3,8 +3,8 @@ import { useState } from 'react'
 
 const CONSENT_TEXT = 'I consent to be contacted by V-Health Rehab Clinic by email, phone, or text regarding my appointment request.'
 
-export function LeadForm({ clinicSlug, conversationId, onDone }: {
-  clinicSlug: string; conversationId: string; onDone: () => void
+export function LeadForm({ token, onDone }: {
+  token: string; onDone: () => void
 }) {
   const [name, setName] = useState(''); const [phone, setPhone] = useState('')
   const [email, setEmail] = useState(''); const [interest, setInterest] = useState('')
@@ -17,7 +17,7 @@ export function LeadForm({ clinicSlug, conversationId, onDone }: {
       const res = await fetch('/api/widget/lead', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clinicSlug, conversationId, name, phone, email, interest,
+          token, name, phone, email, interest,
           consentGiven: consent, consentText: CONSENT_TEXT,
         }),
       })

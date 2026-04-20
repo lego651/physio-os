@@ -21,6 +21,7 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
   const [leadDone, setLeadDone] = useState(false)
   const turnstileRef = useRef<HTMLDivElement | null>(null)
   const turnstileTokenRef = useRef<string | null>(null)
+  const sessionTokenRef = useRef<string | null>(null)
 
   // Render Turnstile once
   useEffect(() => {
@@ -38,7 +39,7 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
   }, [turnstileSiteKey])
 
   const ensureSession = useCallback(async () => {
-    if (conversationId) return conversationId
+    if (sessionTokenRef.current && conversationId) return sessionTokenRef.current
     const res = await fetch('/api/widget/session', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clinicSlug, turnstileToken: turnstileTokenRef.current ?? '' }),
@@ -46,33 +47,33 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
     const data = await res.json()
     if (!res.ok) { setError(data.error ?? 'Failed to start session'); return null }
     setConversationId(data.conversationId)
-    return data.conversationId as string
+    sessionTokenRef.current = data.token ?? null
+    return sessionTokenRef.current
   }, [clinicSlug, conversationId])
 
   const send = useCallback(async (text: string) => {
     if (!text.trim() || sending) return
     setError(null); setSending(true); setInput('')
     setMessages(m => [...m, { role: 'user', content: text }])
-    const cid = await ensureSession()
-    if (!cid) { setSending(false); return }
+    const token = await ensureSession()
+    if (!token) { setSending(false); return }
     try {
       const res = await fetch('/api/widget/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId: cid, clinicSlug, message: text }),
+        body: JSON.stringify({ token, message: text }),
       })
       const data = await res.json()
       setMessages(m => {
         const next = [...m, { role: 'assistant' as const, content: data.reply ?? 'Something went wrong.' }]
         const userCount = next.filter(msg => msg.role === 'user').length
-        const reply: string = data.reply ?? ''
-        if (reply.includes('staff_member/') || userCount >= 3) setLeadOpen(true)
+        if (data.show_lead_form === true || userCount >= 3) setLeadOpen(true)
         return next
       })
       if (data.locked) setError('This chat is locked. Please refresh to start a new one.')
     } catch {
       setMessages(m => [...m, { role: 'assistant', content: 'Sorry, something went wrong. Please text us at ' + phone }])
     } finally { setSending(false) }
-  }, [clinicSlug, ensureSession, phone, sending])
+  }, [ensureSession, phone, sending])
 
   return (
     <div className="flex h-full flex-col bg-white text-black">
@@ -91,11 +92,10 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
         {error && <div className="text-red-600 text-sm">{error}</div>}
       </div>
       <HandoffButtons phone={phone} />
-      {leadOpen && !leadDone && conversationId && (
+      {leadOpen && !leadDone && conversationId && sessionTokenRef.current && (
         <div className="border-t p-2">
           <LeadForm
-            clinicSlug={clinicSlug}
-            conversationId={conversationId ?? ''}
+            token={sessionTokenRef.current}
             onDone={() => { setLeadDone(true); setLeadOpen(false) }}
           />
         </div>
