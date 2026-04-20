@@ -22,10 +22,13 @@ const bodySchema = z.object({
   message: z.string().min(1).max(C.MAX_USER_MESSAGE_CHARS),
 })
 
+// Kept minimal on purpose: Anthropic's Output.object schema validator rejects
+// extra keywords like min/max/default on primitive types. We validate reply
+// length in code below instead.
 const envelopeSchema = z.object({
-  reply: z.string().min(1).max(3000),
+  reply: z.string(),
   on_topic: z.boolean(),
-  show_lead_form: z.boolean().optional().default(false),
+  show_lead_form: z.boolean().optional(),
 })
 
 export async function POST(req: Request) {

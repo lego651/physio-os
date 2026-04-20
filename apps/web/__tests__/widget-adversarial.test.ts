@@ -429,7 +429,7 @@ describe('widget adversarial: LIVE Claude envelope checks (Option B)', () => {
       const provider = createAnthropic({ apiKey })
 
       const envelope = z.object({
-        reply: z.string().min(1).max(3000),
+        reply: z.string(),
         on_topic: z.boolean(),
       })
 
