@@ -3,6 +3,14 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { requireEnv } from '@/lib/env'
 
 export async function updateSession(request: NextRequest) {
+  const { pathname: requestPath } = request.nextUrl
+
+  // Public paths — chatbot widget must be accessible without auth.
+  // These prefixes bypass all auth checks and session refresh.
+  if (requestPath.startsWith('/widget') || requestPath.startsWith('/api/widget')) {
+    return NextResponse.next({ request })
+  }
+
   let supabaseResponse = NextResponse.next({ request })
 
   const supabase = createServerClient(
