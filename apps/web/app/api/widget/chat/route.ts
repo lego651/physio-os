@@ -130,7 +130,7 @@ export async function POST(req: Request) {
     await supabase.rpc('widget_usage_increment', {
       p_clinic_id: kb.clinic.id, p_date: today,
       p_tokens_in: usage?.inputTokens ?? 0, p_tokens_out: usage?.outputTokens ?? 0,
-    }).catch(() => {/* best-effort */})
+    })
 
     return NextResponse.json({
       reply: output.reply,

@@ -14,13 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      clinics: {
+        Row: {
+          branding: Json
+          created_at: string
+          domain: string
+          id: string
+          is_active: boolean
+          janeapp_base_url: string | null
+          monthly_message_cap: number
+          name: string
+          slug: string
+          updated_at: string
+        }
+        Insert: {
+          branding?: Json
+          created_at?: string
+          domain: string
+          id?: string
+          is_active?: boolean
+          janeapp_base_url?: string | null
+          monthly_message_cap?: number
+          name: string
+          slug: string
+          updated_at?: string
+        }
+        Update: {
+          branding?: Json
+          created_at?: string
+          domain?: string
+          id?: string
+          is_active?: boolean
+          janeapp_base_url?: string | null
+          monthly_message_cap?: number
+          name?: string
+          slug?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           channel: string
           content: string
           created_at: string
           id: string
-          is_emergency: boolean
           media_urls: string[] | null
           patient_id: string
           role: string
@@ -31,7 +69,6 @@ export type Database = {
           content: string
           created_at?: string
           id?: string
-          is_emergency?: boolean
           media_urls?: string[] | null
           patient_id: string
           role: string
@@ -42,7 +79,6 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
-          is_emergency?: boolean
           media_urls?: string[] | null
           patient_id?: string
           role?: string
@@ -215,35 +251,279 @@ export type Database = {
       }
       sms_usage: {
         Row: {
+          cost_estimate: number | null
           month: string
-          segments: number
-          cost_estimate: number
+          segments: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          cost_estimate?: number | null
+          month: string
+          segments?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          cost_estimate?: number | null
+          month?: string
+          segments?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      therapists: {
+        Row: {
+          bio: string
+          clinic_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          janeapp_staff_id: number | null
+          languages: string[]
+          name: string
+          role: string
+          specialties: string[]
           updated_at: string
         }
         Insert: {
-          month: string
-          segments?: number
-          cost_estimate?: number
+          bio: string
+          clinic_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          janeapp_staff_id?: number | null
+          languages?: string[]
+          name: string
+          role: string
+          specialties?: string[]
           updated_at?: string
         }
         Update: {
-          month?: string
-          segments?: number
-          cost_estimate?: number
+          bio?: string
+          clinic_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          janeapp_staff_id?: number | null
+          languages?: string[]
+          name?: string
+          role?: string
+          specialties?: string[]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "therapists_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      widget_conversations: {
+        Row: {
+          clinic_id: string
+          ended_at: string | null
+          id: string
+          lang_detected: string | null
+          offtopic_strikes: number
+          referer: string | null
+          session_id: string
+          started_at: string
+          status: string
+          user_agent: string | null
+          visitor_ip_hash: string
+        }
+        Insert: {
+          clinic_id: string
+          ended_at?: string | null
+          id?: string
+          lang_detected?: string | null
+          offtopic_strikes?: number
+          referer?: string | null
+          session_id: string
+          started_at?: string
+          status?: string
+          user_agent?: string | null
+          visitor_ip_hash: string
+        }
+        Update: {
+          clinic_id?: string
+          ended_at?: string | null
+          id?: string
+          lang_detected?: string | null
+          offtopic_strikes?: number
+          referer?: string | null
+          session_id?: string
+          started_at?: string
+          status?: string
+          user_agent?: string | null
+          visitor_ip_hash?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "widget_conversations_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      widget_leads: {
+        Row: {
+          clinic_id: string
+          consent_given: boolean
+          consent_text: string
+          conversation_id: string
+          created_at: string
+          email: string | null
+          id: string
+          interest: string | null
+          name: string
+          notified_at: string | null
+          phone: string | null
+        }
+        Insert: {
+          clinic_id: string
+          consent_given: boolean
+          consent_text: string
+          conversation_id: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          interest?: string | null
+          name: string
+          notified_at?: string | null
+          phone?: string | null
+        }
+        Update: {
+          clinic_id?: string
+          consent_given?: boolean
+          consent_text?: string
+          conversation_id?: string
+          created_at?: string
+          email?: string | null
+          id?: string
+          interest?: string | null
+          name?: string
+          notified_at?: string | null
+          phone?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "widget_leads_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "widget_leads_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "widget_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      widget_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          on_topic: boolean | null
+          role: string
+          tokens_in: number | null
+          tokens_out: number | null
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          on_topic?: boolean | null
+          role: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          on_topic?: boolean | null
+          role?: string
+          tokens_in?: number | null
+          tokens_out?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "widget_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "widget_conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      widget_usage: {
+        Row: {
+          clinic_id: string
+          conversations_count: number
+          date: string
+          estimated_cost_usd: number
+          id: string
+          messages_count: number
+          tokens_in: number
+          tokens_out: number
+        }
+        Insert: {
+          clinic_id: string
+          conversations_count?: number
+          date: string
+          estimated_cost_usd?: number
+          id?: string
+          messages_count?: number
+          tokens_in?: number
+          tokens_out?: number
+        }
+        Update: {
+          clinic_id?: string
+          conversations_count?: number
+          date?: string
+          estimated_cost_usd?: number
+          id?: string
+          messages_count?: number
+          tokens_in?: number
+          tokens_out?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "widget_usage_clinic_id_fkey"
+            columns: ["clinic_id"]
+            isOneToOne: false
+            referencedRelation: "clinics"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      increment_sms_usage: {
+      widget_conversation_started: {
+        Args: { p_clinic_id: string; p_date: string }
+        Returns: undefined
+      }
+      widget_usage_increment: {
         Args: {
-          p_month: string
-          p_segments: number
-          p_cost: number
+          p_clinic_id: string
+          p_date: string
+          p_tokens_in: number
+          p_tokens_out: number
         }
         Returns: undefined
       }

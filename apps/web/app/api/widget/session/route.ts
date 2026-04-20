@@ -60,7 +60,6 @@ export async function POST(req: Request) {
   const today = new Date().toISOString().slice(0, 10)
   await supabase
     .rpc('widget_conversation_started', { p_clinic_id: clinic.id, p_date: today })
-    .catch(() => {/* migration may not be applied yet — ignore */})
 
   let token: string
   try {

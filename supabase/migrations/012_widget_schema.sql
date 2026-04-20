@@ -4,6 +4,15 @@
 -- widget writes from the public API routes. Add per-role INSERT/UPDATE policies in
 -- a later migration when/if a dedicated authenticated widget role is introduced.
 
+-- Ensure set_updated_at() exists (also defined in 003, re-declared here for idempotency).
+CREATE OR REPLACE FUNCTION public.set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE public.clinics (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   slug text UNIQUE NOT NULL,
