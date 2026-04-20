@@ -3,6 +3,22 @@ import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  async headers() {
+    return [
+      {
+        source: '/widget/:path*',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value:
+              "frame-ancestors 'self' https://vhealth.ca https://www.vhealth.ca http://localhost:*",
+          },
+          // Blanked to allow CSP frame-ancestors to take precedence.
+          { key: 'X-Frame-Options', value: '' },
+        ],
+      },
+    ]
+  },
 };
 
 export default withSentryConfig(nextConfig, {
