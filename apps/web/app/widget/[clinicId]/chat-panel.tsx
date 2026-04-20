@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import Script from 'next/script'
 import { SuggestedChips } from './suggested-chips'
 import { HandoffButtons } from './handoff-buttons'
+import { LeadForm } from './lead-form'
 
 type Msg = { role: 'user' | 'assistant' | 'system'; content: string }
 
@@ -16,6 +17,8 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
   const [sending, setSending] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [leadOpen, setLeadOpen] = useState(false)
+  const [leadDone, setLeadDone] = useState(false)
   const turnstileRef = useRef<HTMLDivElement | null>(null)
   const turnstileTokenRef = useRef<string | null>(null)
 
@@ -58,7 +61,13 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
         body: JSON.stringify({ conversationId: cid, clinicSlug, message: text }),
       })
       const data = await res.json()
-      setMessages(m => [...m, { role: 'assistant', content: data.reply ?? 'Something went wrong.' }])
+      setMessages(m => {
+        const next = [...m, { role: 'assistant' as const, content: data.reply ?? 'Something went wrong.' }]
+        const userCount = next.filter(msg => msg.role === 'user').length
+        const reply: string = data.reply ?? ''
+        if (reply.includes('staff_member/') || userCount >= 3) setLeadOpen(true)
+        return next
+      })
       if (data.locked) setError('This chat is locked. Please refresh to start a new one.')
     } catch {
       setMessages(m => [...m, { role: 'assistant', content: 'Sorry, something went wrong. Please text us at ' + phone }])
@@ -82,6 +91,15 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
         {error && <div className="text-red-600 text-sm">{error}</div>}
       </div>
       <HandoffButtons phone={phone} />
+      {leadOpen && !leadDone && conversationId && (
+        <div className="border-t p-2">
+          <LeadForm
+            clinicSlug={clinicSlug}
+            conversationId={conversationId ?? ''}
+            onDone={() => { setLeadDone(true); setLeadOpen(false) }}
+          />
+        </div>
+      )}
       <form
         onSubmit={e => { e.preventDefault(); send(input) }}
         className="flex gap-2 border-t p-2"
