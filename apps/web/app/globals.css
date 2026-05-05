@@ -132,3 +132,35 @@
     @apply font-sans;
   }
 }
+
+/* ============================================================
+   Print styles — intake record PDF export
+   Hide chrome that Tailwind print: utilities can't reach (sidebar,
+   header, nav rendered by the dashboard shell). Tailwind already
+   compiles `print:hidden`, `print:block`, `print:border-none`,
+   `print:p-0`, `print:shadow-none`, `print:text-sm` etc. for any
+   classes consumed in JSX, so those rules are not duplicated here.
+   ============================================================ */
+@media print {
+  /* Hide the shadcn sidebar (all sidebar-* slots) and dashboard
+     header bar. The dashboard shell does not render a top-level
+     <nav>, but include it defensively for future routes. */
+  [data-slot^="sidebar"],
+  [data-sidebar],
+  header,
+  nav {
+    display: none !important;
+  }
+
+  /* Clean page background */
+  body {
+    background: white !important;
+  }
+
+  /* Remove main padding and overflow constraints so content flows
+     naturally onto the printed page. */
+  main {
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+}
