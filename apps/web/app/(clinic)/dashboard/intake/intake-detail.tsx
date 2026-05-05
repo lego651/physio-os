@@ -32,11 +32,11 @@ export function IntakeDetail({ record }: { record: IntakeRecord }) {
       {/* Top bar — hidden on print */}
       <div className="flex items-center justify-between print:hidden">
         <Button variant="ghost" size="sm" render={<Link href="/dashboard/intake" />}>
-          <ArrowLeft className="mr-1 h-4 w-4" />
+          <ArrowLeft aria-hidden="true" className="mr-1 h-4 w-4" />
           Back
         </Button>
         <Button onClick={handlePrint} size="sm">
-          <Printer className="mr-1 h-4 w-4" />
+          <Printer aria-hidden="true" className="mr-1 h-4 w-4" />
           Print / Download PDF
         </Button>
       </div>
@@ -76,6 +76,10 @@ export function IntakeDetail({ record }: { record: IntakeRecord }) {
               <p className="text-xs uppercase tracking-wide text-muted-foreground">Treatment Area</p>
               <p className="text-base font-medium">{record.treatment_area}</p>
             </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">Source</p>
+              <p className="text-base font-medium capitalize">{record.source.replace('_', ' ')}</p>
+            </div>
           </div>
 
           <div>
@@ -102,11 +106,7 @@ export function IntakeDetail({ record }: { record: IntakeRecord }) {
             </div>
           )}
 
-          <div className="grid grid-cols-1 gap-4 border-t pt-4 text-xs text-muted-foreground sm:grid-cols-3 print:hidden">
-            <div>
-              <p className="uppercase tracking-wide">Source</p>
-              <p>{record.source}</p>
-            </div>
+          <div className="grid grid-cols-1 gap-4 border-t pt-4 text-xs text-muted-foreground sm:grid-cols-2 print:hidden">
             <div>
               <p className="uppercase tracking-wide">Created</p>
               <p>{formatTimestamp(record.created_at)}</p>

@@ -48,12 +48,12 @@ export function IntakeList({ records }: { records: IntakeRecord[] }) {
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th className="px-4 py-3 font-medium">Date</th>
-                <th className="px-4 py-3 font-medium">Patient</th>
-                <th className="px-4 py-3 font-medium">Therapist</th>
-                <th className="px-4 py-3 font-medium">Treatment Area</th>
-                <th className="px-4 py-3 font-medium">Notes Preview</th>
-                <th className="px-4 py-3 font-medium text-right">Action</th>
+                <th scope="col" className="px-4 py-3 font-medium">Date</th>
+                <th scope="col" className="px-4 py-3 font-medium">Patient</th>
+                <th scope="col" className="px-4 py-3 font-medium">Therapist</th>
+                <th scope="col" className="px-4 py-3 font-medium">Treatment Area</th>
+                <th scope="col" className="px-4 py-3 font-medium">Notes Preview</th>
+                <th scope="col" className="px-4 py-3 font-medium text-right">Action</th>
               </tr>
             </thead>
             <tbody>
