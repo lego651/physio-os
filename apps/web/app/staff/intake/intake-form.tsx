@@ -16,7 +16,12 @@ type Fields = {
 }
 
 function today(): string {
-  return new Date().toISOString().slice(0, 10)
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Edmonton',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date())
 }
 
 const EMPTY_FIELDS: Fields = {
@@ -39,6 +44,13 @@ function pickMimeType(): string {
   return ''
 }
 
+function pickExtension(mimeType: string): string {
+  if (mimeType.includes('webm')) return 'webm'
+  if (mimeType.includes('mp4') || mimeType.includes('mpeg')) return 'm4a'
+  if (mimeType.includes('ogg')) return 'ogg'
+  return 'webm' // safe default
+}
+
 export function IntakeForm() {
   const [fields, setFields] = useState<Fields>(EMPTY_FIELDS)
   const [rawTranscript, setRawTranscript] = useState<string | null>(null)
@@ -52,11 +64,13 @@ export function IntakeForm() {
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<BlobPart[]>([])
   const streamRef = useRef<MediaStream | null>(null)
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Cleanup on unmount: stop any active stream
+  // Cleanup on unmount: stop any active stream + clear pending banner timer
   useEffect(() => {
     return () => {
       streamRef.current?.getTracks().forEach((t) => t.stop())
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
     }
   }, [])
 
@@ -119,7 +133,7 @@ export function IntakeForm() {
     setError(null)
     setWarnings([])
     try {
-      const ext = blob.type.includes('webm') ? 'webm' : 'audio'
+      const ext = pickExtension(blob.type)
       const formData = new FormData()
       formData.append('audio', blob, `recording.${ext}`)
       const res = await fetch('/api/intake/upload', {
@@ -172,11 +186,10 @@ export function IntakeForm() {
         const data = await res.json().catch(() => null)
         throw new Error(data?.error ?? `Save failed (${res.status})`)
       }
+      resetForm()
       setSaved(true)
-      setTimeout(() => {
-        setSaved(false)
-        resetForm()
-      }, 2000)
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current)
+      savedTimerRef.current = setTimeout(() => setSaved(false), 2000)
     } catch (err) {
       console.error('[intake-form] save failed', err)
       setError(err instanceof Error ? err.message : 'Save failed')

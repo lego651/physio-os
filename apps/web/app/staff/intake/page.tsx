@@ -14,6 +14,10 @@ export default async function StaffIntakePage() {
     redirect('/dashboard/login?next=/staff/intake')
   }
 
+  if (user.email !== process.env.ADMIN_EMAIL) {
+    redirect('/dashboard/login?error=unauthorized')
+  }
+
   return (
     <main className="min-h-dvh bg-background px-4 py-8">
       <div className="mx-auto max-w-lg">
