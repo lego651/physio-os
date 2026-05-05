@@ -1,6 +1,15 @@
 import { experimental_transcribe as transcribe } from 'ai'
 import { openai } from '@ai-sdk/openai'
 
+export class EmptyTranscriptError extends Error {
+  readonly reason: 'empty_audio' | 'silent_audio'
+  constructor(reason: 'empty_audio' | 'silent_audio') {
+    super(`[whisper] ${reason === 'empty_audio' ? 'empty audio buffer' : 'empty transcript — audio may be silent or corrupted'}`)
+    this.name = 'EmptyTranscriptError'
+    this.reason = reason
+  }
+}
+
 /**
  * Transcribe an audio buffer using OpenAI Whisper via the AI SDK.
  * OPENAI_API_KEY must be set in environment — the @ai-sdk/openai provider
@@ -15,7 +24,7 @@ export async function transcribeAudio(
   filename: string,
 ): Promise<string> {
   if (audioBuffer.length === 0) {
-    throw new Error('[whisper] empty audio buffer')
+    throw new EmptyTranscriptError('empty_audio')
   }
 
   console.log('[whisper] transcription started', { filename, bytes: audioBuffer.length })
@@ -29,7 +38,7 @@ export async function transcribeAudio(
   })
 
   if (!text || text.trim().length === 0) {
-    throw new Error('[whisper] empty transcript — audio may be silent or corrupted')
+    throw new EmptyTranscriptError('silent_audio')
   }
 
   console.log('[whisper] transcription complete', { chars: text.length })
