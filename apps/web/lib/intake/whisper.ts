@@ -14,6 +14,10 @@ export async function transcribeAudio(
   audioBuffer: Buffer,
   filename: string,
 ): Promise<string> {
+  if (audioBuffer.length === 0) {
+    throw new Error('[whisper] empty audio buffer')
+  }
+
   console.log('[whisper] transcription started', { filename, bytes: audioBuffer.length })
 
   const { text } = await transcribe({
@@ -23,6 +27,10 @@ export async function transcribeAudio(
       openai: { language: 'en' },
     },
   })
+
+  if (!text || text.trim().length === 0) {
+    throw new Error('[whisper] empty transcript — audio may be silent or corrupted')
+  }
 
   console.log('[whisper] transcription complete', { chars: text.length })
   return text

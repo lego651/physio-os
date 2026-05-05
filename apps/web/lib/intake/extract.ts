@@ -7,8 +7,7 @@ const today = () => new Date().toISOString().slice(0, 10)
 
 /**
  * Extract structured 5-field intake data from a raw voice transcript.
- * Uses Claude via the Vercel AI SDK v6 generateText + Output.object().
- * generateObject was removed in AI SDK v6 — Output.object() is the replacement.
+ * Uses Claude via the Vercel AI SDK v6: generateText() + Output.object().
  */
 export async function extractIntakeFields(transcript: string): Promise<{
   fields: IntakeFields
@@ -40,11 +39,10 @@ ${transcript}
 Return the structured JSON object.`,
   })
 
-  const fields = output as IntakeFields
+  const fields = IntakeFieldsSchema.parse(output)
 
   const warnings: string[] = []
   if (fields.patient_name === 'Unknown Patient') warnings.push('patient_name could not be extracted')
-  if (fields.therapist_name === 'David') warnings.push('therapist_name defaulted to David')
 
   console.log('[extract] extraction complete', { warnings })
   return { fields, warnings }
