@@ -6,7 +6,7 @@ import { z } from 'zod'
 export const runtime = 'nodejs'
 
 const SaveBodySchema = IntakeFieldsSchema.extend({
-  source: z.enum(['telegram', 'in_app', 'manual']).optional(),
+  source: z.enum(['in_app', 'manual']).optional(),
   raw_transcript: z.string().nullable().optional(),
 })
 
