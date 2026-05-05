@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      intake_records: {
+        Row: {
+          clinic_id: string
+          created_at: string
+          date_of_visit: string
+          id: string
+          patient_name: string
+          raw_transcript: string | null
+          session_notes: string
+          source: string
+          therapist_name: string
+          treatment_area: string
+          updated_at: string
+        }
+        Insert: {
+          clinic_id?: string
+          created_at?: string
+          date_of_visit: string
+          id?: string
+          patient_name: string
+          raw_transcript?: string | null
+          session_notes: string
+          source: string
+          therapist_name: string
+          treatment_area: string
+          updated_at?: string
+        }
+        Update: {
+          clinic_id?: string
+          created_at?: string
+          date_of_visit?: string
+          id?: string
+          patient_name?: string
+          raw_transcript?: string | null
+          session_notes?: string
+          source?: string
+          therapist_name?: string
+          treatment_area?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           channel: string
