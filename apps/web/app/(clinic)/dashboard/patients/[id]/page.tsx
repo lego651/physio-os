@@ -1,5 +1,4 @@
 import { notFound } from 'next/navigation'
-import nextDynamic from 'next/dynamic'
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { createAdminClient } from '@/lib/supabase/admin'
@@ -15,20 +14,7 @@ import { WeeklyReports } from './weekly-reports'
 import { SendCheckinButton } from './send-checkin-button'
 import { ToggleActiveButton } from './toggle-active-button'
 import { EditPatientDialog } from '../edit-patient-dialog'
-
-const TrendChart = nextDynamic(() => import('./trend-chart').then((m) => ({ default: m.TrendChart })), {
-  ssr: false,
-  loading: () => (
-    <Card>
-      <CardHeader>
-        <Skeleton className="h-5 w-48" />
-      </CardHeader>
-      <CardContent>
-        <Skeleton className="h-[300px] w-full" />
-      </CardContent>
-    </Card>
-  ),
-})
+import { TrendChart } from './trend-chart'
 
 export const dynamic = 'force-dynamic'
 

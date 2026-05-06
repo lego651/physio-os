@@ -6,11 +6,11 @@ import { requireEnv } from '../../../../lib/env'
 export const runtime = 'nodejs'
 export const maxDuration = 30
 
-requireEnv('ANTHROPIC_API_KEY')
-const REVIEW_URL = requireEnv('VHEALTH_GOOGLE_MAPS_REVIEW_URL')
-
 export async function POST(request: Request): Promise<NextResponse> {
   console.log('[api/review/generate] incoming request')
+
+  requireEnv('ANTHROPIC_API_KEY')
+  const reviewUrl = requireEnv('VHEALTH_GOOGLE_MAPS_REVIEW_URL')
 
   let body: { input?: string }
   try {
@@ -43,7 +43,7 @@ Output only the review text — no quotes, no introduction, no explanation.`,
     })
 
     console.log('[api/review/generate] success', { draftChars: text.length })
-    return NextResponse.json({ draft: text.trim(), reviewUrl: REVIEW_URL })
+    return NextResponse.json({ draft: text.trim(), reviewUrl })
   } catch (err) {
     console.error('[api/review/generate] error', {
       error: err instanceof Error ? err.message : String(err),

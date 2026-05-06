@@ -1,7 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 
@@ -98,11 +99,14 @@ export function ReviewAssistant({ isProd }: Props) {
                 {copied ? 'Copied!' : 'Copy Review'}
               </Button>
               {reviewUrl && (
-                <Button asChild className="w-full">
-                  <a href={reviewUrl} target="_blank" rel="noopener noreferrer">
-                    Open Google Maps to paste your review
-                  </a>
-                </Button>
+                <a
+                  href={reviewUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(buttonVariants(), 'w-full')}
+                >
+                  Open Google Maps to paste your review
+                </a>
               )}
               <Button
                 variant="ghost"

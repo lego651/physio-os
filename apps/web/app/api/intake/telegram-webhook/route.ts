@@ -7,14 +7,13 @@ import { requireEnv } from '../../../../lib/env'
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
-const EXPECTED_SECRET = requireEnv('INTAKE_WEBHOOK_SECRET')
-
 export async function POST(request: Request): Promise<NextResponse> {
   console.log('[api/intake/telegram-webhook] incoming request')
 
   // 1. Verify shared secret
+  const expectedSecret = requireEnv('INTAKE_WEBHOOK_SECRET')
   const secret = request.headers.get('x-webhook-secret')
-  if (secret !== EXPECTED_SECRET) {
+  if (secret !== expectedSecret) {
     console.warn('[api/intake/telegram-webhook] unauthorized — bad secret')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

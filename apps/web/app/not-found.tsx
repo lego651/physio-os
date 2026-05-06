@@ -1,5 +1,7 @@
+'use client'
+
 import Link from 'next/link'
-import { Button } from '@/components/ui/button'
+import { buttonVariants } from '@/components/ui/button'
 
 export default function NotFound() {
   return (
@@ -11,9 +13,9 @@ export default function NotFound() {
           We couldn&apos;t find the page you were looking for.
         </p>
       </div>
-      <Button asChild>
-        <Link href="/chat">Go to chat</Link>
-      </Button>
+      <Link href="/chat" className={buttonVariants()}>
+        Go to chat
+      </Link>
     </div>
   )
 }

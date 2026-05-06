@@ -2,7 +2,7 @@
 
 import { useEffect } from 'react'
 import * as Sentry from '@sentry/nextjs'
-import { Button } from '@/components/ui/button'
+import { Button, buttonVariants } from '@/components/ui/button'
 
 export default function GlobalError({
   error,
@@ -25,9 +25,9 @@ export default function GlobalError({
       </div>
       <div className="flex gap-3">
         <Button onClick={reset}>Try again</Button>
-        <Button variant="outline" asChild>
-          <a href="/">Go home</a>
-        </Button>
+        <a href="/" className={buttonVariants({ variant: 'outline' })}>
+          Go home
+        </a>
       </div>
     </div>
   )

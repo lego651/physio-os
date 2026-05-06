@@ -42,7 +42,7 @@ describe('sendEmergencyAlert', () => {
 
   beforeEach(() => {
     fetchMock = vi.fn().mockResolvedValue(new Response('{"id":"email_123"}', { status: 200 }))
-    global.fetch = fetchMock
+    global.fetch = fetchMock as unknown as typeof global.fetch
   })
 
   afterEach(() => {

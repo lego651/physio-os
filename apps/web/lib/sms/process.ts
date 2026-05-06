@@ -6,7 +6,6 @@ import { buildContext } from '@physio-os/ai-core'
 import { sendSMSWithRetry, formatSMSResponse } from './send'
 import { processMMSMedia } from './mms'
 import { handleSMSOnboarding } from './onboarding'
-import * as Sentry from '@sentry/nextjs'
 import { sendEmergencyAlert } from '@/lib/email/send-emergency-alert'
 
 // In-memory failure tracker for the Sentry alert threshold.
@@ -209,12 +208,13 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
 
       // Mark the user message as emergency
       if (savedMsgId) {
+        const patientIdForLog = patient.id
         void supabase
           .from('messages')
           .update({ is_emergency: true })
           .eq('id', savedMsgId)
           .then(({ error }) => {
-            if (error) console.error('[sms] Failed to flag user message as emergency:', { patientId: patient.id })
+            if (error) console.error('[sms] Failed to flag user message as emergency:', { patientId: patientIdForLog })
           })
       }
 
