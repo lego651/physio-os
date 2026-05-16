@@ -1,4 +1,5 @@
 // apps/web/app/(clinic)/dashboard/review-requests/page.tsx
+import { redirect } from 'next/navigation'
 import { requireAdminAuth } from '@/lib/auth/require-admin'
 import { createAdminClient } from '@/lib/supabase/admin'
 import AdminReviewRequestsClient from './AdminReviewRequestsClient'
@@ -8,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function Page() {
   const auth = await requireAdminAuth()
-  if (auth.error) return auth.error
+  if (auth.error) redirect('/dashboard/login')
 
   const supabase = createAdminClient() as any
   const { data: clinics } = await supabase.from('clinics').select('id, name, slug').order('name')

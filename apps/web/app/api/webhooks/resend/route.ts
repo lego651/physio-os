@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   const providerMessageId = body?.data?.email_id
   if (!providerMessageId) return Response.json({ ok: true, missing: 'email_id' })
 
-  const supabase = createAdminClient()
+  const supabase = createAdminClient() as any
 
   // Match by sent_email event metadata.provider_message_id.
   const { data: ev } = await supabase
