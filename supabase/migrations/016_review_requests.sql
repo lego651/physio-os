@@ -1,13 +1,48 @@
 -- 016_review_requests.sql
--- S2 Review Engine: clinic Google Business Profile fields + review_requests + opt-outs.
+-- S2 Review Engine: bootstrap clinics/therapists (idempotent with widget V1),
+-- add Google review fields, create review_requests + review_opt_outs.
 
--- 1. Extend the existing clinics table (from 012) with Google review fields.
+-- 1. clinics — multi-tenant root. Idempotent so a future widget V1 merge will not conflict.
+CREATE TABLE IF NOT EXISTS public.clinics (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug                text UNIQUE NOT NULL,
+  name                text NOT NULL,
+  domain              text NOT NULL DEFAULT '',
+  janeapp_base_url    text,
+  branding            jsonb NOT NULL DEFAULT '{}'::jsonb,
+  monthly_message_cap int NOT NULL DEFAULT 10000,
+  is_active           boolean NOT NULL DEFAULT true,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now()
+);
+
+-- Google review-specific columns added on top of the base table.
 ALTER TABLE public.clinics
   ADD COLUMN IF NOT EXISTS google_place_id    text,
   ADD COLUMN IF NOT EXISTS google_maps_url    text,
   ADD COLUMN IF NOT EXISTS review_sender_name text;
 
--- 2. review_requests: one row per admin-triggered send.
+-- 2. therapists — for admin autocomplete in the send form.
+CREATE TABLE IF NOT EXISTS public.therapists (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id          uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
+  name               text NOT NULL,
+  role               text NOT NULL DEFAULT 'therapist',
+  bio                text NOT NULL DEFAULT '',
+  janeapp_staff_id   int,
+  specialties        text[] NOT NULL DEFAULT '{}',
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS therapists_clinic_idx ON public.therapists (clinic_id);
+
+-- 3. Seed V-Health. Idempotent via ON CONFLICT.
+INSERT INTO public.clinics (slug, name, domain, review_sender_name)
+VALUES ('vhealth', 'V-Health Rehab Clinic', 'vhealth.ca', 'V-Health Rehab Clinic')
+ON CONFLICT (slug) DO UPDATE SET review_sender_name = EXCLUDED.review_sender_name;
+
+-- 4. review_requests: one row per admin-triggered send.
 CREATE TABLE public.review_requests (
   id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   clinic_id       uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
@@ -37,7 +72,7 @@ CREATE INDEX review_requests_status_expires_idx
 
 ALTER TABLE public.review_requests ENABLE ROW LEVEL SECURITY;
 
--- 3. review_opt_outs: one row per (clinic, contact, contact_type).
+-- 5. review_opt_outs: one row per (clinic, contact, contact_type).
 CREATE TABLE public.review_opt_outs (
   id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   clinic_id     uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
@@ -53,7 +88,7 @@ CREATE INDEX review_opt_outs_lookup_idx
 
 ALTER TABLE public.review_opt_outs ENABLE ROW LEVEL SECURITY;
 
--- 4. RLS: service_role bypasses RLS automatically; deny all anon access.
+-- 6. RLS deny-anon policies (service_role bypasses RLS).
 CREATE POLICY review_requests_deny_anon ON public.review_requests
   FOR ALL TO anon USING (false) WITH CHECK (false);
 
