@@ -95,7 +95,7 @@ export class ReviewRequestEngine {
       requestId, clinicId: input.clinicId, jti, expiresInDays: TOKEN_EXPIRES_IN_DAYS,
     })
     const shortLink = `${this.deps.config.baseUrl}/review/${token}`
-    const unsubLink = `${this.deps.config.baseUrl}/api/review/unsubscribe?token=${encodeURIComponent(token)}`
+    const unsubLink = `${this.deps.config.baseUrl}/api/review-requests/unsubscribe?token=${encodeURIComponent(token)}`
 
     if (wantsEmail) {
       const realEmail = input.patientEmail
