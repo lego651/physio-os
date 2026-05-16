@@ -10,7 +10,7 @@ async function doUnsubscribe(token: string | null): Promise<'ok' | 'invalid'> {
   const decoded = await verifyReviewToken(token)
   if (!decoded) return 'invalid'
 
-  const supabase = createAdminClient()
+  const supabase = createAdminClient() as any
   const { data, error } = await supabase
     .from('review_requests')
     .select('id, patient_email, patient_phone, clinic_id')

@@ -71,7 +71,7 @@ export async function GET(_req: Request) {
   const auth = await requireAdminAuth()
   if (auth.error) return auth.error
 
-  const supabase = createAdminClient()
+  const supabase = createAdminClient() as any
   const { data: requests, error: reqErr } = await supabase
     .from('review_requests')
     .select('id, patient_name, patient_email, patient_phone, therapist_name, service_type, channel, status, verified_at, created_at')

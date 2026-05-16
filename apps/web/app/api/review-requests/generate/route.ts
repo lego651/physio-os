@@ -32,7 +32,7 @@ export async function POST(req: Request) {
   const decoded = await verifyReviewToken(parsed.data.token)
   if (!decoded) return Response.json({ error: 'Invalid or expired token' }, { status: 401 })
 
-  const supabase = createAdminClient()
+  const supabase = createAdminClient() as any
 
   const { data: row, error: rowErr } = await supabase
     .from('review_requests')
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     const { text } = await generateText({
       model: anthropic('claude-haiku-4-5-20251001'),
       prompt,
-      maxTokens: 400,
+      maxOutputTokens: 400,
       temperature: 0.7,
     })
     const draft = text.trim()
