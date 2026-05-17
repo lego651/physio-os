@@ -24,24 +24,26 @@ describe('email template', () => {
 })
 
 describe('sms template', () => {
-  it('builds a body under 160 chars including the link and STOP footer', () => {
+  it('builds a body containing the link, sender, first name, and STOP footer', () => {
     const body = buildReviewSmsBody({
       senderName: 'V-Health',
       patientName: 'Alice',
       shortLink: 'https://x/review/abc',
     })
-    expect(body.length).toBeLessThanOrEqual(160)
     expect(body).toContain('V-Health')
+    expect(body).toContain('Alice')
     expect(body).toContain('https://x/review/abc')
     expect(body).toContain('STOP')
   })
 
-  it('truncates patient name if total length would exceed 160', () => {
+  it('NEVER truncates — full URL must survive even when body exceeds 160 chars (multi-segment SMS)', () => {
+    const longLink = 'https://example.com/review/' + 'a'.repeat(250)
     const body = buildReviewSmsBody({
-      senderName: 'A-Very-Long-Clinic-Name-Indeed',
-      patientName: 'Alexandra Magdalena Christopherson the Third',
-      shortLink: 'https://example.com/review/aaaaaaaaaaaaaaaaaaaa',
+      senderName: 'V-Health Rehab Clinic',
+      patientName: 'Alexandra Magdalena',
+      shortLink: longLink,
     })
-    expect(body.length).toBeLessThanOrEqual(160)
+    expect(body).toContain(longLink)
+    expect(body.length).toBeGreaterThan(160)
   })
 })
