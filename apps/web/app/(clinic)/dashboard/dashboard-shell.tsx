@@ -18,11 +18,12 @@ import {
 } from '@/components/ui/sidebar'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Button } from '@/components/ui/button'
-import { Users, Settings, LogOut, ClipboardList } from 'lucide-react'
+import { Users, Settings, LogOut, ClipboardList, Star } from 'lucide-react'
 
 const navItems = [
   { title: 'Patients', href: '/dashboard/patients', icon: Users },
   { title: 'Intake Records', href: '/dashboard/intake', icon: ClipboardList },
+  { title: 'Review Requests', href: '/dashboard/review-requests', icon: Star },
   { title: 'Settings', href: '/dashboard/settings', icon: Settings },
 ]
 
