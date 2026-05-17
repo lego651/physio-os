@@ -95,6 +95,10 @@ export class ReviewRequestEngine {
       requestId, clinicId: input.clinicId, jti, expiresInDays: TOKEN_EXPIRES_IN_DAYS,
     })
     const shortLink = `${this.deps.config.baseUrl}/review/${token}`
+    // SMS link uses the bare request_id (UUID, 36 chars) instead of the
+    // ~280-char JWT — keeps the SMS body inside 1-2 segments. The landing
+    // page accepts both formats; see app/review/[token]/page.tsx.
+    const smsLink = `${this.deps.config.baseUrl}/review/${requestId}`
     const unsubLink = `${this.deps.config.baseUrl}/api/review-requests/unsubscribe?token=${encodeURIComponent(token)}`
 
     if (wantsEmail) {
@@ -162,7 +166,7 @@ export class ReviewRequestEngine {
         try {
           const result = await this.deps.sms.send({
             to: recipient,
-            body: buildReviewSmsBody({ senderName, patientName: input.patientName, shortLink }),
+            body: buildReviewSmsBody({ senderName, patientName: input.patientName, shortLink: smsLink }),
           })
           await logFunnelEvent(this.deps.supabase, {
             requestId, eventType: 'sent_sms',
