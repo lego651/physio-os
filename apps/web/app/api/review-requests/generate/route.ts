@@ -46,7 +46,7 @@ export async function POST(req: Request) {
 
   await logFunnelEvent(supabase, { requestId: decoded.requestId, eventType: 'keywords_submitted' })
 
-  const apiKey = process.env.ANTHROPIC_API_KEY_WIDGET
+  const apiKey = process.env.ANTHROPIC_API_KEY_WIDGET ?? process.env.ANTHROPIC_API_KEY
   if (!apiKey) return Response.json({ error: 'AI not configured' }, { status: 500 })
 
   const anthropic = createAnthropic({ apiKey })
