@@ -14,11 +14,15 @@ export default async function Page() {
   const supabase = createAdminClient() as any
   const { data: clinics } = await supabase.from('clinics').select('id, name, slug').order('name')
   const { data: therapists } = await supabase.from('therapists').select('id, clinic_id, name, role').order('name')
+  const { data: optOuts } = await supabase
+    .from('review_opt_outs')
+    .select('clinic_id, contact, contact_type')
 
   return (
     <AdminReviewRequestsClient
       clinics={(clinics as any[]) ?? []}
       therapists={(therapists as any[]) ?? []}
+      optOuts={(optOuts as any[]) ?? []}
     />
   )
 }
