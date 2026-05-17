@@ -33,7 +33,12 @@ export async function transcribeAudio(
     model: openai.transcription('whisper-1'),
     audio: audioBuffer,
     providerOptions: {
-      openai: { language: 'en' },
+      openai: {
+        prompt:
+          'Physiotherapy session note. Terms may include: RMT, OMT, TCM, acupuncture, ' +
+          'massage therapy, osteopathic, cervical, lumbar, rotator cuff, fascia, ' +
+          'trigger point, IASTM, cupping.',
+      },
     },
   })
 
