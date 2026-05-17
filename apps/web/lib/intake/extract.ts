@@ -30,6 +30,8 @@ Rules:
 - therapist_name: The therapist's name if mentioned, otherwise use "David".
 - treatment_area: The body area treated (e.g., "lower back", "right shoulder", "knee"). Short phrase.
 - session_notes: A clean, complete summary of what was done during the session. Keep clinical detail. Max 500 words.
+- Output all fields in English, even if the transcript is in another language.
+  Translate naturally; do not transliterate.
 
 Transcript:
 """
