@@ -25,6 +25,7 @@ vi.mock('../../../../../lib/intake/extract', () => ({
     },
     warnings: [],
   }),
+  extractSingleField: vi.fn().mockResolvedValue('right knee'),
 }))
 
 describe('POST /api/intake/upload', () => {
@@ -54,5 +55,41 @@ describe('POST /api/intake/upload', () => {
     expect(body.fields.patient_name).toBe('Jane Doe')
     expect(body.transcript).toBe('Patient Jane Doe, neck pain, dry needling')
     expect(body.warnings).toEqual([])
+  })
+})
+
+describe('POST /api/intake/upload — step param', () => {
+  it('step=1: returns only transcript, does NOT call extractIntakeFields', async () => {
+    const { extractIntakeFields } = await import('../../../../../lib/intake/extract') as any
+    extractIntakeFields.mockClear()
+    const { POST } = await import('../route')
+    const formData = new FormData()
+    const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
+    formData.append('audio', blob, 'recording.webm')
+    formData.append('step', '1')
+    const req = new Request('http://localhost/api/intake/upload', { method: 'POST', body: formData })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.transcript).toBe('Patient Jane Doe, neck pain, dry needling')
+    expect(body.fields).toBeUndefined()
+    expect(extractIntakeFields).not.toHaveBeenCalled()
+  })
+
+  it('step=2: calls extractSingleField with treatment_area, returns { field, transcript }', async () => {
+    const { extractSingleField } = await import('../../../../../lib/intake/extract') as any
+    extractSingleField.mockClear()
+    const { POST } = await import('../route')
+    const formData = new FormData()
+    const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
+    formData.append('audio', blob, 'recording.webm')
+    formData.append('step', '2')
+    const req = new Request('http://localhost/api/intake/upload', { method: 'POST', body: formData })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.field).toBe('right knee')
+    expect(body.transcript).toBeDefined()
+    expect(extractSingleField).toHaveBeenCalledWith(expect.any(String), 'treatment_area')
   })
 })

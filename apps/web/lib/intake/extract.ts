@@ -49,3 +49,49 @@ Return the structured JSON object.`,
   console.log('[extract] extraction complete', { warnings })
   return { fields, warnings }
 }
+
+export type SingleFieldName = 'treatment_area' | 'session_notes'
+
+/**
+ * Extract a single field from a short voice transcript.
+ * Returns the extracted English string directly (no warnings wrapper).
+ */
+export async function extractSingleField(
+  transcript: string,
+  field: SingleFieldName,
+): Promise<string> {
+  requireEnv('ANTHROPIC_API_KEY')
+
+  const fieldInstructions: Record<SingleFieldName, string> = {
+    treatment_area:
+      'Extract the body area being treated (e.g., "lower back", "right knee", "left shoulder"). ' +
+      'Return a short phrase. If unclear, return "unspecified".',
+    session_notes:
+      'Produce a clean clinical summary of the session notes. Keep clinical detail. Max 500 words. ' +
+      'If unclear, return "No notes recorded".',
+  }
+
+  console.log('[extract] single-field extraction', { field, transcriptChars: transcript.length })
+
+  const { text } = await generateText({
+    model: anthropic('claude-sonnet-4-5'),
+    prompt: `You are a medical scribe assistant for a physiotherapy clinic.
+
+The therapist just dictated the following voice note for a single field: "${field}".
+
+Instructions: ${fieldInstructions[field]}
+
+Rule: Output the field value in English only, even if the transcript is in another language. Translate naturally; do not transliterate.
+
+Transcript:
+"""
+${transcript}
+"""
+
+Return ONLY the field value string. No JSON, no labels, no extra text.`,
+  })
+
+  const result = (text ?? '').trim() || (field === 'treatment_area' ? 'unspecified' : 'No notes recorded')
+  console.log('[extract] single-field complete', { field, resultChars: result.length })
+  return result
+}
