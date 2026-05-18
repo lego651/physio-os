@@ -62,7 +62,8 @@ function makeDeps(overrides: Partial<ReviewRequestEngineDeps> = {}) {
           return { data: row, error: null }
         },
       }
-      // Special insert-then-select-then-single chain for review_requests
+      // Special insert-then-select-then-single chain for review_requests,
+      // plus an update chain (used by engine to set final status).
       if (table === 'review_requests') {
         return {
           insert(row: InsertedRow) {
@@ -71,6 +72,11 @@ function makeDeps(overrides: Partial<ReviewRequestEngineDeps> = {}) {
               select: () => ({
                 single: async () => ({ data: { ...row, id: 'req-1' }, error: null }),
               }),
+            }
+          },
+          update(_patch: Record<string, unknown>) {
+            return {
+              eq: (_col: string, _val: string) => Promise.resolve({ error: null }),
             }
           },
         }
