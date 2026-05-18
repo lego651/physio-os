@@ -87,6 +87,43 @@ export async function POST(req: Request) {
       return Response.json({ id: out.id, token: out.token })
     }
 
+    // Dedupe guard: before creating a new row, check whether a non-failed row
+    // already exists for this clinic + patient (matched on name + email OR
+    // name + phone). This prevents accidental double-sends from rapid clicks
+    // or page refreshes. If a match is found, return 409 with the existing id
+    // so the caller can switch to the resend path instead.
+    {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sb = supabase as any
+      const { patientName, patientEmail, patientPhone, clinicId } = parsed.data
+      const orParts: string[] = []
+      if (patientEmail) orParts.push(`patient_email.eq.${patientEmail}`)
+      if (patientPhone) orParts.push(`patient_phone.eq.${patientPhone}`)
+      if (orParts.length > 0) {
+        const { data: existing } = await sb
+          .from('review_requests')
+          .select('id, status')
+          .eq('clinic_id', clinicId)
+          .eq('patient_name', patientName)
+          .in('status', ['queued', 'sent'])
+          .or(orParts.join(','))
+          .limit(1)
+          .maybeSingle()
+        if (existing) {
+          return Response.json(
+            {
+              error: 'duplicate',
+              message:
+                'A review request for this patient already exists. Use the resend action instead.',
+              existingId: existing.id as string,
+              existingStatus: existing.status as string,
+            },
+            { status: 409 },
+          )
+        }
+      }
+    }
+
     // No `id` → create a brand-new review request row and send immediately.
     // This is the path used by the "Add & send" form.
     const out = await engine.create({
