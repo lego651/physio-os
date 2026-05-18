@@ -150,4 +150,30 @@ describe('POST /api/intake/save', () => {
     expect(body.record.id).toBe('test-uuid')
     expect(body.review_request_id).toBeNull()
   })
+
+  it('skips review_requests auto-create when session_type is omitted (manual form path)', async () => {
+    const { POST } = await import('../route')
+    const { createReviewRequestForIntake } = await import('../../../../../lib/intake/db')
+    vi.mocked(createReviewRequestForIntake).mockClear()
+
+    const req = new Request('http://localhost/api/intake/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_name: 'Manual Patient',
+        date_of_visit: '2026-05-13',
+        therapist_name: 'David',
+        treatment_area: 'knee',
+        session_notes: 'Manual entry',
+        source: 'manual',
+        // session_type intentionally omitted
+      }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.record.id).toBe('test-uuid')
+    expect(body.review_request_id).toBeNull()
+    expect(createReviewRequestForIntake).not.toHaveBeenCalled()
+  })
 })

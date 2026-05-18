@@ -48,21 +48,25 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'Save failed' }, { status: 500 })
   }
 
-  // D18-2: auto-create review_requests row. Non-atomic: if this fails, the
-  // intake row is still committed and the front desk can recreate manually.
+  // D18-2: auto-create review_requests row, but only when session_type is
+  // explicitly provided (voice flow always sends it; legacy IntakeForm /
+  // manual saves do not). Non-atomic: if this fails, the intake row is
+  // still committed and the front desk can recreate manually via "+ Add row".
   let review_request_id: string | null = null
-  try {
-    review_request_id = await createReviewRequestForIntake({
-      intake_record_id: record.id,
-      patient_name: record.patient_name,
-      therapist_name: record.therapist_name,
-      service_type: parsed.data.session_type ?? 'other',
-    })
-  } catch (err) {
-    console.warn('[api/intake/save] review_request auto-create failed', {
-      intake_id: record.id,
-      error: err instanceof Error ? err.message : String(err),
-    })
+  if (parsed.data.session_type !== undefined) {
+    try {
+      review_request_id = await createReviewRequestForIntake({
+        intake_record_id: record.id,
+        patient_name: record.patient_name,
+        therapist_name: record.therapist_name,
+        service_type: parsed.data.session_type,
+      })
+    } catch (err) {
+      console.warn('[api/intake/save] review_request auto-create failed', {
+        intake_id: record.id,
+        error: err instanceof Error ? err.message : String(err),
+      })
+    }
   }
 
   return NextResponse.json({ record, review_request_id })
