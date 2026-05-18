@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { transcribeAudio, EmptyTranscriptError } from '../../../../lib/intake/whisper'
-import { extractIntakeFields, extractSingleField } from '../../../../lib/intake/extract'
+import { extractIntakeFields, extractSingleField, extractTreatmentStep } from '../../../../lib/intake/extract'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -36,11 +36,11 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ transcript })
     }
 
-    // step=2: treatment_area — single-field extract
+    // step=2: treatment_area + session_type — single Claude call (D18-1)
     if (step === '2') {
-      const field = await extractSingleField(transcript, 'treatment_area')
-      console.log('[api/intake/upload] step=2 treatment_area extracted')
-      return NextResponse.json({ field, transcript })
+      const { treatment_area, session_type } = await extractTreatmentStep(transcript)
+      console.log('[api/intake/upload] step=2 extracted', { session_type })
+      return NextResponse.json({ transcript, treatment_area, session_type })
     }
 
     // step=4: session_notes — single-field extract

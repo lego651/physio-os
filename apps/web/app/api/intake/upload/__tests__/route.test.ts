@@ -22,10 +22,15 @@ vi.mock('../../../../../lib/intake/extract', () => ({
       therapist_name: 'David',
       treatment_area: 'neck',
       session_notes: 'Dry needling session',
+      session_type: 'physio',
     },
     warnings: [],
   }),
-  extractSingleField: vi.fn().mockResolvedValue('right knee'),
+  extractSingleField: vi.fn().mockResolvedValue('No notes recorded'),
+  extractTreatmentStep: vi.fn().mockResolvedValue({
+    treatment_area: 'right knee',
+    session_type: 'physio',
+  }),
 }))
 
 describe('POST /api/intake/upload', () => {
@@ -79,9 +84,9 @@ describe('POST /api/intake/upload — step param', () => {
     expect(extractIntakeFields).not.toHaveBeenCalled()
   })
 
-  it('step=2: calls extractSingleField with treatment_area, returns { field, transcript }', async () => {
-    const { extractSingleField } = await import('../../../../../lib/intake/extract')
-    vi.mocked(extractSingleField).mockClear()
+  it('step=2: calls extractTreatmentStep, returns { transcript, treatment_area, session_type }', async () => {
+    const { extractTreatmentStep } = await import('../../../../../lib/intake/extract')
+    vi.mocked(extractTreatmentStep).mockClear()
     const { POST } = await import('../route')
     const formData = new FormData()
     const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
@@ -94,8 +99,10 @@ describe('POST /api/intake/upload — step param', () => {
     const res = await POST(req)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.field).toBe('right knee')
+    expect(body.treatment_area).toBe('right knee')
+    expect(body.session_type).toBe('physio')
+    expect(body.field).toBeUndefined()
     expect(body.transcript).toBeDefined()
-    expect(extractSingleField).toHaveBeenCalledWith(expect.any(String), 'treatment_area')
+    expect(extractTreatmentStep).toHaveBeenCalledWith(expect.any(String))
   })
 })
