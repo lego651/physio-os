@@ -12,7 +12,7 @@ describe('EmailAdapter', () => {
       status: 200,
       json: async () => ({ id: 'resend-msg-1' }),
     })
-    const adapter = new EmailAdapter({ fetch: fetchMock as any })
+    const adapter = new EmailAdapter({ fetch: fetchMock as unknown as typeof globalThis.fetch })
     const out = await adapter.send({
       to: 'patient@example.com',
       from: 'V-Health <onboarding@resend.dev>',
@@ -21,9 +21,9 @@ describe('EmailAdapter', () => {
     })
     expect(out.providerMessageId).toBe('resend-msg-1')
     expect(fetchMock).toHaveBeenCalledOnce()
-    const [url, opts] = fetchMock.mock.calls[0]
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
     expect(url).toBe('https://api.resend.com/emails')
-    expect(JSON.parse((opts as any).body)).toMatchObject({
+    expect(JSON.parse(opts.body as string)).toMatchObject({
       to: 'patient@example.com',
       subject: 'subject',
     })
@@ -35,7 +35,7 @@ describe('EmailAdapter', () => {
       status: 422,
       text: async () => 'invalid recipient',
     })
-    const adapter = new EmailAdapter({ fetch: fetchMock as any })
+    const adapter = new EmailAdapter({ fetch: fetchMock as unknown as typeof globalThis.fetch })
     await expect(adapter.send({ to: 'x', from: 'y', subject: 's', html: 'h' })).rejects.toThrow(
       /422.*invalid recipient/,
     )

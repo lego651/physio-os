@@ -48,11 +48,11 @@ export class SmsAdapter {
     })
 
     if (!res.ok) {
-      const body = await (res as any).text()
+      const body = await res.text()
       throw new Error(`Twilio send failed: ${res.status} ${body}`)
     }
 
-    const data = (await (res as any).json()) as { sid: string }
+    const data = (await res.json()) as { sid: string }
     return { providerMessageId: data.sid }
   }
 }

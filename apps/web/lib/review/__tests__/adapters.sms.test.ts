@@ -14,13 +14,13 @@ describe('SmsAdapter', () => {
       status: 201,
       json: async () => ({ sid: 'SM_test_1' }),
     })
-    const adapter = new SmsAdapter({ fetch: fetchMock as any })
+    const adapter = new SmsAdapter({ fetch: fetchMock as unknown as typeof globalThis.fetch })
     const out = await adapter.send({ to: '+14035550100', body: 'hi' })
     expect(out.providerMessageId).toBe('SM_test_1')
-    const [url, opts] = fetchMock.mock.calls[0]
-    expect(url as string).toMatch(/AC_test\/Messages\.json$/)
-    expect((opts as any).body).toContain('To=%2B14035550100')
-    expect((opts as any).body).toContain('Body=hi')
+    const [url, opts] = fetchMock.mock.calls[0] as [string, RequestInit]
+    expect(url).toMatch(/AC_test\/Messages\.json$/)
+    expect(opts.body as string).toContain('To=%2B14035550100')
+    expect(opts.body as string).toContain('Body=hi')
   })
 
   it('throws on non-2xx response', async () => {
@@ -29,7 +29,7 @@ describe('SmsAdapter', () => {
       status: 400,
       text: async () => 'bad number',
     })
-    const adapter = new SmsAdapter({ fetch: fetchMock as any })
+    const adapter = new SmsAdapter({ fetch: fetchMock as unknown as typeof globalThis.fetch })
     await expect(adapter.send({ to: '+1', body: 'hi' })).rejects.toThrow(/400.*bad number/)
   })
 })

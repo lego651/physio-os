@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export const metadata = {
   title: 'Test Mode — Review Submitted',
 }
@@ -15,9 +17,9 @@ export default function ReviewTestSuccessPage() {
           can paste their AI-drafted review. In dev/preview environments, it points here instead —
           to prevent fake reviews on the real listing.
         </p>
-        <a href="/review" className="text-sm text-primary underline-offset-4 hover:underline">
+        <Link href="/review" className="text-sm text-primary underline-offset-4 hover:underline">
           ← Back to /review
-        </a>
+        </Link>
       </div>
     </main>
   )

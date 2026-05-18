@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
+import Link from 'next/link'
 import * as Sentry from '@sentry/nextjs'
 import { Button, buttonVariants } from '@/components/ui/button'
 
@@ -25,9 +26,9 @@ export default function GlobalError({
       </div>
       <div className="flex gap-3">
         <Button onClick={reset}>Try again</Button>
-        <a href="/" className={buttonVariants({ variant: 'outline' })}>
+        <Link href="/" className={buttonVariants({ variant: 'outline' })}>
           Go home
-        </a>
+        </Link>
       </div>
     </div>
   )

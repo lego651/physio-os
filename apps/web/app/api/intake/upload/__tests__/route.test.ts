@@ -60,8 +60,8 @@ describe('POST /api/intake/upload', () => {
 
 describe('POST /api/intake/upload — step param', () => {
   it('step=1: returns only transcript, does NOT call extractIntakeFields', async () => {
-    const { extractIntakeFields } = (await import('../../../../../lib/intake/extract')) as any
-    extractIntakeFields.mockClear()
+    const { extractIntakeFields } = await import('../../../../../lib/intake/extract')
+    vi.mocked(extractIntakeFields).mockClear()
     const { POST } = await import('../route')
     const formData = new FormData()
     const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
@@ -80,8 +80,8 @@ describe('POST /api/intake/upload — step param', () => {
   })
 
   it('step=2: calls extractSingleField with treatment_area, returns { field, transcript }', async () => {
-    const { extractSingleField } = (await import('../../../../../lib/intake/extract')) as any
-    extractSingleField.mockClear()
+    const { extractSingleField } = await import('../../../../../lib/intake/extract')
+    vi.mocked(extractSingleField).mockClear()
     const { POST } = await import('../route')
     const formData = new FormData()
     const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })

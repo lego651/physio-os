@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { ReviewRequestEngine } from '../engine'
+import type { ReviewRequestEngineDeps } from '../engine'
 
 const clinic = {
   id: 'c1',
@@ -9,14 +10,22 @@ const clinic = {
   review_sender_name: 'V-Health',
 }
 
-function makeDeps(overrides: Partial<any> = {}) {
-  const inserted: any[] = []
-  const events: any[] = []
-  const optOuts: any[] = []
+type OptOutRow = { clinic_id: string; contact: string; contact_type: string }
+type EventRow = { event_type: string; metadata?: unknown }
+type InsertedRow = Record<string, unknown>
 
+function makeDeps(overrides: Partial<ReviewRequestEngineDeps> = {}) {
+  const inserted: InsertedRow[] = []
+  const events: EventRow[] = []
+  const optOuts: OptOutRow[] = []
+
+  // Supabase mock — typed as SupabaseClient via cast since we only implement
+  // the subset of methods the engine uses. This is intentional in test code.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase: any = {
     from(table: string) {
-      const filter: any = {}
+      const filter: Record<string, string> = {}
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const builder: any = {
         select(_cols?: string) {
           return builder
@@ -45,7 +54,7 @@ function makeDeps(overrides: Partial<any> = {}) {
           if (table === 'review_funnel_events') return { data: null, error: null }
           return { data: null, error: null }
         },
-        async insert(row: any) {
+        async insert(row: EventRow) {
           if (table === 'review_funnel_events') {
             events.push(row)
             return { data: row, error: null }
@@ -56,7 +65,7 @@ function makeDeps(overrides: Partial<any> = {}) {
       // Special insert-then-select-then-single chain for review_requests
       if (table === 'review_requests') {
         return {
-          insert(row: any) {
+          insert(row: InsertedRow) {
             inserted.push(row)
             return {
               select: () => ({
@@ -64,7 +73,7 @@ function makeDeps(overrides: Partial<any> = {}) {
               }),
             }
           },
-        } as any
+        }
       }
       return builder
     },
@@ -75,7 +84,7 @@ function makeDeps(overrides: Partial<any> = {}) {
 
   return {
     deps: {
-      supabase,
+      supabase: supabase as ReviewRequestEngineDeps['supabase'],
       email,
       sms,
       config: {
@@ -87,7 +96,7 @@ function makeDeps(overrides: Partial<any> = {}) {
         resendWebhookSecret: '',
       },
       ...overrides,
-    } as any,
+    } satisfies ReviewRequestEngineDeps,
     inserted,
     events,
     optOuts,
@@ -154,7 +163,7 @@ describe('ReviewRequestEngine.create', () => {
     expect(email.send).not.toHaveBeenCalled()
     const failed = events.find((e) => e.event_type === 'send_failed')
     expect(failed).toBeTruthy()
-    expect(failed.metadata.reason).toBe('opted_out')
+    expect((failed!.metadata as Record<string, unknown>).reason).toBe('opted_out')
   })
 
   it('refuses to send when consentConfirmed=false', async () => {

@@ -42,7 +42,7 @@ vi.mock('@/lib/review/config', () => ({
 import { POST } from '../route'
 import { requireAdminAuth } from '@/lib/auth/require-admin'
 
-function makeReq(body: any): Request {
+function makeReq(body: unknown): Request {
   return new Request('http://x/api/admin/review-requests', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -52,13 +52,15 @@ function makeReq(body: any): Request {
 
 describe('POST /api/admin/review-requests', () => {
   beforeEach(() => {
-    vi.mocked(requireAdminAuth).mockResolvedValue({ user: { id: 'u1', email: 'a@b' } } as any)
+    vi.mocked(requireAdminAuth).mockResolvedValue(
+      { user: { id: 'u1', email: 'a@b' } } as Awaited<ReturnType<typeof requireAdminAuth>>,
+    )
   })
 
   it('401 when not authenticated', async () => {
     vi.mocked(requireAdminAuth).mockResolvedValue({
       error: new Response('unauth', { status: 401 }),
-    } as any)
+    } as Awaited<ReturnType<typeof requireAdminAuth>>)
     const res = await POST(makeReq({}))
     expect(res.status).toBe(401)
   })

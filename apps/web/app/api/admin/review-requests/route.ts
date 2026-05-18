@@ -78,7 +78,7 @@ export async function POST(req: Request) {
       serviceType: parsed.data.serviceType,
       channel: parsed.data.channel,
       consentConfirmed: true,
-      createdBy: (auth.user as any)?.id,
+      createdBy: auth.user?.id,
     })
     return Response.json({ id: out.id, token: out.token })
   } catch (err) {
@@ -86,10 +86,19 @@ export async function POST(req: Request) {
   }
 }
 
+interface FunnelEventRow {
+  request_id: string
+  event_type: string
+  occurred_at: string
+  metadata: unknown
+}
+
 export async function GET(_req: Request) {
   const auth = await requireAdminAuth()
   if (auth.error) return auth.error
 
+  // createAdminClient returns an untyped Supabase client (no generated schema yet).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createAdminClient() as any
   const { data: requests, error: reqErr } = await supabase
     .from('review_requests')
@@ -100,18 +109,19 @@ export async function GET(_req: Request) {
     .limit(50)
   if (reqErr) return Response.json({ error: reqErr.message }, { status: 500 })
 
-  const ids = ((requests as any[]) ?? []).map((r) => r.id)
-  let events: any[] = []
+  const rows: Record<string, unknown>[] = (requests as Record<string, unknown>[] | null) ?? []
+  const ids = rows.map((r) => r.id as string)
+  let events: FunnelEventRow[] = []
   if (ids.length > 0) {
     const { data, error: evErr } = await supabase
       .from('review_funnel_events')
       .select('request_id, event_type, occurred_at, metadata')
       .in('request_id', ids)
     if (evErr) return Response.json({ error: evErr.message }, { status: 500 })
-    events = data ?? []
+    events = (data as FunnelEventRow[] | null) ?? []
   }
 
-  const byRequest = new Map<string, any[]>()
+  const byRequest = new Map<string, FunnelEventRow[]>()
   for (const e of events) {
     const arr = byRequest.get(e.request_id) ?? []
     arr.push(e)
@@ -119,6 +129,6 @@ export async function GET(_req: Request) {
   }
 
   return Response.json({
-    requests: ((requests as any[]) ?? []).map((r) => ({ ...r, events: byRequest.get(r.id) ?? [] })),
+    requests: rows.map((r) => ({ ...r, events: byRequest.get(r.id as string) ?? [] })),
   })
 }

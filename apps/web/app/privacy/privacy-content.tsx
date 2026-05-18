@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 
 type Lang = 'en' | 'zh'
@@ -377,12 +378,12 @@ export function PrivacyContent() {
 
         {/* Footer back link */}
         <div className="mt-12 pt-6 border-t border-border">
-          <a
+          <Link
             href="/"
             className="text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
             {lang === 'en' ? '← Back to V-Health' : '← 返回 V-Health'}
-          </a>
+          </Link>
         </div>
       </div>
     </div>

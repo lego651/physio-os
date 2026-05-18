@@ -36,7 +36,7 @@ vi.mock('@/lib/supabase/admin', () => ({
         async maybeSingle() {
           return { data: null, error: null }
         },
-        async insert(r: any) {
+        async insert(r: unknown) {
           return { data: r, error: null }
         },
       }
@@ -48,14 +48,14 @@ vi.mock('@/lib/review/events', () => ({
   IDEMPOTENT_EVENTS: ['link_clicked', 'email_opened'],
 }))
 const generateTextMock = vi.fn().mockResolvedValue({ text: 'A nice review.' })
-vi.mock('ai', () => ({ generateText: (...args: any[]) => generateTextMock(...args) }))
+vi.mock('ai', () => ({ generateText: (...args: unknown[]) => generateTextMock(...args) }))
 vi.mock('@ai-sdk/anthropic', () => ({ createAnthropic: () => () => 'haiku-model' }))
 
 import { POST } from '../route'
 import { verifyReviewToken } from '@/lib/review/tokens'
 import { logFunnelEvent } from '@/lib/review/events'
 
-function req(body: any) {
+function req(body: unknown) {
   return new Request('http://x/api/review-requests/generate', {
     method: 'POST',
     body: JSON.stringify(body),

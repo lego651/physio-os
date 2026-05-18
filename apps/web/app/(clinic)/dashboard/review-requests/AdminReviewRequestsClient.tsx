@@ -502,7 +502,7 @@ export default function AdminReviewRequestsClient({ clinics, therapists, optOuts
             {rows.length === 0 && (
               <tr>
                 <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
-                  No review requests yet. Use "+ Add row" to create one.
+                  No review requests yet. Use &quot;+ Add row&quot; to create one.
                 </td>
               </tr>
             )}

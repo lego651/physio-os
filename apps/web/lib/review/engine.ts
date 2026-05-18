@@ -88,7 +88,7 @@ export class ReviewRequestEngine {
       throw new Error(`Failed to insert review_requests: ${error?.message ?? 'unknown'}`)
     }
 
-    const requestId = (inserted as any).id as string
+    const requestId = (inserted as { id: string }).id
     await logFunnelEvent(this.deps.supabase, { requestId, eventType: 'queued' })
 
     const token = await mintReviewToken({

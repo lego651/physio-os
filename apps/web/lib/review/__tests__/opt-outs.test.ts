@@ -8,8 +8,8 @@ function makeSupabase() {
   return {
     from(table: string) {
       if (table !== 'review_opt_outs') throw new Error('unexpected ' + table)
-      const filter: any = {}
-      const builder: any = {
+      const filter: Record<string, string> = {}
+      const builder = {
         select() {
           return builder
         },
@@ -26,7 +26,7 @@ function makeSupabase() {
           )
           return { data: found ?? null, error: null }
         },
-        async upsert(row: any) {
+        async upsert(row: Row) {
           const existing = rows.find(
             (r) =>
               r.clinic_id === row.clinic_id &&
@@ -39,6 +39,8 @@ function makeSupabase() {
       }
       return builder
     },
+  // Narrow cast — mock only implements the subset of SupabaseClient used by isOptedOut/recordOptOut.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any
 }
 

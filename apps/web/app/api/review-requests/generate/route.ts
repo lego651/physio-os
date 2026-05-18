@@ -38,7 +38,17 @@ export async function POST(req: Request) {
   const decoded = await verifyReviewToken(parsed.data.token)
   if (!decoded) return Response.json({ error: 'Invalid or expired token' }, { status: 401 })
 
+  // createAdminClient returns an untyped Supabase client (no generated schema yet).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createAdminClient() as any
+
+  interface ReviewRequestRow {
+    id: string
+    therapist_name: string | null
+    service_type: string | null
+    status: string
+    clinics: { name: string }
+  }
 
   const { data: row, error: rowErr } = await supabase
     .from('review_requests')
@@ -46,7 +56,8 @@ export async function POST(req: Request) {
     .eq('id', decoded.requestId)
     .single()
   if (rowErr || !row) return Response.json({ error: 'Request not found' }, { status: 404 })
-  if ((row as any).status === 'revoked' || (row as any).status === 'expired') {
+  const typedRow = row as ReviewRequestRow
+  if (typedRow.status === 'revoked' || typedRow.status === 'expired') {
     return Response.json({ error: 'Request no longer active' }, { status: 410 })
   }
 
@@ -57,9 +68,9 @@ export async function POST(req: Request) {
 
   const anthropic = createAnthropic({ apiKey })
   const prompt = buildReviewPrompt({
-    clinicName: (row as any).clinics.name,
-    therapistName: (row as any).therapist_name,
-    serviceType: (row as any).service_type ?? 'treatment',
+    clinicName: typedRow.clinics.name,
+    therapistName: typedRow.therapist_name,
+    serviceType: typedRow.service_type ?? 'treatment',
     keywords: parsed.data.keywords,
   })
 

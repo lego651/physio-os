@@ -11,7 +11,7 @@ import { POST } from '../route'
 import { verifyReviewToken } from '@/lib/review/tokens'
 import { logFunnelEvent } from '@/lib/review/events'
 
-function req(body: any) {
+function req(body: unknown) {
   return new Request('http://x/api/review-requests/track', {
     method: 'POST',
     body: JSON.stringify(body),

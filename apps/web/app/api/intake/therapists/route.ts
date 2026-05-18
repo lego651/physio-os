@@ -11,6 +11,8 @@ export async function GET(request: Request) {
   const url = new URL(request.url)
   const clinicId = url.searchParams.get('clinicId') ?? 'vhealth'
 
+  // createAdminClient returns an untyped Supabase client (no generated schema yet).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createAdminClient() as any
   const { data, error } = await supabase
     .from('therapists')

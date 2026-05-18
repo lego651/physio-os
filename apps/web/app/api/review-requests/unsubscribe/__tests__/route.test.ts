@@ -6,27 +6,26 @@ vi.mock('@/lib/supabase/admin', () => ({
     from(table: string) {
       if (table === 'review_requests') {
         return {
-          select() {
-            return this
-          },
-          eq() {
-            return this
-          },
+          select() { return this },
+          eq() { return this },
           async single() {
             return {
               data: { id: 'r1', patient_email: 'a@b.com', patient_phone: null, clinic_id: 'c1' },
               error: null,
             }
           },
+          // Partial mock — only implements the subset used by doUnsubscribe.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return {} as any
     },
   }),
 }))
 const recordOptOut = vi.fn().mockResolvedValue(undefined)
 vi.mock('@/lib/review/opt-outs', () => ({
-  recordOptOut: (...args: any[]) => recordOptOut(...args),
+  recordOptOut: (...args: unknown[]) => recordOptOut(...args),
 }))
 
 import { GET, POST } from '../route'
