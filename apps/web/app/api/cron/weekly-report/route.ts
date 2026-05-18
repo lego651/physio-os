@@ -133,7 +133,10 @@ export async function GET(req: Request) {
     .from('metrics')
     .select('patient_id')
     .gte('recorded_at', weekStartISO)
-    .in('patient_id', patients.map((p) => p.id))
+    .in(
+      'patient_id',
+      patients.map((p) => p.id),
+    )
 
   if (metricsFilterError) {
     console.error('[weekly-report] Failed to filter patients by metrics', metricsFilterError)
@@ -163,22 +166,31 @@ export async function GET(req: Request) {
         }
 
         const reportUrl = `${appUrl}/report/${report.token}`
-        const avgDiscomfort = (report.metrics_summary as { avgDiscomfort?: number | null } | null)
-          ?.avgDiscomfort ?? null
+        const avgDiscomfort =
+          (report.metrics_summary as { avgDiscomfort?: number | null } | null)?.avgDiscomfort ??
+          null
 
         const smsText = buildSMSText(patient as Patient, avgDiscomfort, reportUrl)
 
         await sendSMS({ to: patient.phone, body: smsText })
 
         // Persist audit record (required for CASL compliance logging)
-        await supabase.from('messages').insert({
-          patient_id: patient.id,
-          role: 'assistant',
-          content: smsText,
-          channel: 'sms',
-        }).then(({ error }) => {
-          if (error) console.error('[weekly-report] Failed to save SMS audit record for patient:', patient.id, error)
-        })
+        await supabase
+          .from('messages')
+          .insert({
+            patient_id: patient.id,
+            role: 'assistant',
+            content: smsText,
+            channel: 'sms',
+          })
+          .then(({ error }) => {
+            if (error)
+              console.error(
+                '[weekly-report] Failed to save SMS audit record for patient:',
+                patient.id,
+                error,
+              )
+          })
 
         console.log(`[weekly-report] SMS sent to patient ${patient.id}`)
         return { patientId: patient.id, skipped: false }

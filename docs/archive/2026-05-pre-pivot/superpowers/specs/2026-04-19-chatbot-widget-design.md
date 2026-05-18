@@ -112,20 +112,20 @@ therapists            (id, clinic_id FK, name, role, bio,
 
 Seed `therapists` with the 12 V-Health staff pulled from `vhealthc.janeapp.com`:
 
-| Name | Role | JaneApp ID |
-|---|---|---|
-| Dr. Fushun Ma | Manual Osteopathic Practitioner | 18 |
-| Amy Gon | Foot Reflexology Therapist | 10 |
-| Ji Li "Lizzy" | Acupuncturist | 19 |
-| Wan Ling "Wendy" Chen | RMT | 13 |
-| Cong Mei "Alice" Tang | RMT | 15 |
-| Jia Ning "Alex" Sun | Acupuncturist / TCM | 12 |
-| Ke "Keri" Qiu | RMT | 9 |
-| Kyle Wu | RMT + Registered Acupuncturist | 6 |
-| Nan "Olivia" Zheng | RMT | 8 |
-| Che Zhou "Carl" | Discipline TBC (flag in prompt) | 20 |
-| Yulin Chen | RMT | 3 |
-| Hui Hua "Kelley" Chen | RMT | 14 |
+| Name                  | Role                            | JaneApp ID |
+| --------------------- | ------------------------------- | ---------- |
+| Dr. Fushun Ma         | Manual Osteopathic Practitioner | 18         |
+| Amy Gon               | Foot Reflexology Therapist      | 10         |
+| Ji Li "Lizzy"         | Acupuncturist                   | 19         |
+| Wan Ling "Wendy" Chen | RMT                             | 13         |
+| Cong Mei "Alice" Tang | RMT                             | 15         |
+| Jia Ning "Alex" Sun   | Acupuncturist / TCM             | 12         |
+| Ke "Keri" Qiu         | RMT                             | 9          |
+| Kyle Wu               | RMT + Registered Acupuncturist  | 6          |
+| Nan "Olivia" Zheng    | RMT                             | 8          |
+| Che Zhou "Carl"       | Discipline TBC (flag in prompt) | 20         |
+| Yulin Chen            | RMT                             | 3          |
+| Hui Hua "Kelley" Chen | RMT                             | 14         |
 
 ## 8. System Prompt & Response Contract
 
@@ -144,20 +144,20 @@ System prompt must include, in order:
 
 ## 9. Security & Guardrails
 
-| Control | Setting |
-|---|---|
-| Model | Claude Haiku 4.5 only |
-| Provider spend cap | $10 lifetime (Anthropic console, dedicated API key) |
-| User message length | 500 chars |
-| Assistant reply | `maxTokens` ~300, ≤200 words |
-| Per-conversation cap | 20 messages hard stop |
-| IP rate limit | 10/min, 30/hr, 50/day (Upstash Redis + `@upstash/ratelimit`) |
-| Off-topic strikes | 3 per session → lock; Redis-backed counter |
-| Bot challenge | Cloudflare Turnstile, invisible, first message only |
-| Origin check | `vhealth.ca` + `localhost` only |
-| Kill switch | Env var `WIDGET_ENABLED=false` → disabled UI |
-| Monitoring | Sentry + Vercel Analytics (existing); daily cron alerts Jason if est. spend > threshold |
-| Adversarial test | S601 test suite re-run against widget system prompt pre-launch |
+| Control              | Setting                                                                                 |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| Model                | Claude Haiku 4.5 only                                                                   |
+| Provider spend cap   | $10 lifetime (Anthropic console, dedicated API key)                                     |
+| User message length  | 500 chars                                                                               |
+| Assistant reply      | `maxTokens` ~300, ≤200 words                                                            |
+| Per-conversation cap | 20 messages hard stop                                                                   |
+| IP rate limit        | 10/min, 30/hr, 50/day (Upstash Redis + `@upstash/ratelimit`)                            |
+| Off-topic strikes    | 3 per session → lock; Redis-backed counter                                              |
+| Bot challenge        | Cloudflare Turnstile, invisible, first message only                                     |
+| Origin check         | `vhealth.ca` + `localhost` only                                                         |
+| Kill switch          | Env var `WIDGET_ENABLED=false` → disabled UI                                            |
+| Monitoring           | Sentry + Vercel Analytics (existing); daily cron alerts Jason if est. spend > threshold |
+| Adversarial test     | S601 test suite re-run against widget system prompt pre-launch                          |
 
 ## 10. CASL Compliance
 
@@ -192,26 +192,26 @@ V2 adds: SMS response rate, lead → booking attribution.
 
 ## 13. Rollout Plan
 
-| Window | Work |
-|---|---|
-| Apr 19–22 | Widget UI, `/api/widget/chat`, knowledge base, lead capture, security stack, data model + migrations |
-| Apr 23–25 | Wix embed test on live sandbox; iframe + script integration fixes |
+| Window    | Work                                                                                                             |
+| --------- | ---------------------------------------------------------------------------------------------------------------- |
+| Apr 19–22 | Widget UI, `/api/widget/chat`, knowledge base, lead capture, security stack, data model + migrations             |
+| Apr 23–25 | Wix embed test on live sandbox; iframe + script integration fixes                                                |
 | Apr 26–27 | Dashboard page, seeded simulation data, review QR + AI draft + clipboard copy (separate module, referenced here) |
-| Apr 28 | Adversarial/S601 re-run, end-to-end testing, load test |
-| Apr 29 | Demo rehearsal; printed one-page pilot agreement |
-| Apr 30 | Live demo with V-Health owner |
+| Apr 28    | Adversarial/S601 re-run, end-to-end testing, load test                                                           |
+| Apr 29    | Demo rehearsal; printed one-page pilot agreement                                                                 |
+| Apr 30    | Live demo with V-Health owner                                                                                    |
 
 ## 14. Risks & Mitigations
 
-| Risk | Impact | Mitigation |
-|---|---|---|
-| Wix iframe blocked by CSP | High | Test Apr 23; fallback to direct script injection |
-| Claude hallucinates pricing | High | Explicit "no pricing" system-prompt rule; adversarial test |
-| $10 cap hit during demo | High | Load-test Apr 28; have second API key on standby to swap manually |
-| Abuse spike in first 24h live | Med | Launch widget behind secret query string first; reveal after smoke test |
-| Owner questions simulation data | Med | Banner is the answer; rehearse the line |
-| Therapist "Carl" has incomplete scrape | Low | System prompt flags uncertainty: "contact clinic to confirm Carl's specialty" |
-| Lead email delivery fails | Med | Store lead always; email failure is non-blocking; daily digest as backup (V2) |
+| Risk                                   | Impact | Mitigation                                                                    |
+| -------------------------------------- | ------ | ----------------------------------------------------------------------------- |
+| Wix iframe blocked by CSP              | High   | Test Apr 23; fallback to direct script injection                              |
+| Claude hallucinates pricing            | High   | Explicit "no pricing" system-prompt rule; adversarial test                    |
+| $10 cap hit during demo                | High   | Load-test Apr 28; have second API key on standby to swap manually             |
+| Abuse spike in first 24h live          | Med    | Launch widget behind secret query string first; reveal after smoke test       |
+| Owner questions simulation data        | Med    | Banner is the answer; rehearse the line                                       |
+| Therapist "Carl" has incomplete scrape | Low    | System prompt flags uncertainty: "contact clinic to confirm Carl's specialty" |
+| Lead email delivery fails              | Med    | Store lead always; email failure is non-blocking; daily digest as backup (V2) |
 
 ## 15. Open Items Deferred to V2+
 

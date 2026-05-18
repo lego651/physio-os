@@ -11,25 +11,30 @@ export function MetricOverviewCards({ metrics }: { metrics: MetricRow[] }) {
 
   // Average pain this week
   const painValues = thisWeek.map((m) => m.pain_level).filter((v): v is number => v != null)
-  const avgPain = painValues.length > 0 ? painValues.reduce((a, b) => a + b, 0) / painValues.length : null
+  const avgPain =
+    painValues.length > 0 ? painValues.reduce((a, b) => a + b, 0) / painValues.length : null
 
   // Average discomfort this week
   const discomfortValues = thisWeek.map((m) => m.discomfort).filter((v): v is number => v != null)
-  const avgDiscomfort = discomfortValues.length > 0
-    ? discomfortValues.reduce((a, b) => a + b, 0) / discomfortValues.length
-    : null
+  const avgDiscomfort =
+    discomfortValues.length > 0
+      ? discomfortValues.reduce((a, b) => a + b, 0) / discomfortValues.length
+      : null
 
   // Average sitting tolerance this week
-  const sittingValues = thisWeek.map((m) => m.sitting_tolerance_min).filter((v): v is number => v != null)
-  const avgSitting = sittingValues.length > 0
-    ? sittingValues.reduce((a, b) => a + b, 0) / sittingValues.length
-    : null
+  const sittingValues = thisWeek
+    .map((m) => m.sitting_tolerance_min)
+    .filter((v): v is number => v != null)
+  const avgSitting =
+    sittingValues.length > 0
+      ? sittingValues.reduce((a, b) => a + b, 0) / sittingValues.length
+      : null
 
   // Exercise completion: unique days with exercises this week
   const exerciseDays = new Set(
     thisWeek
       .filter((m) => m.exercises_done && m.exercises_done.length > 0)
-      .map((m) => new Date(m.recorded_at).toISOString().slice(0, 10))
+      .map((m) => new Date(m.recorded_at).toISOString().slice(0, 10)),
   ).size
 
   return (

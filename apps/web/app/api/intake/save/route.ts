@@ -22,17 +22,20 @@ export async function POST(request: Request): Promise<NextResponse> {
 
   const parsed = SaveBodySchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Validation failed', issues: parsed.error.issues }, { status: 400 })
+    return NextResponse.json(
+      { error: 'Validation failed', issues: parsed.error.issues },
+      { status: 400 },
+    )
   }
 
   try {
     const record = await saveIntakeRecord({
-      patient_name:   parsed.data.patient_name,
-      date_of_visit:  parsed.data.date_of_visit,
+      patient_name: parsed.data.patient_name,
+      date_of_visit: parsed.data.date_of_visit,
       therapist_name: parsed.data.therapist_name,
       treatment_area: parsed.data.treatment_area,
-      session_notes:  parsed.data.session_notes,
-      source:         parsed.data.source ?? 'manual',
+      session_notes: parsed.data.session_notes,
+      source: parsed.data.source ?? 'manual',
       raw_transcript: parsed.data.raw_transcript ?? null,
     })
     console.log('[api/intake/save] saved', { id: record.id })

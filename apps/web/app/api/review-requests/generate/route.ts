@@ -21,12 +21,18 @@ const bodySchema = z.object({
 
 export async function POST(req: Request) {
   let raw: unknown
-  try { raw = await req.json() }
-  catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  try {
+    raw = await req.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
   const parsed = bodySchema.safeParse(raw)
   if (!parsed.success) {
-    return Response.json({ error: 'Validation failed', issues: parsed.error.issues }, { status: 400 })
+    return Response.json(
+      { error: 'Validation failed', issues: parsed.error.issues },
+      { status: 400 },
+    )
   }
 
   const decoded = await verifyReviewToken(parsed.data.token)
@@ -66,7 +72,8 @@ export async function POST(req: Request) {
     })
     const draft = text.trim()
     await logFunnelEvent(supabase, {
-      requestId: decoded.requestId, eventType: 'draft_generated',
+      requestId: decoded.requestId,
+      eventType: 'draft_generated',
       metadata: { length: draft.length },
     })
     return Response.json({ draft })

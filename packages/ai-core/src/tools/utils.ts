@@ -5,7 +5,12 @@ type MetricRow = Database['public']['Tables']['metrics']['Row']
 /** Subset of MetricRow matching the columns commonly queried by tools. */
 export type QueriedMetric = Pick<
   MetricRow,
-  'pain_level' | 'discomfort' | 'sitting_tolerance_min' | 'exercises_done' | 'exercise_count' | 'recorded_at'
+  | 'pain_level'
+  | 'discomfort'
+  | 'sitting_tolerance_min'
+  | 'exercises_done'
+  | 'exercise_count'
+  | 'recorded_at'
 >
 
 /** Average of a numeric array; returns null if empty. */
@@ -21,7 +26,6 @@ export function round1(n: number): number {
 
 /** Count the number of metric rows where exercises were completed. */
 export function countExerciseDays(rows: QueriedMetric[]): number {
-  return rows.filter(
-    (r) => (r.exercise_count ?? 0) > 0 || (r.exercises_done?.length ?? 0) > 0,
-  ).length
+  return rows.filter((r) => (r.exercise_count ?? 0) > 0 || (r.exercises_done?.length ?? 0) > 0)
+    .length
 }

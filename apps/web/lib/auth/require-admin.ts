@@ -7,8 +7,7 @@ import { createClient } from '@/lib/supabase/server'
  * Returns the authenticated user on success, or a Response on failure.
  */
 export async function requireAdminAuth(): Promise<
-  | { user: { id: string; email: string }; error?: never }
-  | { user?: never; error: Response }
+  { user: { id: string; email: string }; error?: never } | { user?: never; error: Response }
 > {
   const supabase = await createClient()
   const {

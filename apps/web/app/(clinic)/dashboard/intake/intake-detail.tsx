@@ -73,7 +73,9 @@ export function IntakeDetail({ record }: { record: IntakeRecord }) {
               <p className="text-base font-medium">{record.therapist_name}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Treatment Area</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Treatment Area
+              </p>
               <p className="text-base font-medium">{record.treatment_area}</p>
             </div>
             <div>
@@ -84,7 +86,9 @@ export function IntakeDetail({ record }: { record: IntakeRecord }) {
 
           <div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground">Session Notes</p>
-            <p className="mt-1 whitespace-pre-wrap text-base leading-relaxed">{record.session_notes}</p>
+            <p className="mt-1 whitespace-pre-wrap text-base leading-relaxed">
+              {record.session_notes}
+            </p>
           </div>
 
           {record.raw_transcript && (
@@ -101,8 +105,12 @@ export function IntakeDetail({ record }: { record: IntakeRecord }) {
           {/* Print-only raw transcript section (always visible on paper) */}
           {record.raw_transcript && (
             <div className="hidden print:block">
-              <p className="text-xs uppercase tracking-wide text-muted-foreground">Raw Transcript</p>
-              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{record.raw_transcript}</p>
+              <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                Raw Transcript
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">
+                {record.raw_transcript}
+              </p>
             </div>
           )}
 

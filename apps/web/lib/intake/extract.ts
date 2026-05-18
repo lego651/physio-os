@@ -44,7 +44,8 @@ Return the structured JSON object.`,
   const fields = IntakeFieldsSchema.parse(output)
 
   const warnings: string[] = []
-  if (fields.patient_name === 'Unknown Patient') warnings.push('patient_name could not be extracted')
+  if (fields.patient_name === 'Unknown Patient')
+    warnings.push('patient_name could not be extracted')
 
   console.log('[extract] extraction complete', { warnings })
   return { fields, warnings }
@@ -91,7 +92,8 @@ ${transcript}
 Return ONLY the field value string. No JSON, no labels, no extra text.`,
   })
 
-  const result = (text ?? '').trim() || (field === 'treatment_area' ? 'unspecified' : 'No notes recorded')
+  const result =
+    (text ?? '').trim() || (field === 'treatment_area' ? 'unspecified' : 'No notes recorded')
   console.log('[extract] single-field complete', { field, resultChars: result.length })
   return result
 }

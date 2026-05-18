@@ -67,7 +67,13 @@ async function getPatients() {
   const lastWeekStartIso = lastWeekStart.toISOString()
   const nowIso = now.toISOString()
 
-  const [messagesResult, metricsResult, messagesThisWeekResult, discomfortThisWeekResult, discomfortLastWeekResult] = await Promise.all([
+  const [
+    messagesResult,
+    metricsResult,
+    messagesThisWeekResult,
+    discomfortThisWeekResult,
+    discomfortLastWeekResult,
+  ] = await Promise.all([
     // Latest message per patient — fetch all but only use first per patient
     supabase
       .from('messages')
@@ -117,7 +123,10 @@ async function getPatients() {
     }
   }
 
-  const latestMetricMap = new Map<string, { pain_level: number | null; discomfort: number | null }>()
+  const latestMetricMap = new Map<
+    string,
+    { pain_level: number | null; discomfort: number | null }
+  >()
   const exerciseDaysMap = new Map<string, Set<string>>()
 
   for (const m of metrics) {
@@ -181,7 +190,7 @@ async function getPatients() {
       : null
 
     const daysSinceCreated = Math.floor(
-      (now.getTime() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24)
+      (now.getTime() - new Date(p.created_at).getTime()) / (1000 * 60 * 60 * 24),
     )
 
     // Determine status

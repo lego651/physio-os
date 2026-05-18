@@ -8,7 +8,9 @@ vi.mock('@ai-sdk/openai', () => ({
   },
 }))
 
-beforeEach(() => { mockTranscribe.mockClear() })
+beforeEach(() => {
+  mockTranscribe.mockClear()
+})
 
 describe('transcribeAudio — D16-8 provider options', () => {
   it('does NOT pass language to providerOptions', async () => {
@@ -28,6 +30,8 @@ describe('transcribeAudio — D16-8 provider options', () => {
 
   it('throws EmptyTranscriptError on empty buffer', async () => {
     const { transcribeAudio, EmptyTranscriptError } = await import('../whisper')
-    await expect(transcribeAudio(Buffer.alloc(0), 'empty.webm')).rejects.toBeInstanceOf(EmptyTranscriptError)
+    await expect(transcribeAudio(Buffer.alloc(0), 'empty.webm')).rejects.toBeInstanceOf(
+      EmptyTranscriptError,
+    )
   })
 })

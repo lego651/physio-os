@@ -6,12 +6,12 @@ Sprint: S6 | Ticket: S606 | Date: 2026-04-03
 
 ## Schema snapshot (after migration 010)
 
-| Table    | Row estimate (30 patients, steady state) | Notes                                    |
-|----------|------------------------------------------|------------------------------------------|
-| patients | 30–100                                   | Grows slowly                             |
-| messages | ~1 000–5 000                             | ~50 msgs/patient active month            |
-| metrics  | ~500–2 000                               | ~1–2 entries/patient/day                 |
-| reports  | ~150                                     | 1/patient/active week, 52 wk/year max    |
+| Table    | Row estimate (30 patients, steady state) | Notes                                 |
+| -------- | ---------------------------------------- | ------------------------------------- |
+| patients | 30–100                                   | Grows slowly                          |
+| messages | ~1 000–5 000                             | ~50 msgs/patient active month         |
+| metrics  | ~500–2 000                               | ~1–2 entries/patient/day              |
+| reports  | ~150                                     | 1/patient/active week, 52 wk/year max |
 
 At this scale sequential scans are cheap (< 1 ms), but correct indexes prevent
 full-table scans from becoming a problem if the clinic scales to 500+ patients
@@ -83,6 +83,7 @@ rows before filtering; new plan scans only the `user`-role subset (~500 rows).
 **File:** `apps/web/app/(clinic)/dashboard/patients/page.tsx`
 
 Five parallel queries:
+
 1. `SELECT ... FROM patients ORDER BY created_at DESC` — full scan (expected; 30 rows).
 2. `SELECT patient_id, created_at FROM messages WHERE patient_id IN (...) ORDER BY created_at DESC` — uses `idx_messages_patient_created`.
 3. `SELECT patient_id, ... FROM metrics WHERE patient_id IN (...) ORDER BY recorded_at DESC` — uses `idx_metrics_patient_recorded`.
@@ -270,19 +271,19 @@ ORDER BY week_start DESC
 
 ## Index summary
 
-| Index name                          | Table    | Columns / predicate                                      | New? | Covers            |
-|-------------------------------------|----------|----------------------------------------------------------|------|-------------------|
-| `idx_patients_phone` (UNIQUE)       | patients | `phone` (implicit from UNIQUE)                           | —    | Phone lookup      |
-| `idx_patients_clinic`               | patients | `clinic_id`                                              | —    | Clinic filter     |
-| `idx_patients_auth_user`            | patients | `auth_user_id` WHERE NOT NULL                            | Yes  | Q1                |
-| `idx_patients_active_not_opted_out` | patients | `id` WHERE `active=true AND opted_out=false`             | Yes  | Q7, Q10.1         |
-| `idx_messages_patient_created`      | messages | `(patient_id, created_at DESC)`                          | —    | Q2, Q6            |
-| `idx_messages_patient_role_created` | messages | `(patient_id, role, created_at DESC)`                    | Yes  | Q3, Q10.2         |
-| `idx_messages_created_at`           | messages | `created_at DESC`                                        | Yes  | Q4                |
-| `idx_metrics_patient_recorded`      | metrics  | `(patient_id, recorded_at DESC)`                         | —    | Q5, Q8, Q9, Q10.3 |
-| `idx_metrics_recorded_discomfort`   | metrics  | `recorded_at DESC` WHERE `discomfort IS NOT NULL`        | Yes  | Q4 (overview)     |
-| `idx_reports_patient_week`          | reports  | `(patient_id, week_start DESC)`                          | —    | Q12               |
-| UNIQUE constraint on `reports.token`| reports  | `token`                                                  | —    | Q11               |
+| Index name                           | Table    | Columns / predicate                               | New? | Covers            |
+| ------------------------------------ | -------- | ------------------------------------------------- | ---- | ----------------- |
+| `idx_patients_phone` (UNIQUE)        | patients | `phone` (implicit from UNIQUE)                    | —    | Phone lookup      |
+| `idx_patients_clinic`                | patients | `clinic_id`                                       | —    | Clinic filter     |
+| `idx_patients_auth_user`             | patients | `auth_user_id` WHERE NOT NULL                     | Yes  | Q1                |
+| `idx_patients_active_not_opted_out`  | patients | `id` WHERE `active=true AND opted_out=false`      | Yes  | Q7, Q10.1         |
+| `idx_messages_patient_created`       | messages | `(patient_id, created_at DESC)`                   | —    | Q2, Q6            |
+| `idx_messages_patient_role_created`  | messages | `(patient_id, role, created_at DESC)`             | Yes  | Q3, Q10.2         |
+| `idx_messages_created_at`            | messages | `created_at DESC`                                 | Yes  | Q4                |
+| `idx_metrics_patient_recorded`       | metrics  | `(patient_id, recorded_at DESC)`                  | —    | Q5, Q8, Q9, Q10.3 |
+| `idx_metrics_recorded_discomfort`    | metrics  | `recorded_at DESC` WHERE `discomfort IS NOT NULL` | Yes  | Q4 (overview)     |
+| `idx_reports_patient_week`           | reports  | `(patient_id, week_start DESC)`                   | —    | Q12               |
+| UNIQUE constraint on `reports.token` | reports  | `token`                                           | —    | Q11               |
 
 ---
 

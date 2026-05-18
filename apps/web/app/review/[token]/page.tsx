@@ -22,7 +22,9 @@ export const dynamic = 'force-dynamic'
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 const TOKEN_EXPIRES_IN_DAYS = 14
 
-interface PageProps { params: Promise<{ token: string }> }
+interface PageProps {
+  params: Promise<{ token: string }>
+}
 
 export default async function ReviewPage({ params }: PageProps) {
   const { token } = await params
@@ -55,7 +57,9 @@ export default async function ReviewPage({ params }: PageProps) {
   const supabase = createAdminClient() as any
   const { data: row } = await supabase
     .from('review_requests')
-    .select('id, patient_name, therapist_name, service_type, clinics!inner(name, google_place_id, google_maps_url)')
+    .select(
+      'id, patient_name, therapist_name, service_type, clinics!inner(name, google_place_id, google_maps_url)',
+    )
     .eq('id', requestId)
     .single()
   if (!row) notFound()
@@ -71,7 +75,10 @@ export default async function ReviewPage({ params }: PageProps) {
   // Always hand ReviewClient a fresh JWT so /api/review-requests/* keeps
   // working unchanged. The JWT is bound to this same request_id.
   const jwt = await mintReviewToken({
-    requestId, clinicId, jti: randomUUID(), expiresInDays: TOKEN_EXPIRES_IN_DAYS,
+    requestId,
+    clinicId,
+    jti: randomUUID(),
+    expiresInDays: TOKEN_EXPIRES_IN_DAYS,
   })
 
   return (

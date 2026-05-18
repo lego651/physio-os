@@ -16,11 +16,9 @@ export const maxDuration = 30
 
 const MAX_MESSAGE_LENGTH = 5000
 
-const ALLOWED_ORIGINS = new Set([
-  process.env.NEXT_PUBLIC_APP_URL,
-  'https://vhealth.ai',
-  'http://localhost:3000',
-].filter(Boolean))
+const ALLOWED_ORIGINS = new Set(
+  [process.env.NEXT_PUBLIC_APP_URL, 'https://vhealth.ai', 'http://localhost:3000'].filter(Boolean),
+)
 
 const requestSchema = z.object({
   message: z.string().min(1, 'Message is required').max(MAX_MESSAGE_LENGTH, 'Message too long'),
@@ -68,7 +66,9 @@ export async function POST(req: Request) {
   // Get patient record with explicit columns
   const { data: patient, error: patientError } = await supabase
     .from('patients')
-    .select('id, auth_user_id, name, language, phone, practitioner_name, profile, consent_at, opted_out')
+    .select(
+      'id, auth_user_id, name, language, phone, practitioner_name, profile, consent_at, opted_out',
+    )
     .eq('auth_user_id', user.id)
     .single()
 
@@ -136,9 +136,9 @@ export async function POST(req: Request) {
 
   // Build recent message texts for multi-turn safety analysis
   const recentUserTexts = serverMessages
-    .filter(m => m.role === 'user')
+    .filter((m) => m.role === 'user')
     .slice(-2)
-    .map(m => m.content)
+    .map((m) => m.content)
 
   // Count conversations for scale education
   const { count: conversationCount } = await supabase
@@ -183,7 +183,7 @@ export async function POST(req: Request) {
       practitionerName: patient.practitioner_name || profile.practitionerName,
       conversationCount: conversationCount || 0,
     },
-    messages: serverMessages.map(m => ({
+    messages: serverMessages.map((m) => ({
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.content,
     })),
@@ -195,10 +195,7 @@ export async function POST(req: Request) {
 
   // Handle blocked messages
   if (result.type === 'blocked') {
-    return Response.json(
-      { error: result.blockMessage },
-      { status: 400 },
-    )
+    return Response.json({ error: result.blockMessage }, { status: 400 })
   }
 
   // Handle emergency — save messages and return streaming format
@@ -212,13 +209,15 @@ export async function POST(req: Request) {
       extra: { patientId: patient.id, channel: 'web', timestamp: emergencyTimestamp },
     })
 
-    console.warn(JSON.stringify({
-      event: 'safety_classification',
-      category: result.safetyResult.category,
-      action: result.safetyResult.action,
-      patientId: patient.id,
-      timestamp: emergencyTimestamp,
-    }))
+    console.warn(
+      JSON.stringify({
+        event: 'safety_classification',
+        category: result.safetyResult.category,
+        action: result.safetyResult.action,
+        patientId: patient.id,
+        timestamp: emergencyTimestamp,
+      }),
+    )
 
     // Mark the user message (already saved above) as an emergency
     if (savedUserMsg?.id) {
@@ -227,7 +226,10 @@ export async function POST(req: Request) {
         .update({ is_emergency: true })
         .eq('id', savedUserMsg.id)
         .then(({ error }) => {
-          if (error) console.error('[chat] Failed to flag user message as emergency:', { patientId: patient.id })
+          if (error)
+            console.error('[chat] Failed to flag user message as emergency:', {
+              patientId: patient.id,
+            })
         })
     }
 
@@ -274,20 +276,22 @@ export async function POST(req: Request) {
   }
 
   // Save assistant response after stream completes (metrics are handled by server-executed tools)
-  void Promise.resolve(result.stream.text).then(async (text: string) => {
-    const { error: assistantSaveError } = await supabase.from('messages').insert({
-      patient_id: patient.id,
-      role: 'assistant',
-      content: text,
-      channel: 'web',
-    })
+  void Promise.resolve(result.stream.text)
+    .then(async (text: string) => {
+      const { error: assistantSaveError } = await supabase.from('messages').insert({
+        patient_id: patient.id,
+        role: 'assistant',
+        content: text,
+        channel: 'web',
+      })
 
-    if (assistantSaveError) {
-      console.error('[chat] Failed to save assistant message:', { patientId: patient.id })
-    }
-  }).catch((err: unknown) => {
-    console.error('[chat] Failed to save assistant message:', err)
-  })
+      if (assistantSaveError) {
+        console.error('[chat] Failed to save assistant message:', { patientId: patient.id })
+      }
+    })
+    .catch((err: unknown) => {
+      console.error('[chat] Failed to save assistant message:', err)
+    })
 
   try {
     return result.stream.toUIMessageStreamResponse()
@@ -304,8 +308,6 @@ export async function POST(req: Request) {
       )
     }
 
-    return streamErrorAsMessage(
-      "Something went wrong. Please try again.",
-    )
+    return streamErrorAsMessage('Something went wrong. Please try again.')
   }
 }

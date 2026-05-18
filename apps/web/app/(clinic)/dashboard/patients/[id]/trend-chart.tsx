@@ -42,7 +42,10 @@ export function TrendChart({ metrics }: { metrics: MetricRow[] }) {
     return metrics
       .filter((m) => new Date(m.recorded_at).getTime() >= cutoff)
       .map((m) => ({
-        date: new Date(m.recorded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date: new Date(m.recorded_at).toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
         rawDate: new Date(m.recorded_at).getTime(),
         pain: m.pain_level,
         discomfort: m.discomfort,
@@ -60,9 +63,7 @@ export function TrendChart({ metrics }: { metrics: MetricRow[] }) {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <p className="py-8 text-center text-muted-foreground">
-            Waiting for first check-in
-          </p>
+          <p className="py-8 text-center text-muted-foreground">Waiting for first check-in</p>
         </CardContent>
       </Card>
     )
@@ -97,18 +98,19 @@ export function TrendChart({ metrics }: { metrics: MetricRow[] }) {
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-              <XAxis
-                dataKey="date"
-                tick={{ fontSize: 12 }}
-                className="fill-muted-foreground"
-              />
+              <XAxis dataKey="date" tick={{ fontSize: 12 }} className="fill-muted-foreground" />
               <YAxis
                 yAxisId="discomfort"
                 orientation="left"
                 domain={[0, 3]}
                 tick={{ fontSize: 12 }}
                 className="fill-muted-foreground"
-                label={{ value: 'Discomfort', angle: -90, position: 'insideLeft', style: { fontSize: 11 } }}
+                label={{
+                  value: 'Discomfort',
+                  angle: -90,
+                  position: 'insideLeft',
+                  style: { fontSize: 11 },
+                }}
               />
               <YAxis
                 yAxisId="pain"
@@ -116,7 +118,12 @@ export function TrendChart({ metrics }: { metrics: MetricRow[] }) {
                 domain={[0, 10]}
                 tick={{ fontSize: 12 }}
                 className="fill-muted-foreground"
-                label={{ value: 'Pain', angle: 90, position: 'insideRight', style: { fontSize: 11 } }}
+                label={{
+                  value: 'Pain',
+                  angle: 90,
+                  position: 'insideRight',
+                  style: { fontSize: 11 },
+                }}
               />
               <Tooltip
                 contentStyle={{

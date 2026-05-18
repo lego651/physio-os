@@ -54,10 +54,7 @@ export async function POST(request: Request): Promise<NextResponse> {
     // and return 422 so upstream (OpenClaw VPS) stops retrying. Other errors → 500.
     if (err instanceof EmptyTranscriptError) {
       console.warn('[api/intake/telegram-webhook] whisper rejected audio', { reason: err.reason })
-      return NextResponse.json(
-        { error: 'Empty transcript — no speech detected' },
-        { status: 422 },
-      )
+      return NextResponse.json({ error: 'Empty transcript — no speech detected' }, { status: 422 })
     }
     const message = err instanceof Error ? err.message : String(err)
     console.error('[api/intake/telegram-webhook] pipeline error', {

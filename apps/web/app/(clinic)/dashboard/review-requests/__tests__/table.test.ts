@@ -17,17 +17,23 @@ function effectiveChannel(
   return 'sms'
 }
 
-interface OptOut { clinic_id: string; contact: string; contact_type: 'email' | 'sms' }
+interface OptOut {
+  clinic_id: string
+  contact: string
+  contact_type: 'email' | 'sms'
+}
 
 function isRowOptedOut(
   row: { patient_email: string | null; patient_phone: string | null },
   clinicId: string,
   optOuts: OptOut[],
 ): boolean {
-  return optOuts.some(o => {
+  return optOuts.some((o) => {
     if (o.clinic_id !== clinicId) return false
-    if (o.contact_type === 'email' && row.patient_email && o.contact === row.patient_email) return true
-    if (o.contact_type === 'sms' && row.patient_phone && o.contact === row.patient_phone) return true
+    if (o.contact_type === 'email' && row.patient_email && o.contact === row.patient_email)
+      return true
+    if (o.contact_type === 'sms' && row.patient_phone && o.contact === row.patient_phone)
+      return true
     return false
   })
 }
@@ -42,7 +48,9 @@ describe('effectiveChannel', () => {
   })
 
   it('returns "sms" when only phone is set', () => {
-    expect(effectiveChannel({ patient_email: null, patient_phone: '+14031234567' }, 'email')).toBe('sms')
+    expect(effectiveChannel({ patient_email: null, patient_phone: '+14031234567' }, 'email')).toBe(
+      'sms',
+    )
   })
 
   it('returns globalDefault "email" when both are set', () => {
@@ -68,23 +76,33 @@ describe('isRowOptedOut', () => {
   ]
 
   it('returns true when email matches opt-out', () => {
-    expect(isRowOptedOut({ patient_email: 'opted@out.com', patient_phone: null }, 'clinic-1', optOuts)).toBe(true)
+    expect(
+      isRowOptedOut({ patient_email: 'opted@out.com', patient_phone: null }, 'clinic-1', optOuts),
+    ).toBe(true)
   })
 
   it('returns true when phone matches opt-out', () => {
-    expect(isRowOptedOut({ patient_email: null, patient_phone: '+14039990000' }, 'clinic-1', optOuts)).toBe(true)
+    expect(
+      isRowOptedOut({ patient_email: null, patient_phone: '+14039990000' }, 'clinic-1', optOuts),
+    ).toBe(true)
   })
 
   it('returns false when contact does not match', () => {
-    expect(isRowOptedOut({ patient_email: 'good@email.com', patient_phone: null }, 'clinic-1', optOuts)).toBe(false)
+    expect(
+      isRowOptedOut({ patient_email: 'good@email.com', patient_phone: null }, 'clinic-1', optOuts),
+    ).toBe(false)
   })
 
   it('returns false when clinic_id does not match', () => {
-    expect(isRowOptedOut({ patient_email: 'opted@out.com', patient_phone: null }, 'clinic-2', optOuts)).toBe(false)
+    expect(
+      isRowOptedOut({ patient_email: 'opted@out.com', patient_phone: null }, 'clinic-2', optOuts),
+    ).toBe(false)
   })
 
   it('returns false when optOuts is empty', () => {
-    expect(isRowOptedOut({ patient_email: 'anyone@x.com', patient_phone: null }, 'clinic-1', [])).toBe(false)
+    expect(
+      isRowOptedOut({ patient_email: 'anyone@x.com', patient_phone: null }, 'clinic-1', []),
+    ).toBe(false)
   })
 })
 

@@ -34,7 +34,9 @@ export default function OnboardingPage() {
     async function checkStatus() {
       try {
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
         if (!user) {
           router.push('/login')
           return
@@ -92,7 +94,9 @@ export default function OnboardingPage() {
 
     try {
       const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
       if (!user) {
         setError('Session expired. Please log in again.')
         return
@@ -100,16 +104,14 @@ export default function OnboardingPage() {
 
       if (currentStep === 'consent') {
         // Use upsert to prevent duplicate records on double-click
-        const { error: upsertError } = await supabase
-          .from('patients')
-          .upsert(
-            {
-              auth_user_id: user.id,
-              phone: user.phone || '',
-              consent_at: new Date().toISOString(),
-            },
-            { onConflict: 'auth_user_id' },
-          )
+        const { error: upsertError } = await supabase.from('patients').upsert(
+          {
+            auth_user_id: user.id,
+            phone: user.phone || '',
+            consent_at: new Date().toISOString(),
+          },
+          { onConflict: 'auth_user_id' },
+        )
 
         if (upsertError) {
           throw new Error('Failed to save consent. Please try again.')
@@ -185,7 +187,13 @@ export default function OnboardingPage() {
     <div className="flex min-h-dvh items-center justify-center px-4 py-8">
       <Card className="w-full max-w-md p-6 space-y-6">
         {/* Progress indicator */}
-        <div className="flex gap-2" role="progressbar" aria-valuenow={stepIndex + 1} aria-valuemin={1} aria-valuemax={STEPS.length}>
+        <div
+          className="flex gap-2"
+          role="progressbar"
+          aria-valuenow={stepIndex + 1}
+          aria-valuemin={1}
+          aria-valuemax={STEPS.length}
+        >
           {STEPS.map((step, i) => (
             <div
               key={step}
@@ -262,7 +270,9 @@ export default function OnboardingPage() {
               autoFocus
             />
             {condition.trim().length < 3 && condition.length > 0 && (
-              <p className="text-xs text-muted-foreground">Please provide more detail about your condition.</p>
+              <p className="text-xs text-muted-foreground">
+                Please provide more detail about your condition.
+              </p>
             )}
           </div>
         )}
@@ -275,7 +285,11 @@ export default function OnboardingPage() {
                 Choose the language you&apos;d like your recovery coach to use.
               </p>
             </div>
-            <div className="grid grid-cols-2 gap-3" role="radiogroup" aria-label="Language selection">
+            <div
+              className="grid grid-cols-2 gap-3"
+              role="radiogroup"
+              aria-label="Language selection"
+            >
               <button
                 role="radio"
                 aria-checked={language === 'en'}

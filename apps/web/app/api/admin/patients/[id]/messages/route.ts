@@ -2,10 +2,7 @@ import { createAdminClient } from '@/lib/supabase/admin'
 import { requireAdminAuth } from '@/lib/auth/require-admin'
 import { isValidUUID } from '@/lib/validation'
 
-export async function GET(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminAuth()
   if (auth.error) return auth.error
 

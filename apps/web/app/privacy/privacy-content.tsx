@@ -32,7 +32,10 @@ const content = {
             <li>To provide personalized recovery coaching through AI conversation</li>
             <li>To track your recovery progress over time</li>
             <li>To generate weekly progress reports</li>
-            <li>To share progress with your V-Health practitioner (only if you explicitly enable sharing)</li>
+            <li>
+              To share progress with your V-Health practitioner (only if you explicitly enable
+              sharing)
+            </li>
           </ul>
         ),
       },
@@ -40,9 +43,9 @@ const content = {
         heading: '3. Data Storage',
         body: (
           <p>
-            Your data is stored using Supabase hosted on Amazon Web Services (AWS) with
-            encryption at rest and in transit. Row-level security ensures your data is only
-            accessible to you and authorized V-Health staff.
+            Your data is stored using Supabase hosted on Amazon Web Services (AWS) with encryption
+            at rest and in transit. Row-level security ensures your data is only accessible to you
+            and authorized V-Health staff.
           </p>
         ),
       },
@@ -54,8 +57,8 @@ const content = {
               <strong>You</strong> — you have full access to your own data at any time.
             </li>
             <li>
-              <strong>V-Health practitioners</strong> — only if you explicitly enable sharing
-              in your settings.
+              <strong>V-Health practitioners</strong> — only if you explicitly enable sharing in
+              your settings.
             </li>
             <li>
               <strong>V-Health administrators and platform operators</strong> — for service
@@ -69,22 +72,22 @@ const content = {
         body: (
           <>
             <p>
-              We do not sell your data. We share limited data with the following third-party
-              service providers solely to operate the platform:
+              We do not sell your data. We share limited data with the following third-party service
+              providers solely to operate the platform:
             </p>
             <ul>
               <li>
                 <strong>Anthropic (Claude AI)</strong> — your conversation messages are sent to
-                Anthropic to generate recovery coaching responses. Messages are not used to train
-                AI models. Governed by Anthropic&apos;s data processing agreement.
+                Anthropic to generate recovery coaching responses. Messages are not used to train AI
+                models. Governed by Anthropic&apos;s data processing agreement.
               </li>
               <li>
                 <strong>Twilio</strong> — delivers SMS messages to your phone number. Only your
                 phone number and message content are shared.
               </li>
               <li>
-                <strong>Vercel</strong> — hosts the V-Health web application. Standard request
-                and log data may be processed.
+                <strong>Vercel</strong> — hosts the V-Health web application. Standard request and
+                log data may be processed.
               </li>
             </ul>
           </>
@@ -94,8 +97,8 @@ const content = {
         heading: '6. Data Retention',
         body: (
           <p>
-            Your data is retained for as long as your account is active. You may request
-            deletion at any time by emailing{' '}
+            Your data is retained for as long as your account is active. You may request deletion at
+            any time by emailing{' '}
             <a href={`mailto:${CONTACT_EMAIL}`} className="text-primary underline">
               {CONTACT_EMAIL}
             </a>
@@ -107,13 +110,11 @@ const content = {
         heading: '7. Your Rights',
         body: (
           <>
-            <p>
-              Under applicable Canadian privacy law (PIPEDA), you have the right to:
-            </p>
+            <p>Under applicable Canadian privacy law (PIPEDA), you have the right to:</p>
             <ul>
               <li>
-                <strong>Access</strong> — request a copy of the personal information we hold
-                about you.
+                <strong>Access</strong> — request a copy of the personal information we hold about
+                you.
               </li>
               <li>
                 <strong>Correction</strong> — ask us to correct inaccurate or incomplete
@@ -123,9 +124,9 @@ const content = {
                 <strong>Deletion</strong> — request that we delete your data.
               </li>
               <li>
-                <strong>Withdrawal of consent</strong> — you may withdraw consent at any time
-                by replying <strong>STOP</strong> via SMS or emailing us. Withdrawal stops all
-                AI interactions and notifications.
+                <strong>Withdrawal of consent</strong> — you may withdraw consent at any time by
+                replying <strong>STOP</strong> via SMS or emailing us. Withdrawal stops all AI
+                interactions and notifications.
               </li>
             </ul>
             <p>
@@ -143,8 +144,8 @@ const content = {
         body: (
           <p>
             We collect your consent explicitly before processing any personal data. Consent is
-            provided during the onboarding flow (web or SMS). You may withdraw it at any time
-            as described above.
+            provided during the onboarding flow (web or SMS). You may withdraw it at any time as
+            described above.
           </p>
         ),
       },
@@ -166,16 +167,14 @@ const content = {
           <ul>
             <li>Consent is explicit and informed before data collection begins.</li>
             <li>The purpose of collection is clearly stated at the time of consent.</li>
-            <li>
-              You may withdraw consent at any time by replying STOP via SMS or emailing us.
-            </li>
+            <li>You may withdraw consent at any time by replying STOP via SMS or emailing us.</li>
             <li>
               We practice data minimization — only data necessary for recovery coaching is
               collected.
             </li>
             <li>
-              Data is stored on AWS infrastructure with encryption at rest, in a jurisdiction
-              with adequate privacy protections.
+              Data is stored on AWS infrastructure with encryption at rest, in a jurisdiction with
+              adequate privacy protections.
             </li>
           </ul>
         ),
@@ -213,7 +212,8 @@ const content = {
         heading: '3. 数据存储',
         body: (
           <p>
-            您的数据存储在亚马逊云服务（AWS）上托管的 Supabase 数据库中，静态数据和传输中的数据均已加密。行级安全机制确保您的数据只能由您本人及授权的
+            您的数据存储在亚马逊云服务（AWS）上托管的 Supabase
+            数据库中，静态数据和传输中的数据均已加密。行级安全机制确保您的数据只能由您本人及授权的
             V-Health 工作人员访问。
           </p>
         ),
@@ -241,8 +241,8 @@ const content = {
             <p>我们不出售您的数据。我们仅与以下第三方服务提供商共享有限数据，用于平台运营：</p>
             <ul>
               <li>
-                <strong>Anthropic（Claude AI）</strong> — 您的对话消息将发送至 Anthropic 以生成康复指导回复。消息不会用于训练
-                AI 模型，受 Anthropic 数据处理协议约束。
+                <strong>Anthropic（Claude AI）</strong> — 您的对话消息将发送至 Anthropic
+                以生成康复指导回复。消息不会用于训练 AI 模型，受 Anthropic 数据处理协议约束。
               </li>
               <li>
                 <strong>Twilio</strong> — 负责向您的手机号发送短信。仅共享您的手机号和消息内容。
@@ -282,8 +282,8 @@ const content = {
                 <strong>删除</strong> — 申请删除您的数据。
               </li>
               <li>
-                <strong>撤回同意</strong> — 您可以随时通过短信回复 <strong>STOP</strong> 或发送邮件给我们来撤回同意。撤回同意后将停止所有
-                AI 互动和通知。
+                <strong>撤回同意</strong> — 您可以随时通过短信回复 <strong>STOP</strong>{' '}
+                或发送邮件给我们来撤回同意。撤回同意后将停止所有 AI 互动和通知。
               </li>
             </ul>
             <p>
@@ -377,7 +377,10 @@ export function PrivacyContent() {
 
         {/* Footer back link */}
         <div className="mt-12 pt-6 border-t border-border">
-          <a href="/" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+          <a
+            href="/"
+            className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+          >
             {lang === 'en' ? '← Back to V-Health' : '← 返回 V-Health'}
           </a>
         </div>

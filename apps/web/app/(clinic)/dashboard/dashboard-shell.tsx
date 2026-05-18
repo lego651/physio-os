@@ -70,11 +70,7 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               </SidebarGroup>
             </SidebarContent>
             <SidebarFooter className="border-t p-2">
-              <Button
-                variant="ghost"
-                className="w-full justify-start gap-2"
-                onClick={handleLogout}
-              >
+              <Button variant="ghost" className="w-full justify-start gap-2" onClick={handleLogout}>
                 <LogOut className="h-4 w-4" />
                 Logout
               </Button>
@@ -86,7 +82,9 @@ export function DashboardShell({ children }: { children: React.ReactNode }) {
               <SidebarTrigger className="min-h-[44px] min-w-[44px]" />
               <h2 className="truncate font-semibold">V-Health Dashboard</h2>
             </header>
-            <main className="flex-1 overflow-y-auto p-3 pb-16 sm:p-4 sm:pb-4 md:p-6">{children}</main>
+            <main className="flex-1 overflow-y-auto p-3 pb-16 sm:p-4 sm:pb-4 md:p-6">
+              {children}
+            </main>
           </div>
         </div>
       </SidebarProvider>

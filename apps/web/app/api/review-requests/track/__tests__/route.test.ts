@@ -13,7 +13,9 @@ import { logFunnelEvent } from '@/lib/review/events'
 
 function req(body: any) {
   return new Request('http://x/api/review-requests/track', {
-    method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json' },
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { 'Content-Type': 'application/json' },
   })
 }
 
@@ -42,7 +44,10 @@ describe('POST /api/review-requests/track', () => {
       const res = await POST(req({ token: 'tok', eventType: et }))
       expect(res.status).toBe(200)
     }
-    const types = vi.mocked(logFunnelEvent).mock.calls.map(c => c[1].eventType).sort()
+    const types = vi
+      .mocked(logFunnelEvent)
+      .mock.calls.map((c) => c[1].eventType)
+      .sort()
     expect(types).toEqual(['copy_clicked', 'link_clicked', 'maps_redirected'])
   })
 })

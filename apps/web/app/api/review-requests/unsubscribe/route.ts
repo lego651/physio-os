@@ -21,14 +21,18 @@ async function doUnsubscribe(token: string | null): Promise<'ok' | 'invalid'> {
   const row = data as any
   if (row.patient_email) {
     await recordOptOut(supabase, {
-      clinicId: row.clinic_id, contact: row.patient_email,
-      contactType: 'email', source: 'email_link',
+      clinicId: row.clinic_id,
+      contact: row.patient_email,
+      contactType: 'email',
+      source: 'email_link',
     })
   }
   if (row.patient_phone) {
     await recordOptOut(supabase, {
-      clinicId: row.clinic_id, contact: row.patient_phone,
-      contactType: 'sms', source: 'email_link',
+      clinicId: row.clinic_id,
+      contact: row.patient_phone,
+      contactType: 'sms',
+      source: 'email_link',
     })
   }
   return 'ok'
@@ -44,8 +48,11 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   let body: any
-  try { body = await req.json() }
-  catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
   const result = await doUnsubscribe(typeof body?.token === 'string' ? body.token : null)
   if (result === 'invalid') return Response.json({ error: 'Invalid token' }, { status: 401 })
   return Response.json({ ok: true })

@@ -17,11 +17,11 @@ vi.mock('../../../../../lib/intake/whisper', () => ({
 vi.mock('../../../../../lib/intake/extract', () => ({
   extractIntakeFields: vi.fn().mockResolvedValue({
     fields: {
-      patient_name:   'Jane Doe',
-      date_of_visit:  '2026-05-13',
+      patient_name: 'Jane Doe',
+      date_of_visit: '2026-05-13',
       therapist_name: 'David',
       treatment_area: 'neck',
-      session_notes:  'Dry needling session',
+      session_notes: 'Dry needling session',
     },
     warnings: [],
   }),
@@ -60,14 +60,17 @@ describe('POST /api/intake/upload', () => {
 
 describe('POST /api/intake/upload — step param', () => {
   it('step=1: returns only transcript, does NOT call extractIntakeFields', async () => {
-    const { extractIntakeFields } = await import('../../../../../lib/intake/extract') as any
+    const { extractIntakeFields } = (await import('../../../../../lib/intake/extract')) as any
     extractIntakeFields.mockClear()
     const { POST } = await import('../route')
     const formData = new FormData()
     const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
     formData.append('audio', blob, 'recording.webm')
     formData.append('step', '1')
-    const req = new Request('http://localhost/api/intake/upload', { method: 'POST', body: formData })
+    const req = new Request('http://localhost/api/intake/upload', {
+      method: 'POST',
+      body: formData,
+    })
     const res = await POST(req)
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -77,14 +80,17 @@ describe('POST /api/intake/upload — step param', () => {
   })
 
   it('step=2: calls extractSingleField with treatment_area, returns { field, transcript }', async () => {
-    const { extractSingleField } = await import('../../../../../lib/intake/extract') as any
+    const { extractSingleField } = (await import('../../../../../lib/intake/extract')) as any
     extractSingleField.mockClear()
     const { POST } = await import('../route')
     const formData = new FormData()
     const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
     formData.append('audio', blob, 'recording.webm')
     formData.append('step', '2')
-    const req = new Request('http://localhost/api/intake/upload', { method: 'POST', body: formData })
+    const req = new Request('http://localhost/api/intake/upload', {
+      method: 'POST',
+      body: formData,
+    })
     const res = await POST(req)
     expect(res.status).toBe(200)
     const body = await res.json()

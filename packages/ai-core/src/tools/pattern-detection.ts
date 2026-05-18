@@ -161,7 +161,7 @@ const patternInsightsSchema = z.object({
     .array(z.string())
     .describe(
       'Patient-friendly insights about metric correlations and trends. ' +
-      'Each element is a single sentence. Use "We notice..." not "You should...".',
+        'Each element is a single sentence. Use "We notice..." not "You should...".',
     ),
 })
 

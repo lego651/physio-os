@@ -34,5 +34,12 @@ export function loadReviewConfig(): ReviewConfig {
 
   const resendWebhookSecret = process.env.RESEND_WEBHOOK_SECRET ?? ''
 
-  return { tokenSecret, baseUrl, testMode, testRecipientEmail, testRecipientPhone, resendWebhookSecret }
+  return {
+    tokenSecret,
+    baseUrl,
+    testMode,
+    testRecipientEmail,
+    testRecipientPhone,
+    resendWebhookSecret,
+  }
 }

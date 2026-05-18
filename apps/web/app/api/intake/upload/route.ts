@@ -30,7 +30,9 @@ export async function POST(request: Request): Promise<NextResponse> {
 
     // step=1: patient_name — Whisper only, return transcript as-is
     if (step === '1') {
-      console.log('[api/intake/upload] step=1 name-only transcription', { chars: transcript.length })
+      console.log('[api/intake/upload] step=1 name-only transcription', {
+        chars: transcript.length,
+      })
       return NextResponse.json({ transcript })
     }
 

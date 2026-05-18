@@ -27,7 +27,7 @@ export async function POST(req: Request) {
   if (!E164_REGEX.test(phone)) {
     return Response.json(
       { error: 'Phone must be in E.164 format (e.g. +16045551234)' },
-      { status: 400 }
+      { status: 400 },
     )
   }
   const lang = typeof language === 'string' ? language : 'en'
@@ -47,13 +47,12 @@ export async function POST(req: Request) {
   if (existing) {
     return Response.json(
       { error: 'A patient with this phone number already exists' },
-      { status: 409 }
+      { status: 409 },
     )
   }
 
   // --- Insert patient ---
-  const profileData =
-    condition && typeof condition === 'string' ? { diagnosis: condition } : null
+  const profileData = condition && typeof condition === 'string' ? { diagnosis: condition } : null
 
   const { data: patient, error: insertError } = await supabase
     .from('patients')

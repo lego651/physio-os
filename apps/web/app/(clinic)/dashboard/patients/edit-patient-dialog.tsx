@@ -38,12 +38,8 @@ export function EditPatientDialog({ patient }: EditPatientDialogProps) {
       : ''
 
   const [name, setName] = useState(patient.name ?? '')
-  const [language, setLanguage] = useState<'en' | 'zh'>(
-    patient.language === 'zh' ? 'zh' : 'en'
-  )
-  const [practitionerName, setPractitionerName] = useState(
-    patient.practitioner_name ?? ''
-  )
+  const [language, setLanguage] = useState<'en' | 'zh'>(patient.language === 'zh' ? 'zh' : 'en')
+  const [practitionerName, setPractitionerName] = useState(patient.practitioner_name ?? '')
   const [condition, setCondition] = useState(initialCondition)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -123,7 +119,10 @@ export function EditPatientDialog({ patient }: EditPatientDialogProps) {
               id="ep-name"
               placeholder="Jane Doe"
               value={name}
-              onChange={(e) => { setName(e.target.value); setError(null) }}
+              onChange={(e) => {
+                setName(e.target.value)
+                setError(null)
+              }}
               required
               disabled={submitting}
             />
@@ -143,7 +142,7 @@ export function EditPatientDialog({ patient }: EditPatientDialogProps) {
                     'flex-1 rounded-lg border py-1.5 text-sm font-medium transition-colors',
                     language === lang
                       ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-foreground hover:bg-muted'
+                      : 'border-border bg-background text-foreground hover:bg-muted',
                   )}
                 >
                   {lang === 'en' ? 'EN' : 'CN'}
@@ -161,7 +160,10 @@ export function EditPatientDialog({ patient }: EditPatientDialogProps) {
               id="ep-condition"
               placeholder="e.g. Lower back pain"
               value={condition}
-              onChange={(e) => { setCondition(e.target.value); setError(null) }}
+              onChange={(e) => {
+                setCondition(e.target.value)
+                setError(null)
+              }}
               disabled={submitting}
             />
           </div>
@@ -175,7 +177,10 @@ export function EditPatientDialog({ patient }: EditPatientDialogProps) {
               id="ep-practitioner"
               placeholder="Dr. Smith"
               value={practitionerName}
-              onChange={(e) => { setPractitionerName(e.target.value); setError(null) }}
+              onChange={(e) => {
+                setPractitionerName(e.target.value)
+                setError(null)
+              }}
               disabled={submitting}
             />
           </div>

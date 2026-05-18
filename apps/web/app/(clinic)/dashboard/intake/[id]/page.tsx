@@ -7,11 +7,7 @@ export const dynamic = 'force-dynamic'
 
 async function getRecord(id: string): Promise<IntakeRecord | null> {
   const supabase = createAdminClient()
-  const { data, error } = await supabase
-    .from('intake_records')
-    .select('*')
-    .eq('id', id)
-    .single()
+  const { data, error } = await supabase.from('intake_records').select('*').eq('id', id).single()
 
   if (error) return null
   return data as IntakeRecord

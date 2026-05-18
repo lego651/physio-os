@@ -207,11 +207,7 @@ function ExerciseProgress({ days, total }: { days: number; total: number }) {
 // Page
 // ---------------------------------------------------------------------------
 
-export default async function ReportPage({
-  params,
-}: {
-  params: Promise<{ token: string }>
-}) {
+export default async function ReportPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
 
   // 1. Verify JWT
@@ -294,7 +290,6 @@ export default async function ReportPage({
   return (
     <main className="min-h-screen bg-background">
       <div className="mx-auto max-w-md px-4 py-8 space-y-6">
-
         {/* ── Header ── */}
         <header className="space-y-1">
           <div className="flex items-center gap-2">
@@ -380,7 +375,10 @@ export default async function ReportPage({
             <h2 className="text-sm font-medium text-foreground">Insights</h2>
             <ul className="space-y-1.5">
               {insights.map((insight, i) => (
-                <li key={`${i}-${insight.slice(0, 20)}`} className="flex gap-2 text-sm text-muted-foreground">
+                <li
+                  key={`${i}-${insight.slice(0, 20)}`}
+                  className="flex gap-2 text-sm text-muted-foreground"
+                >
                   <span className="mt-0.5 shrink-0" style={{ color: '#0F766E' }} aria-hidden="true">
                     •
                   </span>
@@ -403,7 +401,6 @@ export default async function ReportPage({
             </Button>
           </Link>
         </section>
-
       </div>
     </main>
   )

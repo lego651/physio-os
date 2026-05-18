@@ -8,17 +8,32 @@ vi.mock('@/lib/supabase/admin', () => ({
     from(table: string) {
       if (table === 'review_funnel_events') {
         return {
-          select() { return this },
-          eq() { return this },
-          async maybeSingle() { return { data: { request_id: 'r1' }, error: null } },
-          async insert(row: any) { lastInsert = row; return { data: row, error: null } },
+          select() {
+            return this
+          },
+          eq() {
+            return this
+          },
+          async maybeSingle() {
+            return { data: { request_id: 'r1' }, error: null }
+          },
+          async insert(row: any) {
+            lastInsert = row
+            return { data: row, error: null }
+          },
         } as any
       }
       if (table === 'review_requests') {
         return {
-          select() { return this },
-          eq() { return this },
-          async maybeSingle() { return { data: null, error: null } },
+          select() {
+            return this
+          },
+          eq() {
+            return this
+          },
+          async maybeSingle() {
+            return { data: null, error: null }
+          },
         } as any
       }
       return {} as any
@@ -29,7 +44,11 @@ vi.mock('@/lib/review/events', async () => {
   return {
     IDEMPOTENT_EVENTS: ['link_clicked', 'email_opened'],
     logFunnelEvent: async (_supabase: any, input: any) => {
-      lastInsert = { request_id: input.requestId, event_type: input.eventType, metadata: input.metadata ?? null }
+      lastInsert = {
+        request_id: input.requestId,
+        event_type: input.eventType,
+        metadata: input.metadata ?? null,
+      }
     },
   }
 })
@@ -47,7 +66,8 @@ function signed(body: object): Request {
   const raw = JSON.stringify(body)
   const sig = createHmac('sha256', SECRET).update(raw).digest('hex')
   return new Request('http://x/api/webhooks/resend', {
-    method: 'POST', body: raw,
+    method: 'POST',
+    body: raw,
     headers: {
       'Content-Type': 'application/json',
       'resend-signature': `v1=${sig}`,

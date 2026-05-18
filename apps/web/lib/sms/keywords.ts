@@ -52,7 +52,7 @@ export async function processKeyword(
 
   const replyText = await handleKeyword(keyword, phone, supabase)
   if (replyText && keyword !== 'stop') {
-    await sendSMS({ to: phone, body: replyText }).catch(err => {
+    await sendSMS({ to: phone, body: replyText }).catch((err) => {
       console.error('[sms] Failed to send keyword reply:', err)
     })
   }

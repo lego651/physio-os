@@ -7,6 +7,7 @@
 ---
 
 ### S101 — Initialize pnpm monorepo with Turborepo
+
 **Type:** setup
 **Points:** 2
 **Depends on:** none
@@ -14,6 +15,7 @@
 **Goal:** Establish the monorepo skeleton that every subsequent ticket builds inside.
 
 **Scope:**
+
 - Initialize `package.json` at repo root with `"name": "physio-os"`, `"private": true`
 - Install Turborepo: `pnpm add -D turbo` at root
 - Create `turbo.json` with tasks: `build`, `lint`, `typecheck`, `test`, `dev` — appropriate `dependsOn` and `outputs`
@@ -27,6 +29,7 @@
 - `pnpm-workspace.yaml` listing `apps/*` and `packages/*`
 
 **Acceptance criteria:**
+
 1. `pnpm install` completes without errors and produces `pnpm-lock.yaml`
 2. `ls apps/` prints `web` and `ls packages/` prints `ai-core shared`
 3. `turbo.json` contains tasks for `build`, `lint`, `typecheck`, `test`
@@ -34,6 +37,7 @@
 5. `pnpm exec prettier --check .` exits 0
 
 **Out of scope:**
+
 - Installing Next.js or app-level dependencies (S103)
 - CI workflow (S102)
 - Any source code beyond config stubs
@@ -41,6 +45,7 @@
 ---
 
 ### S102 — GitHub Actions CI: lint, typecheck, and unit tests
+
 **Type:** setup
 **Points:** 2
 **Depends on:** S101
@@ -48,6 +53,7 @@
 **Goal:** Enforce code quality on every PR automatically.
 
 **Scope:**
+
 - Create `.github/workflows/ci.yml`
 - Trigger on: `pull_request` (all branches) and `push` to `main`
 - Steps: checkout → pnpm setup → Node 20 → `pnpm install --frozen-lockfile` → `pnpm turbo lint` → `pnpm turbo typecheck` → `pnpm turbo test`
@@ -55,6 +61,7 @@
 - `concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }`
 
 **Acceptance criteria:**
+
 1. Opening a PR triggers the `ci` workflow
 2. A PR with a deliberate TypeScript error fails the `typecheck` step
 3. A clean PR passes all three steps
@@ -62,6 +69,7 @@
 5. Workflow contains `concurrency` with `cancel-in-progress: true`
 
 **Out of scope:**
+
 - Playwright E2E in CI (S6)
 - Coverage gates (S6)
 - Deployment steps (S111)
@@ -69,6 +77,7 @@
 ---
 
 ### S103 — Scaffold Next.js app in apps/web
+
 **Type:** setup
 **Points:** 2
 **Depends on:** S101
@@ -76,6 +85,7 @@
 **Goal:** Create the Next.js application with shadcn/ui and the UI guide's design system wired.
 
 **Scope:**
+
 - Scaffold Next.js (latest stable) in `apps/web` with TypeScript, Tailwind, App Router
 - `apps/web/package.json`: name `@physio-os/web`; dependency `@physio-os/shared: "workspace:*"`
 - Initialize shadcn/ui: New York style, CSS variables enabled
@@ -91,6 +101,7 @@
 - Install initial shadcn components: `button`, `card`, `input`, `badge`, `separator`, `skeleton`
 
 **Acceptance criteria:**
+
 1. `pnpm --filter @physio-os/web dev` starts dev server on `localhost:3000`
 2. `GET localhost:3000` returns HTTP 200
 3. `apps/web/components/ui/button.tsx` exists
@@ -99,6 +110,7 @@
 6. Inter font loads on the page
 
 **Out of scope:**
+
 - Auth pages (S106, S107)
 - Dashboard routes (S109)
 - Chat routes (S108)
@@ -106,6 +118,7 @@
 ---
 
 ### S104 — Supabase project + initial schema migration
+
 **Type:** setup
 **Points:** 5
 **Depends on:** S101
@@ -113,6 +126,7 @@
 **Goal:** Create all database tables with correct columns, types, constraints, and indexes.
 
 **Scope:**
+
 - Initialize Supabase CLI: `supabase init` in repo root
 - Create migration file `supabase/migrations/001_initial_schema.sql`:
 
@@ -186,6 +200,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - Create 5-10 test messages and 5-10 test metrics per patient for dashboard development
 
 **Edge cases:**
+
 - `twilio_sid` UNIQUE constraint prevents duplicate SMS processing
 - `consent_at` NULL means onboarding not complete — enforce in application layer
 - `opted_out = true` means system must never send outbound SMS
@@ -193,6 +208,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - `pain_level` CHECK constraint prevents out-of-range values at DB level
 
 **Acceptance criteria:**
+
 1. `supabase db reset` runs migration + seed without errors
 2. `SELECT COUNT(*) FROM patients` returns 3
 3. `SELECT COUNT(*) FROM messages` returns 15-30 (seeded test data)
@@ -202,6 +218,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 7. `discomfort` CHECK rejects values outside 0-3
 
 **Out of scope:**
+
 - RLS policies (S105)
 - Supabase Auth configuration (S106, S107)
 - `clinic_users` table or roles (V2)
@@ -210,6 +227,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 ---
 
 ### S105 — RLS policies: patients read own data; admin reads all
+
 **Type:** security
 **Points:** 3
 **Depends on:** S104
@@ -217,6 +235,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 **Goal:** Enforce data isolation at the database level.
 
 **Scope:**
+
 - Enable RLS on all tables: `patients`, `messages`, `metrics`, `reports`
 - Patient policies (using `auth.uid()` matched to `patients.auth_user_id`):
   - `patients`: SELECT own row only
@@ -228,11 +247,13 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - Application-level admin check: server-side API routes use `SUPABASE_SERVICE_ROLE_KEY` for admin dashboard queries
 
 **Edge cases:**
+
 - Patient A cannot read Patient B's messages even if they guess the UUID
 - A patient who has not completed onboarding (no `auth_user_id`) has no RLS access — data is only accessible via service role (admin)
 - RLS must not significantly impact query performance on the hot path (messages by patient + date)
 
 **Acceptance criteria:**
+
 1. As an authenticated patient, `SELECT * FROM patients` returns exactly 1 row (their own)
 2. As an authenticated patient, `SELECT * FROM messages WHERE patient_id = '<other_patient>'` returns 0 rows
 3. As service role, `SELECT * FROM patients` returns all patients
@@ -240,12 +261,14 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 5. An unauthenticated request returns 0 rows on all tables
 
 **Out of scope:**
+
 - Per-practitioner access (V2)
 - `sharing_enabled` toggle enforcement (V2 — admin sees all in V1)
 
 ---
 
 ### S106 — Supabase Auth: phone OTP for patients
+
 **Type:** auth
 **Points:** 3
 **Depends on:** S104
@@ -253,6 +276,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 **Goal:** Patients authenticate via phone number with SMS verification code. Session persists for web chat.
 
 **Scope:**
+
 - Configure Supabase Auth to use Twilio as SMS provider (Supabase Dashboard → Auth → Phone Provider → Twilio)
 - Set OTP expiry to 5 minutes, 6-digit code
 - Create patient auth flow:
@@ -270,12 +294,14 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - Add Next.js middleware to refresh session on every request
 
 **Edge cases:**
+
 - Phone number formatting: accept `+1XXXXXXXXXX` and `XXXXXXXXXX`, normalize to E.164
 - OTP rate limiting: Supabase default (3 OTPs per phone per hour) is sufficient
 - Patient with existing SMS conversations but no web account: first web login links to existing patient record by phone number
 - Twilio SMS provider credentials stored in Supabase Dashboard, not in app env vars
 
 **Acceptance criteria:**
+
 1. Patient enters Canadian phone number → receives 6-digit OTP via SMS within 10 seconds
 2. Correct OTP → patient is logged in and redirected to `/chat`
 3. Incorrect OTP → error message shown, patient can retry
@@ -285,6 +311,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 7. A patient with an existing record (created via SMS onboarding) can log in and their web session links to the same record
 
 **Out of scope:**
+
 - Email/password auth (S107 — admin only)
 - Onboarding profile collection (S2)
 - STOP/opt-out handling (S3)
@@ -292,6 +319,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 ---
 
 ### S107 — Supabase Auth: admin email/password login
+
 **Type:** auth
 **Points:** 3
 **Depends on:** S104
@@ -299,6 +327,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 **Goal:** Single admin user logs in via email/password to access the clinic dashboard.
 
 **Scope:**
+
 - Configure admin login via Supabase Auth email/password
 - Create admin account manually via Supabase Dashboard (or seed script) for V-Health admin email
 - Environment variable: `ADMIN_EMAIL` — used to verify admin access
@@ -310,11 +339,13 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - Logout functionality: button in dashboard header → `supabase.auth.signOut()` → redirect to login
 
 **Edge cases:**
+
 - Admin and patient auth share the same Supabase Auth system but are different users
 - If someone signs up with a non-admin email and tries to access `/dashboard`, they get a 403 or redirect
 - Admin session should not interfere with patient session (they use different browser contexts in practice, but worth noting)
 
 **Acceptance criteria:**
+
 1. Admin navigates to `/dashboard` → redirected to `/dashboard/login`
 2. Admin enters email + password → authenticated and redirected to `/dashboard`
 3. Wrong password → error message, no login
@@ -323,6 +354,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 6. Direct access to `/dashboard/patients` without auth → redirected to login
 
 **Out of scope:**
+
 - Multiple admin users (V2)
 - Role-based access (V2)
 - Password reset flow (manual via Supabase Dashboard for V1)
@@ -330,6 +362,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 ---
 
 ### S108 — Patient chat shell UI
+
 **Type:** frontend
 **Points:** 3
 **Depends on:** S103, S106
@@ -337,6 +370,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 **Goal:** Empty chat interface ready for AI wiring in Sprint 2.
 
 **Scope:**
+
 - Create route `apps/web/app/(patient)/chat/page.tsx`
 - Auth guard: redirect to `/login` if not authenticated
 - Chat layout following UI guide:
@@ -353,12 +387,14 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - Input field: `Enter` to send (desktop), send button (mobile), disabled when empty
 
 **Edge cases:**
+
 - Very long messages should wrap, not overflow
 - Message area should scroll when messages exceed viewport height
 - On mobile, keyboard opening should not obscure the input field
 - Empty input → send button disabled
 
 **Acceptance criteria:**
+
 1. `/chat` renders with header, message area, and input bar
 2. Mock messages display in correct alignment (AI left, patient right)
 3. Input field accepts text; `Enter` key triggers send action (console log for now)
@@ -369,6 +405,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 8. WCAG AA: contrast ratio ≥ 4.5:1 on all text
 
 **Out of scope:**
+
 - AI integration (S2)
 - Streaming responses (S2)
 - Metric badge rendering (S2)
@@ -377,6 +414,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 ---
 
 ### S109 — Admin dashboard shell UI
+
 **Type:** frontend
 **Points:** 3
 **Depends on:** S103, S107
@@ -384,6 +422,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 **Goal:** Empty dashboard layout ready for data in Sprint 5.
 
 **Scope:**
+
 - Create route group `apps/web/app/(clinic)/dashboard/`
 - Layout with sidebar navigation (shadcn sidebar pattern):
   - Sidebar items: "Patients" (default), "Settings"
@@ -398,11 +437,13 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - Responsive: sidebar collapses to bottom nav or hamburger on tablet/mobile
 
 **Edge cases:**
+
 - Sidebar active state should highlight current route
 - Mobile sidebar should close on navigation
 - Dashboard layout should not conflict with patient chat layout (separate route groups)
 
 **Acceptance criteria:**
+
 1. `/dashboard` redirects to `/dashboard/patients`
 2. Sidebar renders with "Patients" and "Settings" items
 3. Clicking sidebar items navigates correctly
@@ -413,6 +454,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 8. Empty states show appropriate placeholder messages
 
 **Out of scope:**
+
 - Patient list with real data (S5)
 - Patient detail with charts (S5)
 - Settings functionality (V2)
@@ -421,6 +463,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 ---
 
 ### S110 — Shared types package
+
 **Type:** setup
 **Points:** 2
 **Depends on:** S101, S104
@@ -428,9 +471,11 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 **Goal:** Create shared TypeScript types and Supabase generated types used by all packages.
 
 **Scope:**
+
 - `packages/shared/package.json`: name `@physio-os/shared`
 - `packages/shared/src/database.types.ts`: generated via `supabase gen types typescript`
 - `packages/shared/src/types.ts`: domain types:
+
   ```typescript
   // Patient profile shape (stored in patients.profile jsonb)
   interface PatientProfile {
@@ -446,8 +491,8 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 
   // Metric extraction result (from AI tool call)
   interface MetricExtraction {
-    painLevel?: number      // 1-10
-    discomfort?: number     // 0-3
+    painLevel?: number // 1-10
+    discomfort?: number // 0-3
     sittingToleranceMin?: number
     exercisesDone?: string[]
     exerciseCount?: number
@@ -460,6 +505,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
   // Message role
   type MessageRole = 'user' | 'assistant' | 'system'
   ```
+
 - `packages/shared/src/metrics.ts`: metric definitions and validation:
   ```typescript
   const PAIN_SCALE = { min: 1, max: 10, label: 'Pain Level' }
@@ -470,18 +516,21 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - Add `gen:types` script to root `package.json`: `supabase gen types typescript --linked > packages/shared/src/database.types.ts`
 
 **Acceptance criteria:**
+
 1. `import { PatientProfile, MetricExtraction } from '@physio-os/shared'` works in `apps/web`
 2. `database.types.ts` contains generated types matching all tables from S104
 3. `pnpm turbo typecheck` passes with shared types imported in web app
 4. Metric validation functions correctly reject out-of-range values
 
 **Out of scope:**
+
 - AI-specific types (S2 — in `packages/ai-core`)
 - Twilio types (S3)
 
 ---
 
 ### S111 — Vercel project setup
+
 **Type:** setup
 **Points:** 2
 **Depends on:** S103
@@ -489,6 +538,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 **Goal:** Vercel deployment pipeline working with preview deploys on every PR.
 
 **Scope:**
+
 - Create Vercel project linked to GitHub repo
 - Configure build command: `cd apps/web && pnpm build` (or Turborepo-aware)
 - Set root directory to `apps/web` or configure monorepo settings
@@ -505,6 +555,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - Create `vercel.json` (minimal, placeholder for cron config in S4)
 
 **Acceptance criteria:**
+
 1. Push to `main` triggers Vercel production deploy
 2. Production deploy succeeds and app loads
 3. PR creates preview deploy with unique URL
@@ -512,6 +563,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 5. Supabase client can connect from deployed app
 
 **Out of scope:**
+
 - Custom domain (S6 — vhealth.ai)
 - Cron configuration (S4)
 - Sentry integration (S5)
@@ -519,6 +571,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 ---
 
 ### S112 — Vitest setup + initial tests
+
 **Type:** testing
 **Points:** 1
 **Depends on:** S101, S110
@@ -526,6 +579,7 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 **Goal:** Test infrastructure established with patterns for future tickets.
 
 **Scope:**
+
 - Configure Vitest at root level with workspace support
 - `vitest.config.ts` at root: test `packages/shared` and `packages/ai-core`
 - Initial test file: `packages/shared/src/__tests__/metrics.test.ts`
@@ -534,12 +588,14 @@ CREATE INDEX idx_reports_patient_week ON public.reports(patient_id, week_start D
 - Create test utilities: `packages/shared/src/test-utils.ts` (mock patient, mock message factories)
 
 **Acceptance criteria:**
+
 1. `pnpm test` runs Vitest and passes
 2. `pnpm turbo test` runs tests across workspaces
 3. At least 3 test cases passing (metric validation, phone normalization)
 4. Test factories generate valid mock data matching DB schema
 
 **Out of scope:**
+
 - Coverage gates (S6)
 - Playwright E2E (S6)
 - Integration tests with real Supabase (future sprints)

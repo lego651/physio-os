@@ -24,31 +24,34 @@ export function ConversationLog({ patientId }: { patientId: string }) {
   const [offset, setOffset] = useState(0)
   const [channelFilter, setChannelFilter] = useState<'all' | 'sms' | 'web'>('all')
 
-  const fetchMessages = useCallback(async (currentOffset: number, append: boolean) => {
-    setLoading(true)
-    try {
-      const params = new URLSearchParams({
-        limit: String(PAGE_SIZE),
-        offset: String(currentOffset),
-      })
-      if (channelFilter !== 'all') params.set('channel', channelFilter)
+  const fetchMessages = useCallback(
+    async (currentOffset: number, append: boolean) => {
+      setLoading(true)
+      try {
+        const params = new URLSearchParams({
+          limit: String(PAGE_SIZE),
+          offset: String(currentOffset),
+        })
+        if (channelFilter !== 'all') params.set('channel', channelFilter)
 
-      const res = await fetch(`/api/admin/patients/${patientId}/messages?${params}`)
-      if (!res.ok) throw new Error('Failed to fetch messages')
-      const data = await res.json() as { messages: Message[]; total: number }
+        const res = await fetch(`/api/admin/patients/${patientId}/messages?${params}`)
+        if (!res.ok) throw new Error('Failed to fetch messages')
+        const data = (await res.json()) as { messages: Message[]; total: number }
 
-      if (append) {
-        setMessages((prev) => [...prev, ...data.messages])
-      } else {
-        setMessages(data.messages)
+        if (append) {
+          setMessages((prev) => [...prev, ...data.messages])
+        } else {
+          setMessages(data.messages)
+        }
+        setHasMore(currentOffset + PAGE_SIZE < data.total)
+      } catch (err) {
+        console.error('Failed to load messages:', err)
+      } finally {
+        setLoading(false)
       }
-      setHasMore(currentOffset + PAGE_SIZE < data.total)
-    } catch (err) {
-      console.error('Failed to load messages:', err)
-    } finally {
-      setLoading(false)
-    }
-  }, [patientId, channelFilter])
+    },
+    [patientId, channelFilter],
+  )
 
   useEffect(() => {
     setOffset(0)
@@ -96,9 +99,7 @@ export function ConversationLog({ patientId }: { patientId: string }) {
           </div>
         )}
 
-        {loading && (
-          <p className="py-4 text-center text-sm text-muted-foreground">Loading...</p>
-        )}
+        {loading && <p className="py-4 text-center text-sm text-muted-foreground">Loading...</p>}
 
         {hasMore && !loading && (
           <div className="mt-4 flex justify-center">
@@ -125,13 +126,7 @@ function MessageBubble({ message }: { message: Message }) {
           {message.channel.toUpperCase()}
         </Badge>
       </div>
-      <div
-        className={`rounded-lg px-3 py-2 text-sm ${
-          isAssistant
-            ? 'bg-muted'
-            : 'bg-primary/10'
-        }`}
-      >
+      <div className={`rounded-lg px-3 py-2 text-sm ${isAssistant ? 'bg-muted' : 'bg-primary/10'}`}>
         <p className="whitespace-pre-wrap">{message.content}</p>
         {message.media_urls && message.media_urls.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-2">
@@ -146,7 +141,8 @@ function MessageBubble({ message }: { message: Message }) {
                   const img = e.currentTarget
                   img.style.display = 'none'
                   const placeholder = document.createElement('div')
-                  placeholder.className = 'flex h-24 w-32 items-center justify-center rounded border bg-muted text-xs text-muted-foreground'
+                  placeholder.className =
+                    'flex h-24 w-32 items-center justify-center rounded border bg-muted text-xs text-muted-foreground'
                   placeholder.textContent = 'Image unavailable'
                   img.parentElement?.replaceChild(placeholder, img)
                 }}

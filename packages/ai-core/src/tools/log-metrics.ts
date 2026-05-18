@@ -22,18 +22,8 @@ export function createLogMetricsTool(
     description:
       'Log patient recovery metrics extracted from the conversation. Call this whenever the patient mentions pain levels, discomfort, sitting tolerance, or exercises completed. The tool persists the data to the database and returns a confirmation string.',
     inputSchema: z.object({
-      pain_level: z
-        .number()
-        .min(1)
-        .max(10)
-        .optional()
-        .describe('Pain level on a scale of 1-10'),
-      discomfort: z
-        .number()
-        .min(0)
-        .max(3)
-        .optional()
-        .describe('Discomfort on a scale of 0-3'),
+      pain_level: z.number().min(1).max(10).optional().describe('Pain level on a scale of 1-10'),
+      discomfort: z.number().min(0).max(3).optional().describe('Discomfort on a scale of 0-3'),
       sitting_tolerance_min: z
         .number()
         .min(0)
@@ -61,7 +51,13 @@ export function createLogMetricsTool(
         throw new Error(`Failed to log metrics: ${error.message}`)
       }
 
-      return buildConfirmation({ pain_level, discomfort, sitting_tolerance_min, exercises_done, notes })
+      return buildConfirmation({
+        pain_level,
+        discomfort,
+        sitting_tolerance_min,
+        exercises_done,
+        notes,
+      })
     },
   })
 }

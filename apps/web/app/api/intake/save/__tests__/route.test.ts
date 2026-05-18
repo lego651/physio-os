@@ -4,17 +4,17 @@ import { describe, it, expect, vi } from 'vitest'
 // (vitest at the repo root has no `@/` alias configured, so relative paths are required)
 vi.mock('../../../../../lib/intake/db', () => ({
   saveIntakeRecord: vi.fn().mockResolvedValue({
-    id:             'test-uuid',
-    clinic_id:      'vhealth',
-    patient_name:   'Jane Doe',
-    date_of_visit:  '2026-05-13',
+    id: 'test-uuid',
+    clinic_id: 'vhealth',
+    patient_name: 'Jane Doe',
+    date_of_visit: '2026-05-13',
     therapist_name: 'David',
     treatment_area: 'neck',
-    session_notes:  'Dry needling session',
-    source:         'in_app',
+    session_notes: 'Dry needling session',
+    source: 'in_app',
     raw_transcript: null,
-    created_at:     '2026-05-13T00:00:00Z',
-    updated_at:     '2026-05-13T00:00:00Z',
+    created_at: '2026-05-13T00:00:00Z',
+    updated_at: '2026-05-13T00:00:00Z',
   }),
 }))
 
@@ -25,11 +25,11 @@ describe('POST /api/intake/save', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        patient_name:   '',
-        date_of_visit:  '',
+        patient_name: '',
+        date_of_visit: '',
         therapist_name: 'David',
         treatment_area: 'neck',
-        session_notes:  'Dry needling session',
+        session_notes: 'Dry needling session',
       }),
     })
     const res = await POST(req)
@@ -42,12 +42,12 @@ describe('POST /api/intake/save', () => {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
-        patient_name:   'Jane Doe',
-        date_of_visit:  '2026-05-13',
+        patient_name: 'Jane Doe',
+        date_of_visit: '2026-05-13',
         therapist_name: 'David',
         treatment_area: 'neck',
-        session_notes:  'Dry needling session',
-        source:         'in_app',
+        session_notes: 'Dry needling session',
+        source: 'in_app',
         raw_transcript: 'Patient Jane Doe, neck pain, dry needling',
       }),
     })
@@ -62,7 +62,7 @@ describe('POST /api/intake/save', () => {
       expect.objectContaining({
         source: 'in_app',
         raw_transcript: 'Patient Jane Doe, neck pain, dry needling',
-      })
+      }),
     )
   })
 
@@ -75,18 +75,18 @@ describe('POST /api/intake/save', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        patient_name:   'No Source Test',
-        date_of_visit:  '2026-05-13',
+        patient_name: 'No Source Test',
+        date_of_visit: '2026-05-13',
         therapist_name: 'David',
         treatment_area: 'shoulder',
-        session_notes:  'Test notes',
+        session_notes: 'Test notes',
         // source intentionally omitted
       }),
     })
     const res = await POST(req)
     expect(res.status).toBe(200)
     expect(saveIntakeRecord).toHaveBeenCalledWith(
-      expect.objectContaining({ source: 'manual', raw_transcript: null })
+      expect.objectContaining({ source: 'manual', raw_transcript: null }),
     )
   })
 })

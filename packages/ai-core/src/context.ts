@@ -97,7 +97,10 @@ export function budgetMessages(messagesNewestFirst: MessageRow[]): MessageRow[] 
   const budgeted: MessageRow[] = []
 
   // Compute max chars based on content language
-  const sampleText = messagesNewestFirst.slice(0, 5).map(m => m.content).join('')
+  const sampleText = messagesNewestFirst
+    .slice(0, 5)
+    .map((m) => m.content)
+    .join('')
   const ratio = charsPerToken(sampleText)
   const maxChars = MAX_TOKEN_BUDGET * ratio
 

@@ -21,6 +21,7 @@ to be resolved before these branches ship to production.
 
 **Severity:** 🔴 Critical
 **Files:**
+
 - `supabase/migrations/007_add_nudge_column.sql` (feat/s4-inactivity-nudge)
 - `supabase/migrations/007_add_sms_usage.sql` (feat/s4-sms-cost-tracking)
 
@@ -30,12 +31,14 @@ migration runner will fail or apply them in undefined order. This blocks
 all deployments.
 
 **Action:**
+
 1. Renumber the second migration to `008_add_sms_usage.sql` (or whichever
    merges last).
 2. Add a CI check or pre-merge script that validates migration filenames
    are strictly sequential with no duplicates.
 
 **Acceptance:**
+
 - `supabase db push` succeeds with both migrations applied in order.
 - A linter or CI step flags duplicate migration numbers on PR open.
 
@@ -53,6 +56,7 @@ via `Promise.allSettled`) the read-modify-write is not atomic — later writes
 overwrite earlier ones, losing segment counts.
 
 The code itself acknowledges this:
+
 > "Not atomic under concurrent writes, but SMS sends are low-frequency enough
 > that this is acceptable without a DB-side function."
 
@@ -75,6 +79,7 @@ Use `supabase.rpc('track_sms_usage', { p_segments, p_cost })` instead of
 the current select → upsert pattern.
 
 **Acceptance:**
+
 - `trackSMSUsage(1)` called 100 times concurrently results in exactly
   `segments = 100`, not fewer.
 - Unit test simulates concurrent calls and asserts correct total.
@@ -85,6 +90,7 @@ the current select → upsert pattern.
 
 **Severity:** 🔴 Critical
 **Files:**
+
 - `packages/ai-core/src/tools/generate-report.ts` — line: `const result: ReportOutput = output`
 - `packages/ai-core/src/tools/pattern-detection.ts` — line: `return output.insights`
 
@@ -107,6 +113,7 @@ if (!output) {
 Or provide a fallback report with pre-computed stats only.
 
 **Acceptance:**
+
 - When `output` is `undefined`, the function throws a descriptive error
   (not a generic `TypeError`).
 - The weekly report cron's `Promise.allSettled` catches this per-patient and
@@ -118,6 +125,7 @@ Or provide a fallback report with pre-computed stats only.
 
 **Severity:** 🟠 High
 **Files:**
+
 - `generate-report.ts` — `DEFAULT_MODEL = 'claude-sonnet-4-20250514'`
 - `nudge/route.ts` — `DEFAULT_MODEL = 'claude-sonnet-4.5'`
 - `pattern-detection.ts` — `DEFAULT_MODEL = 'claude-sonnet-4.6'`
@@ -129,6 +137,7 @@ the inconsistency suggests copy-paste drift — `claude-sonnet-4.6` may not
 even be a valid model ID yet.
 
 **Action:**
+
 1. Create a shared constant in `packages/ai-core/src/config.ts`:
    ```typescript
    export const DEFAULT_AI_MODEL = 'claude-sonnet-4-20250514'
@@ -137,6 +146,7 @@ even be a valid model ID yet.
 3. All files should read `process.env.AI_MODEL ?? DEFAULT_AI_MODEL`.
 
 **Acceptance:**
+
 - Exactly one `DEFAULT_MODEL` definition exists in the codebase.
 - Changing the default in one place updates all AI callers.
 
@@ -154,6 +164,7 @@ same week. There is no `UNIQUE(patient_id, week_start)` constraint on the
 `reports` table and no pre-insert check.
 
 **Action:**
+
 1. Add a unique constraint in a new migration:
    ```sql
    ALTER TABLE reports ADD CONSTRAINT reports_patient_week_unique
@@ -174,6 +185,7 @@ same week. There is no `UNIQUE(patient_id, week_start)` constraint on the
    the conflict gracefully.
 
 **Acceptance:**
+
 - Running the weekly report cron twice for the same week produces exactly
   one report per patient.
 - The DB constraint prevents duplicates even if application logic is bypassed.
@@ -188,6 +200,7 @@ same week. There is no `UNIQUE(patient_id, week_start)` constraint on the
 **Problem:**
 For each candidate patient, the nudge cron makes **3 sequential Supabase
 queries**:
+
 1. Recent messages (last 3 days)
 2. Last user message timestamp
 3. Last metric row
@@ -196,6 +209,7 @@ With 100 patients this is 300 DB round-trips inside `Promise.allSettled`.
 Even with connection pooling this is wasteful and slow.
 
 **Action:**
+
 1. Batch-fetch last message timestamps for all candidate patients in a
    single query using a Postgres function or view:
    ```sql
@@ -208,6 +222,7 @@ Even with connection pooling this is wasteful and slow.
 3. Filter in JS using the pre-fetched maps, reducing queries from 3N to 2.
 
 **Acceptance:**
+
 - Nudge cron executes at most 4-5 total DB queries regardless of patient count.
 - Processing time for 100 patients drops by >50%.
 
@@ -225,12 +240,14 @@ If costs exceed $40/month, nobody is notified.
 
 **Action:**
 Either:
+
 - **(a)** Wire it into `trackSMSUsage` or the cron endpoints to log a warning
   or send an admin notification when the threshold is crossed.
 - **(b)** Remove the dead code and add a `// TODO: S5 — implement cost alerting`
   ticket if it's planned for later.
 
 **Acceptance:**
+
 - If option (a): exceeding $40 triggers a console.error with `[ALERT]` prefix
   and/or calls a webhook. Test confirms alert fires at threshold.
 - If option (b): dead code removed, ticket created.
@@ -245,6 +262,7 @@ Either:
 **Problem:**
 Sprint 4 introduces three new required env vars that are absent from
 `.env.example`:
+
 - `REPORT_TOKEN_SECRET` (used by `generate-report.ts` and report page)
 - `CRON_SECRET` (used by both cron endpoints)
 - `ADMIN_API_KEY` (used by `GET /api/admin/sms-usage`)
@@ -266,6 +284,7 @@ ADMIN_API_KEY=local-dev-admin-key
 ```
 
 **Acceptance:**
+
 - `.env.example` documents every env var the app needs.
 - `grep -c 'REPORT_TOKEN_SECRET\|CRON_SECRET\|ADMIN_API_KEY' .env.example`
   returns 3.
@@ -276,6 +295,7 @@ ADMIN_API_KEY=local-dev-admin-key
 
 **Severity:** 🟡 Medium
 **Files:**
+
 - `apps/web/__tests__/cron-auth.test.ts`
 - `apps/web/__tests__/nudge-eligibility.test.ts`
 - `apps/web/__tests__/sms-cost-tracker.test.ts`
@@ -293,6 +313,7 @@ This means:
 - Logic drift between test doubles and real code accumulates silently.
 
 **Action:**
+
 1. Extract shared pure functions from route handlers into importable modules:
    - `lib/auth/verify-cron.ts` for `verifyCronAuth`
    - `lib/nudge/eligibility.ts` for `isNudgeEligible`
@@ -302,6 +323,7 @@ This means:
    under test.
 
 **Acceptance:**
+
 - Zero functions are re-defined in test files.
 - Every test imports from `src/` or `lib/` paths.
 - Breaking a function in source causes at least one test to fail.
@@ -320,16 +342,20 @@ could return thousands of rows. The code then only uses the last 28 days
 for the AI prompt (`.slice(-28)`), wasting bandwidth and memory on the rest.
 
 **Action:**
+
 1. Add a date range filter to the query — only fetch the last 60 days
    (enough for 14-day minimum + previous-period comparison):
    ```typescript
-   const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000)
-   .gte('recorded_at', sixtyDaysAgo.toISOString())
+   const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000).gte(
+     'recorded_at',
+     sixtyDaysAgo.toISOString(),
+   )
    ```
 2. If full-history is ever needed for trend analysis, paginate or use a
    Postgres aggregate function.
 
 **Acceptance:**
+
 - Query returns at most ~60 days of data.
 - Function still produces correct insights for patients with exactly
   14, 28, and 60+ days of data.
@@ -340,6 +366,7 @@ for the AI prompt (`.slice(-28)`), wasting bandwidth and memory on the rest.
 
 **Severity:** 🟡 Medium
 **Files:**
+
 - `apps/web/lib/supabase/admin.ts` → `createAdminClient()`
 - `apps/web/lib/supabase/server.ts` → `createServiceClient()`
 
@@ -353,12 +380,14 @@ guess which one to use, and both lack consistent env-var validation.
 `createServiceClient` uses `requireEnv()` (with better error messages).
 
 **Action:**
+
 1. Delete `apps/web/lib/supabase/admin.ts`.
 2. Use `createServiceClient()` everywhere (it already uses `requireEnv`
    for better DX).
 3. Update imports in `nudge/route.ts` and `weekly-report/route.ts`.
 
 **Acceptance:**
+
 - One service-role client factory exists.
 - All service-role usage goes through `createServiceClient()`.
 - `grep -r 'createAdminClient' apps/` returns zero results.
@@ -382,6 +411,7 @@ request (JWT verify, report load, metrics load). Issues:
    error page.
 
 **Action:**
+
 1. Add `export const revalidate = 3600` (1-hour static cache) or use
    `unstable_cache` / `use cache` for the data-fetching portion — report data
    is immutable per token.
@@ -389,6 +419,7 @@ request (JWT verify, report load, metrics load). Issues:
 3. Add `error.tsx` with a friendly error state that links to `/chat`.
 
 **Acceptance:**
+
 - Repeated visits to the same report URL result in cache hits (verify via
   `x-vercel-cache` header in production).
 - `loading.tsx` and `error.tsx` exist and render correctly.
@@ -399,11 +430,13 @@ request (JWT verify, report load, metrics load). Issues:
 
 **Severity:** 🟡 Medium
 **Files:**
+
 - `apps/web/lib/sms/send.ts` → `formatSMSResponse()`
 - `apps/web/app/api/cron/weekly-report/route.ts` → `buildSMSText()`
 
 **Problem:**
 Two completely different SMS-length-management functions exist:
+
 - `formatSMSResponse` handles sentence-boundary truncation with "More at"
   suffix for general AI responses.
 - `buildSMSText` handles progressive name-shortening for report notification
@@ -413,6 +446,7 @@ Both duplicate UCS-2 detection logic and segment limits. When Twilio pricing
 or segment limits change, two places need updating.
 
 **Action:**
+
 1. Create a shared `lib/sms/format.ts` module with:
    - Shared constants (`GSM_SEGMENT_LIMIT`, `UCS2_SEGMENT_LIMIT`)
    - Shared `requiresUCS2()` (already in `send.ts`)
@@ -421,6 +455,7 @@ or segment limits change, two places need updating.
    truncation utility.
 
 **Acceptance:**
+
 - `GSM_SEGMENT_LIMIT` and `UCS2_SEGMENT_LIMIT` are defined in exactly one
   file.
 - `requiresUCS2` is imported (not duplicated).
@@ -435,6 +470,7 @@ or segment limits change, two places need updating.
 **Problem:**
 The report is inserted with a `pending-...` placeholder token, then
 immediately updated with the real signed JWT. This two-step write:
+
 - Doubles the DB round-trips for report creation.
 - Creates a window (however brief) where a row with an invalid token exists
   in the database.
@@ -457,6 +493,7 @@ const { data, error } = await supabase
 ```
 
 **Acceptance:**
+
 - Report creation is a single INSERT (no subsequent UPDATE).
 - No `pending-*` tokens ever exist in the database.
 
@@ -474,6 +511,7 @@ arriving from an SMS link are not authenticated in the web app. Clicking
 chat with no patient context.
 
 **Action:**
+
 1. Append the patient identifier to the CTA URL:
    `/chat?token=<report-token>` or `/chat?patient=<patient-id>` (with
    appropriate auth handling on the chat page).
@@ -483,6 +521,7 @@ chat with no patient context.
    SMS patients who can't use the web app.
 
 **Acceptance:**
+
 - Clicking "Open Chat" from a report page lands the user in an
   authenticated chat session (or a clear path to one).
 - If web auth is not feasible, the CTA gracefully degrades to a
@@ -497,6 +536,7 @@ chat with no patient context.
 
 **Problem:**
 The report page uses hardcoded hex colors throughout:
+
 - `#0F766E` (teal — brand color)
 - `#16A34A` (green — improving)
 - `#DC2626` (red — worsening)
@@ -508,6 +548,7 @@ These bypass the Tailwind theme and CSS custom properties. If the brand
 palette changes, these inline styles won't update.
 
 **Action:**
+
 1. Define semantic color tokens in `tailwind.config.ts`:
    ```javascript
    colors: {
@@ -520,6 +561,7 @@ palette changes, these inline styles won't update.
    like `text-trend-worsening`.
 
 **Acceptance:**
+
 - Zero hardcoded hex colors in `page.tsx`.
 - All colors reference Tailwind theme tokens.
 
@@ -544,12 +586,13 @@ Wrap the chart in a `Suspense` boundary with a skeleton fallback:
 ```tsx
 import { Suspense } from 'react'
 
-<Suspense fallback={<div className="h-40 animate-pulse rounded bg-muted" />}>
+;<Suspense fallback={<div className="h-40 animate-pulse rounded bg-muted" />}>
   <DiscomfortChart data={chartData} />
 </Suspense>
 ```
 
 **Acceptance:**
+
 - A skeleton placeholder appears while the chart loads.
 - Lighthouse performance score does not regress.
 
@@ -574,16 +617,13 @@ const { data: eligiblePatients } = await supabase
   .select('id, phone, name, language')
   .eq('active', true)
   .eq('opted_out', false)
-  .in('id', supabase
-    .from('metrics')
-    .select('patient_id')
-    .gte('recorded_at', weekStartISO)
-  )
+  .in('id', supabase.from('metrics').select('patient_id').gte('recorded_at', weekStartISO))
 ```
 
 Or use a Postgres function that returns eligible patients directly.
 
 **Acceptance:**
+
 - Patient eligibility is determined in a single DB round-trip.
 - Cron startup time decreases for clinics with many inactive patients.
 
@@ -593,6 +633,7 @@ Or use a Postgres function that returns eligible patients directly.
 
 **Severity:** 🟢 Low
 **Files:**
+
 - `packages/ai-core/package.json` — `"jose": "^6.2.2"`
 - `apps/web/package.json` — `"jose": "^6.2.2"`
 
@@ -604,12 +645,14 @@ While pnpm deduplicates this, the conceptual responsibility is split: `ai-core`
 infrastructure concern.
 
 **Action:**
+
 1. Move `signReportToken` to `apps/web/lib/auth/report-token.ts`.
 2. Remove `jose` from `packages/ai-core/package.json`.
 3. Have `generateWeeklyReport` accept a `signToken` callback or return
    an unsigned report, letting the caller (cron route) handle signing.
 
 **Acceptance:**
+
 - `packages/ai-core/package.json` does not list `jose`.
 - JWT signing logic lives in `apps/web`.
 
@@ -619,6 +662,7 @@ infrastructure concern.
 
 **Severity:** 🟢 Low
 **Files:**
+
 - `apps/web/app/api/cron/weekly-report/route.ts` — `isAuthorized()`
 - `apps/web/app/api/cron/nudge/route.ts` — inline auth check
 
@@ -630,7 +674,9 @@ secret, making them theoretically vulnerable to timing attacks (though the
 practical risk is low given HTTPS + Vercel infrastructure).
 
 **Action:**
+
 1. Extract a shared `lib/auth/verify-cron.ts`:
+
    ```typescript
    import { timingSafeEqual } from 'crypto'
 
@@ -643,9 +689,11 @@ practical risk is low given HTTPS + Vercel infrastructure).
      return timingSafeEqual(Buffer.from(token), Buffer.from(secret))
    }
    ```
+
 2. Use it in both cron routes.
 
 **Acceptance:**
+
 - One auth function used by all cron endpoints.
 - Uses `timingSafeEqual` for secret comparison.
 
@@ -666,6 +714,7 @@ in the schema which has `created_at`.
 Add `created_at timestamptz DEFAULT now()` to the table definition.
 
 **Acceptance:**
+
 - `sms_usage` has a `created_at` column.
 - Schema matches the convention used by all other tables.
 
@@ -678,6 +727,7 @@ Add `created_at timestamptz DEFAULT now()` to the table definition.
 
 **Problem:**
 Three S4 branches modify `index.ts` to add their own exports:
+
 - `feat/s4-weekly-report-generation` adds `generateWeeklyReport`
 - `feat/s4-pattern-detection` adds `detectPatterns`
 - The main branch still has the S3 version
@@ -686,6 +736,7 @@ These will produce merge conflicts. The changes are simple (appending export
 lines) but still require manual resolution across 3 branches.
 
 **Action:**
+
 1. Establish a merge order for S4 branches (recommended:
    S401 → S402 → S403 → S404 → S405 → S406 → S407 → S408 → S409 → S410).
 2. After the first merge, rebase remaining branches on the updated `main`.
@@ -694,6 +745,7 @@ lines) but still require manual resolution across 3 branches.
    to reduce future merge conflicts.
 
 **Acceptance:**
+
 - All S4 branches merged without conflicts.
 - `index.ts` exports all new symbols: `generateWeeklyReport`,
   `detectPatterns`.
@@ -704,18 +756,18 @@ lines) but still require manual resolution across 3 branches.
 
 To minimize conflicts and ensure each branch builds on its dependencies:
 
-| Order | Branch | Depends on |
-|-------|--------|-----------|
-| 1 | `feat/s4-weekly-report-generation` (S401) | — |
-| 2 | `feat/s4-report-page` (S402) | S401 |
-| 3 | `feat/s4-weekly-report-cron` (S403) | S401, S402 |
-| 4 | `feat/s4-inactivity-nudge` (S404) | — |
-| 5 | `feat/s4-pattern-detection` (S405) | — |
-| 6 | `feat/s4-progress-query` (S406) | — |
-| 7 | `feat/s4-cron-config` (S407) | S403, S404 |
-| 8 | `feat/s4-sms-cost-tracking` (S408) | — |
-| 9 | `feat/s4-report-cta` (S409) | S402 |
-| 10 | `feat/s4-tests` (S410) | all above |
+| Order | Branch                                    | Depends on |
+| ----- | ----------------------------------------- | ---------- |
+| 1     | `feat/s4-weekly-report-generation` (S401) | —          |
+| 2     | `feat/s4-report-page` (S402)              | S401       |
+| 3     | `feat/s4-weekly-report-cron` (S403)       | S401, S402 |
+| 4     | `feat/s4-inactivity-nudge` (S404)         | —          |
+| 5     | `feat/s4-pattern-detection` (S405)        | —          |
+| 6     | `feat/s4-progress-query` (S406)           | —          |
+| 7     | `feat/s4-cron-config` (S407)              | S403, S404 |
+| 8     | `feat/s4-sms-cost-tracking` (S408)        | —          |
+| 9     | `feat/s4-report-cta` (S409)               | S402       |
+| 10    | `feat/s4-tests` (S410)                    | all above  |
 
 **Renumber migration `007` before merging S404 and S408.**
 

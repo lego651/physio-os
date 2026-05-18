@@ -1,0 +1,1534 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>physio-os — Manual Setup Guide</title>
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      :root {
+        --blue: #2563eb;
+        --blue-light: #eff6ff;
+        --blue-mid: #bfdbfe;
+        --red: #dc2626;
+        --red-light: #fef2f2;
+        --red-mid: #fecaca;
+        --green: #16a34a;
+        --green-light: #f0fdf4;
+        --green-mid: #bbf7d0;
+        --amber: #d97706;
+        --amber-light: #fffbeb;
+        --amber-mid: #fde68a;
+        --gray-50: #f9fafb;
+        --gray-100: #f3f4f6;
+        --gray-200: #e5e7eb;
+        --gray-300: #d1d5db;
+        --gray-400: #9ca3af;
+        --gray-500: #6b7280;
+        --gray-600: #4b5563;
+        --gray-700: #374151;
+        --gray-800: #1f2937;
+        --gray-900: #111827;
+        --radius: 8px;
+        --shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.06);
+        --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.08), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      }
+
+      body {
+        font-family: -apple-system, 'SF Pro Text', 'Helvetica Neue', Arial, sans-serif;
+        font-size: 15px;
+        line-height: 1.6;
+        color: var(--gray-800);
+        background: var(--gray-50);
+        padding-bottom: 80px;
+      }
+
+      /* ── Sticky header ──────────────────────────────────────────── */
+      .site-header {
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        background: #fff;
+        border-bottom: 1px solid var(--gray-200);
+        padding: 12px 24px;
+        box-shadow: var(--shadow);
+      }
+      .header-inner {
+        max-width: 860px;
+        margin: 0 auto;
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        flex-wrap: wrap;
+      }
+      .header-title {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--gray-900);
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+      .header-subtitle {
+        font-size: 12px;
+        color: var(--gray-500);
+        white-space: nowrap;
+      }
+      .header-spacer {
+        flex: 1;
+      }
+      .progress-label {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--gray-600);
+        white-space: nowrap;
+      }
+
+      /* ── Progress bar ───────────────────────────────────────────── */
+      .progress-bar-wrap {
+        width: 100%;
+        max-width: 860px;
+        margin: 0 auto;
+        margin-top: 8px;
+        display: flex;
+        gap: 4px;
+        align-items: center;
+      }
+      .progress-segment {
+        flex: 1;
+        height: 5px;
+        border-radius: 99px;
+        background: var(--gray-200);
+        transition: background 0.3s ease;
+        position: relative;
+        overflow: hidden;
+      }
+      .progress-segment::after {
+        content: '';
+        display: block;
+        height: 100%;
+        width: var(--fill, 0%);
+        background: var(--blue);
+        border-radius: 99px;
+        transition: width 0.4s ease;
+      }
+      .progress-segment.done::after {
+        background: var(--green);
+      }
+      .progress-segment-label {
+        font-size: 10px;
+        color: var(--gray-400);
+        white-space: nowrap;
+        min-width: 0;
+      }
+      .progress-overall {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--blue);
+        white-space: nowrap;
+      }
+
+      /* ── TOC ────────────────────────────────────────────────────── */
+      .toc {
+        max-width: 860px;
+        margin: 24px auto 0;
+        padding: 0 24px;
+      }
+      .toc-inner {
+        background: #fff;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius);
+        padding: 16px 20px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        align-items: center;
+      }
+      .toc-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--gray-500);
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-right: 4px;
+      }
+      .toc-link {
+        font-size: 13px;
+        font-weight: 500;
+        color: var(--blue);
+        text-decoration: none;
+        padding: 4px 10px;
+        border-radius: 99px;
+        background: var(--blue-light);
+        border: 1px solid var(--blue-mid);
+        white-space: nowrap;
+        transition: background 0.15s;
+      }
+      .toc-link:hover {
+        background: var(--blue-mid);
+      }
+
+      /* ── Main layout ────────────────────────────────────────────── */
+      .main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 24px 24px 0;
+      }
+
+      /* ── Section card ───────────────────────────────────────────── */
+      .section-card {
+        background: #fff;
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius);
+        margin-bottom: 20px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+      .section-header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+        cursor: pointer;
+        user-select: none;
+        transition: background 0.15s;
+        border-bottom: 1px solid transparent;
+      }
+      .section-header:hover {
+        background: var(--gray-50);
+      }
+      .section-header.open {
+        border-bottom-color: var(--gray-200);
+      }
+      .section-number {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--blue);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+      .section-number.complete {
+        background: var(--green);
+      }
+      .section-title {
+        font-size: 15px;
+        font-weight: 600;
+        color: var(--gray-900);
+        flex: 1;
+      }
+      .section-badge {
+        font-size: 11px;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 99px;
+        white-space: nowrap;
+      }
+      .badge-urgent {
+        background: var(--red-light);
+        color: var(--red);
+        border: 1px solid var(--red-mid);
+      }
+      .badge-pending {
+        background: var(--amber-light);
+        color: var(--amber);
+        border: 1px solid var(--amber-mid);
+      }
+      .badge-done {
+        background: var(--green-light);
+        color: var(--green);
+        border: 1px solid var(--green-mid);
+      }
+      .section-chevron {
+        color: var(--gray-400);
+        font-size: 16px;
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+      }
+      .section-chevron.open {
+        transform: rotate(180deg);
+      }
+
+      .section-body {
+        display: none;
+        padding: 20px;
+      }
+      .section-body.open {
+        display: block;
+      }
+
+      /* ── Content helpers ────────────────────────────────────────── */
+      h3 {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--gray-700);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin: 20px 0 10px;
+      }
+      h3:first-child {
+        margin-top: 0;
+      }
+
+      p {
+        color: var(--gray-700);
+        margin-bottom: 10px;
+      }
+
+      .callout {
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        margin: 12px 0;
+        font-size: 14px;
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
+      .callout-icon {
+        flex-shrink: 0;
+        margin-top: 1px;
+      }
+      .callout.danger {
+        background: var(--red-light);
+        border: 1px solid var(--red-mid);
+        color: var(--red);
+      }
+      .callout.warning {
+        background: var(--amber-light);
+        border: 1px solid var(--amber-mid);
+        color: #92400e;
+      }
+      .callout.info {
+        background: var(--blue-light);
+        border: 1px solid var(--blue-mid);
+        color: #1d4ed8;
+      }
+      .callout.success {
+        background: var(--green-light);
+        border: 1px solid var(--green-mid);
+        color: #166534;
+      }
+
+      .path-display {
+        font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        background: var(--gray-100);
+        border: 1px solid var(--gray-200);
+        border-radius: 5px;
+        padding: 3px 8px;
+        color: var(--gray-700);
+        word-break: break-all;
+      }
+
+      .nav-steps {
+        background: var(--gray-50);
+        border: 1px solid var(--gray-200);
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        margin: 12px 0;
+      }
+      .nav-steps p {
+        margin: 0;
+        font-size: 13px;
+        color: var(--gray-700);
+      }
+      .nav-steps strong {
+        color: var(--gray-900);
+      }
+      .nav-arrow {
+        color: var(--gray-400);
+        margin: 0 4px;
+      }
+
+      /* ── SQL block ──────────────────────────────────────────────── */
+      .code-block-wrap {
+        margin: 12px 0;
+        border-radius: var(--radius);
+        border: 1px solid var(--gray-200);
+        overflow: hidden;
+      }
+      .code-block-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px;
+        background: var(--gray-100);
+        border-bottom: 1px solid var(--gray-200);
+      }
+      .code-block-label {
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--gray-600);
+        font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+      }
+      .copy-btn {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--blue);
+        background: #fff;
+        border: 1px solid var(--blue-mid);
+        border-radius: 5px;
+        padding: 4px 10px;
+        cursor: pointer;
+        transition:
+          background 0.15s,
+          color 0.15s;
+        white-space: nowrap;
+      }
+      .copy-btn:hover {
+        background: var(--blue-light);
+      }
+      .copy-btn.copied {
+        color: var(--green);
+        border-color: var(--green-mid);
+        background: var(--green-light);
+      }
+      pre {
+        margin: 0;
+        padding: 16px;
+        background: #fafafa;
+        overflow-x: auto;
+        font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+        font-size: 12px;
+        line-height: 1.7;
+        color: var(--gray-800);
+        white-space: pre;
+        tab-size: 2;
+      }
+
+      /* ── Env var table ──────────────────────────────────────────── */
+      .env-table-wrap {
+        overflow-x: auto;
+        margin: 12px 0;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+      }
+      thead tr {
+        background: var(--gray-100);
+      }
+      th {
+        text-align: left;
+        padding: 9px 12px;
+        font-weight: 600;
+        color: var(--gray-700);
+        border-bottom: 2px solid var(--gray-200);
+        white-space: nowrap;
+      }
+      td {
+        padding: 9px 12px;
+        border-bottom: 1px solid var(--gray-100);
+        vertical-align: top;
+      }
+      tr:last-child td {
+        border-bottom: none;
+      }
+      td.mono {
+        font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+        font-size: 11.5px;
+        white-space: nowrap;
+      }
+      .scope-pill {
+        display: inline-block;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 2px 6px;
+        border-radius: 99px;
+        margin: 1px 2px 1px 0;
+      }
+      .pill-prod {
+        background: #fce7f3;
+        color: #9d174d;
+      }
+      .pill-prev {
+        background: #ede9fe;
+        color: #5b21b6;
+      }
+      .pill-dev {
+        background: var(--gray-100);
+        color: var(--gray-600);
+      }
+      .warn-cell {
+        color: var(--red);
+        font-weight: 600;
+        font-size: 12px;
+      }
+
+      /* ── Checklist ──────────────────────────────────────────────── */
+      .checklist {
+        list-style: none;
+        margin: 12px 0;
+      }
+      .checklist li {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        padding: 7px 0;
+        border-bottom: 1px solid var(--gray-100);
+        font-size: 14px;
+      }
+      .checklist li:last-child {
+        border-bottom: none;
+      }
+      .checklist input[type='checkbox'] {
+        width: 17px;
+        height: 17px;
+        flex-shrink: 0;
+        margin-top: 2px;
+        accent-color: var(--blue);
+        cursor: pointer;
+      }
+      .checklist label {
+        cursor: pointer;
+        color: var(--gray-700);
+        line-height: 1.5;
+        flex: 1;
+      }
+      .checklist li.done label {
+        text-decoration: line-through;
+        color: var(--gray-400);
+      }
+
+      /* ── Verify block ───────────────────────────────────────────── */
+      .verify-block {
+        background: var(--green-light);
+        border: 1px solid var(--green-mid);
+        border-radius: var(--radius);
+        padding: 12px 16px;
+        margin: 14px 0;
+        font-size: 13px;
+        color: #166534;
+      }
+      .verify-block strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 13px;
+      }
+
+      /* ── Smoke test steps ───────────────────────────────────────── */
+      .step-list {
+        list-style: none;
+        margin: 10px 0;
+        counter-reset: step-counter;
+      }
+      .step-item {
+        counter-increment: step-counter;
+        display: grid;
+        grid-template-columns: 24px 1fr;
+        gap: 10px;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--gray-100);
+        align-items: start;
+      }
+      .step-item:last-child {
+        border-bottom: none;
+      }
+      .step-num {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--gray-200);
+        color: var(--gray-600);
+        font-size: 11px;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: 1px;
+        flex-shrink: 0;
+      }
+      .step-item.has-checkbox {
+        grid-template-columns: 17px 24px 1fr;
+      }
+      .step-content {
+        color: var(--gray-700);
+        font-size: 14px;
+        line-height: 1.5;
+      }
+
+      .pass-fail {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+        margin: 14px 0;
+      }
+      .pass-box,
+      .fail-box {
+        border-radius: var(--radius);
+        padding: 12px 14px;
+        font-size: 13px;
+      }
+      .pass-box {
+        background: var(--green-light);
+        border: 1px solid var(--green-mid);
+        color: #166534;
+      }
+      .fail-box {
+        background: var(--red-light);
+        border: 1px solid var(--red-mid);
+        color: var(--red);
+      }
+      .pass-box strong,
+      .fail-box strong {
+        display: block;
+        margin-bottom: 5px;
+        font-size: 13px;
+      }
+      .pass-box ul,
+      .fail-box ul {
+        margin: 0;
+        padding-left: 16px;
+      }
+      .pass-box li,
+      .fail-box li {
+        margin: 3px 0;
+      }
+
+      @media (max-width: 600px) {
+        .pass-fail {
+          grid-template-columns: 1fr;
+        }
+        .site-header {
+          padding: 10px 14px;
+        }
+        .main,
+        .toc {
+          padding-left: 14px;
+          padding-right: 14px;
+        }
+        .section-body {
+          padding: 16px 14px;
+        }
+        pre {
+          font-size: 11px;
+        }
+        td.mono {
+          font-size: 10.5px;
+        }
+      }
+
+      /* ── Section-complete override ──────────────────────────────── */
+      .section-card.all-done .section-number {
+        background: var(--green);
+      }
+    </style>
+  </head>
+  <body>
+    <!-- ══════════════════════════════════════════════════════════════
+     STICKY HEADER + PROGRESS
+═══════════════════════════════════════════════════════════════ -->
+    <header class="site-header">
+      <div class="header-inner">
+        <div>
+          <div class="header-title">physio-os — Manual Setup</div>
+          <div class="header-subtitle">S2 Review Engine — Prod deploy checklist · 2026-05-17</div>
+        </div>
+        <div class="header-spacer"></div>
+        <div class="progress-label" id="progress-label">0 / 4 complete</div>
+      </div>
+      <div class="progress-bar-wrap">
+        <div class="progress-segment" id="seg-1" style="--fill: 0%"></div>
+        <span class="progress-segment-label">Migrations</span>
+        <div class="progress-segment" id="seg-2" style="--fill: 0%"></div>
+        <span class="progress-segment-label">Env Vars</span>
+        <div class="progress-segment" id="seg-3" style="--fill: 0%"></div>
+        <span class="progress-segment-label">Key Rotation</span>
+        <div class="progress-segment" id="seg-4" style="--fill: 0%"></div>
+        <span class="progress-segment-label">Smoke Test</span>
+        <div class="progress-overall" id="progress-pct">0%</div>
+      </div>
+    </header>
+
+    <!-- ══════════════════════════════════════════════════════════════
+     TOC
+═══════════════════════════════════════════════════════════════ -->
+    <nav class="toc">
+      <div class="toc-inner">
+        <span class="toc-label">Jump to</span>
+        <a class="toc-link" href="#s1">1 · Supabase Migrations</a>
+        <a class="toc-link" href="#s2">2 · Vercel Env Vars</a>
+        <a class="toc-link" href="#s3">3 · OpenAI Key Rotation</a>
+        <a class="toc-link" href="#s4">4 · Stage 0 Smoke Test</a>
+      </div>
+    </nav>
+
+    <!-- ══════════════════════════════════════════════════════════════
+     MAIN
+═══════════════════════════════════════════════════════════════ -->
+    <main class="main">
+      <!-- ─────────────────────────────────────────────────────────────
+     SECTION 1 — Supabase Migrations
+───────────────────────────────────────────────────────────────── -->
+      <div class="section-card" id="s1">
+        <div class="section-header open" onclick="toggleSection('s1-body', this)">
+          <div class="section-number" id="num-s1">1</div>
+          <div class="section-title">Supabase Migrations</div>
+          <span class="section-badge badge-pending">Required first</span>
+          <span class="section-chevron open">&#8964;</span>
+        </div>
+        <div class="section-body open" id="s1-body">
+          <div class="callout info">
+            <span class="callout-icon">&#8505;</span>
+            <div>
+              Two migrations must be applied before any review engine code will work. Both are
+              idempotent — safe to re-run. Migration 016 uses
+              <code>CREATE TABLE IF NOT EXISTS</code> and <code>ON CONFLICT</code>; 017 will error
+              only if 016 has not been applied first.
+            </div>
+          </div>
+
+          <h3>Files on disk</h3>
+          <p>
+            <span class="path-display">supabase/migrations/016_review_requests.sql</span><br />
+            <span class="path-display">supabase/migrations/017_review_funnel_events.sql</span>
+          </p>
+
+          <h3>Where to run them</h3>
+          <div class="nav-steps">
+            <p>
+              <strong>supabase.com/dashboard</strong>
+              <span class="nav-arrow">→</span> Select <strong>physio-os</strong> project
+              <span class="nav-arrow">→</span> <strong>SQL Editor</strong>
+              <span class="nav-arrow">→</span> Paste SQL below
+              <span class="nav-arrow">→</span> Click <strong>Run</strong>
+            </p>
+          </div>
+          <p style="font-size: 13px; color: var(--gray-500)">
+            Run 016 first, then 017. Each migration is a separate paste-and-run.
+          </p>
+
+          <h3>Migration 016 — review_requests</h3>
+          <div class="code-block-wrap">
+            <div class="code-block-header">
+              <span class="code-block-label">016_review_requests.sql</span>
+              <button class="copy-btn" onclick="copyCode(this, 'sql-016')">Copy</button>
+            </div>
+            <pre id="sql-016">
+-- 016_review_requests.sql
+-- S2 Review Engine: bootstrap clinics/therapists (idempotent with widget V1),
+-- add Google review fields, create review_requests + review_opt_outs.
+
+-- 1. clinics -- multi-tenant root. Idempotent so a future widget V1 merge will not conflict.
+CREATE TABLE IF NOT EXISTS public.clinics (
+  id                  uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  slug                text UNIQUE NOT NULL,
+  name                text NOT NULL,
+  domain              text NOT NULL DEFAULT '',
+  janeapp_base_url    text,
+  branding            jsonb NOT NULL DEFAULT '{}'::jsonb,
+  monthly_message_cap int NOT NULL DEFAULT 10000,
+  is_active           boolean NOT NULL DEFAULT true,
+  created_at          timestamptz NOT NULL DEFAULT now(),
+  updated_at          timestamptz NOT NULL DEFAULT now()
+);
+
+-- Google review-specific columns added on top of the base table.
+ALTER TABLE public.clinics
+  ADD COLUMN IF NOT EXISTS google_place_id    text,
+  ADD COLUMN IF NOT EXISTS google_maps_url    text,
+  ADD COLUMN IF NOT EXISTS review_sender_name text;
+
+-- 2. therapists -- for admin autocomplete in the send form.
+CREATE TABLE IF NOT EXISTS public.therapists (
+  id                 uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id          uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
+  name               text NOT NULL,
+  role               text NOT NULL DEFAULT 'therapist',
+  bio                text NOT NULL DEFAULT '',
+  janeapp_staff_id   int,
+  specialties        text[] NOT NULL DEFAULT '{}',
+  created_at         timestamptz NOT NULL DEFAULT now(),
+  updated_at         timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS therapists_clinic_idx ON public.therapists (clinic_id);
+
+-- 3. Seed V-Health. Idempotent via ON CONFLICT.
+INSERT INTO public.clinics (slug, name, domain, review_sender_name)
+VALUES ('vhealth', 'V-Health Rehab Clinic', 'vhealth.ca', 'V-Health Rehab Clinic')
+ON CONFLICT (slug) DO UPDATE SET review_sender_name = EXCLUDED.review_sender_name;
+
+-- 4. review_requests: one row per admin-triggered send.
+CREATE TABLE public.review_requests (
+  id              uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id       uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
+  patient_name    text NOT NULL,
+  patient_email   text,
+  patient_phone   text,
+  therapist_name  text,
+  service_type    text,
+  channel         text NOT NULL CHECK (channel IN ('email','sms','both')),
+  token_jti       uuid NOT NULL UNIQUE,
+  test_mode       boolean NOT NULL DEFAULT false,
+  status          text NOT NULL DEFAULT 'queued'
+                    CHECK (status IN ('queued','sent','failed','expired','revoked')),
+  failure_reason  text,
+  verified_at     timestamptz,
+  metadata        jsonb,
+  created_at      timestamptz NOT NULL DEFAULT now(),
+  expires_at      timestamptz NOT NULL,
+  created_by      uuid
+);
+
+CREATE INDEX review_requests_clinic_created_idx
+  ON public.review_requests (clinic_id, created_at DESC);
+
+CREATE INDEX review_requests_status_expires_idx
+  ON public.review_requests (status, expires_at);
+
+ALTER TABLE public.review_requests ENABLE ROW LEVEL SECURITY;
+
+-- 5. review_opt_outs: one row per (clinic, contact, contact_type).
+CREATE TABLE public.review_opt_outs (
+  id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  clinic_id     uuid NOT NULL REFERENCES public.clinics(id) ON DELETE CASCADE,
+  contact       text NOT NULL,
+  contact_type  text NOT NULL CHECK (contact_type IN ('email','sms')),
+  opted_out_at  timestamptz NOT NULL DEFAULT now(),
+  source        text NOT NULL CHECK (source IN ('email_link','sms_keyword','admin')),
+  UNIQUE (clinic_id, contact, contact_type)
+);
+
+CREATE INDEX review_opt_outs_lookup_idx
+  ON public.review_opt_outs (clinic_id, contact, contact_type);
+
+ALTER TABLE public.review_opt_outs ENABLE ROW LEVEL SECURITY;
+
+-- 6. RLS deny-anon policies (service_role bypasses RLS).
+CREATE POLICY review_requests_deny_anon ON public.review_requests
+  FOR ALL TO anon USING (false) WITH CHECK (false);
+
+CREATE POLICY review_opt_outs_deny_anon ON public.review_opt_outs
+  FOR ALL TO anon USING (false) WITH CHECK (false);</pre
+            >
+          </div>
+
+          <h3>Migration 017 — review_funnel_events</h3>
+          <div class="code-block-wrap">
+            <div class="code-block-header">
+              <span class="code-block-label">017_review_funnel_events.sql</span>
+              <button class="copy-btn" onclick="copyCode(this, 'sql-017')">Copy</button>
+            </div>
+            <pre id="sql-017">
+-- 017_review_funnel_events.sql
+-- S2 Review Engine: append-only funnel event log.
+
+CREATE TABLE public.review_funnel_events (
+  id          bigserial PRIMARY KEY,
+  request_id  uuid NOT NULL REFERENCES public.review_requests(id) ON DELETE CASCADE,
+  event_type  text NOT NULL CHECK (event_type IN (
+    'queued',
+    'sent_email',
+    'sent_sms',
+    'email_delivered',
+    'email_opened',
+    'link_clicked',
+    'keywords_submitted',
+    'draft_generated',
+    'copy_clicked',
+    'maps_redirected',
+    'send_failed'
+  )),
+  occurred_at timestamptz NOT NULL DEFAULT now(),
+  metadata    jsonb
+);
+
+CREATE INDEX review_funnel_events_request_idx
+  ON public.review_funnel_events (request_id, occurred_at);
+
+CREATE INDEX review_funnel_events_type_time_idx
+  ON public.review_funnel_events (event_type, occurred_at DESC);
+
+ALTER TABLE public.review_funnel_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY review_funnel_events_deny_anon ON public.review_funnel_events
+  FOR ALL TO anon USING (false) WITH CHECK (false);</pre
+            >
+          </div>
+
+          <div class="verify-block">
+            <strong>Verify after running both migrations</strong>
+            Go to <strong>Supabase Dashboard → Table Editor</strong> and confirm these tables exist:
+            <ul style="margin-top: 6px; padding-left: 18px; font-size: 13px">
+              <li>
+                <code>review_requests</code> — with columns: id, clinic_id, patient_name, channel,
+                token_jti, status, expires_at
+              </li>
+              <li>
+                <code>review_opt_outs</code> — with columns: id, clinic_id, contact, contact_type,
+                source
+              </li>
+              <li>
+                <code>review_funnel_events</code> — with columns: id, request_id, event_type,
+                occurred_at
+              </li>
+              <li><code>clinics</code> — should have 1 row: slug = 'vhealth'</li>
+            </ul>
+          </div>
+
+          <h3>After migrations — regenerate TypeScript types</h3>
+          <div class="code-block-wrap">
+            <div class="code-block-header">
+              <span class="code-block-label">terminal</span>
+              <button class="copy-btn" onclick="copyCode(this, 'cmd-gentypes')">Copy</button>
+            </div>
+            <pre id="cmd-gentypes">pnpm gen:types</pre>
+          </div>
+          <p style="font-size: 13px; color: var(--gray-500)">
+            Run from the repo root. This refreshes <code>apps/web/lib/supabase/types.ts</code> and
+            clears TypeScript errors in the review engine routes.
+          </p>
+
+          <h3>Checklist</h3>
+          <ul class="checklist" id="cl-s1">
+            <li data-section="s1">
+              <input type="checkbox" id="c1-1" onchange="handleCheck(this)" /><label for="c1-1"
+                >Run 016_review_requests.sql in Supabase SQL Editor — no errors</label
+              >
+            </li>
+            <li data-section="s1">
+              <input type="checkbox" id="c1-2" onchange="handleCheck(this)" /><label for="c1-2"
+                >Run 017_review_funnel_events.sql in Supabase SQL Editor — no errors</label
+              >
+            </li>
+            <li data-section="s1">
+              <input type="checkbox" id="c1-3" onchange="handleCheck(this)" /><label for="c1-3"
+                >Table Editor confirms: review_requests, review_opt_outs, review_funnel_events,
+                clinics all present</label
+              >
+            </li>
+            <li data-section="s1">
+              <input type="checkbox" id="c1-4" onchange="handleCheck(this)" /><label for="c1-4"
+                >pnpm gen:types ran successfully — no TypeScript errors</label
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────────────
+     SECTION 2 — Vercel Env Vars
+───────────────────────────────────────────────────────────────── -->
+      <div class="section-card" id="s2">
+        <div class="section-header" onclick="toggleSection('s2-body', this)">
+          <div class="section-number" id="num-s2">2</div>
+          <div class="section-title">Vercel Env Vars</div>
+          <span class="section-badge badge-pending">6 vars needed</span>
+          <span class="section-chevron">&#8964;</span>
+        </div>
+        <div class="section-body" id="s2-body">
+          <div class="nav-steps">
+            <p>
+              <strong>vercel.com</strong>
+              <span class="nav-arrow">→</span> physio-os project <span class="nav-arrow">→</span>
+              <strong>Settings</strong> <span class="nav-arrow">→</span>
+              <strong>Environment Variables</strong> <span class="nav-arrow">→</span> Add each var
+              below
+            </p>
+          </div>
+
+          <div class="callout warning">
+            <span class="callout-icon">&#9888;</span>
+            <div>
+              Set each variable for all three scopes: <strong>Production</strong>,
+              <strong>Preview</strong>, and <strong>Development</strong> — unless the Notes column
+              says otherwise. Stage 0 runs on Preview; you need these in Preview at minimum before
+              smoke testing.
+            </div>
+          </div>
+
+          <h3>Review engine env vars — source of truth: docs/operations/s2-review-engine.md</h3>
+          <div class="env-table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Variable Name</th>
+                  <th>Value Source</th>
+                  <th>Scopes</th>
+                  <th>Notes</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="mono">REVIEW_TOKEN_SECRET</td>
+                  <td>Generate: <code>openssl rand -hex 32</code></td>
+                  <td>
+                    <span class="scope-pill pill-prod">Prod</span>
+                    <span class="scope-pill pill-prev">Preview</span>
+                    <span class="scope-pill pill-dev">Dev</span>
+                  </td>
+                  <td>
+                    Must be ≥ 32 hex chars. Keep distinct from WIDGET_SESSION_SECRET. Treat as a
+                    password — never share.
+                  </td>
+                </tr>
+                <tr>
+                  <td class="mono">REVIEW_BASE_URL</td>
+                  <td>Your Vercel deployment URL</td>
+                  <td>
+                    <span class="scope-pill pill-prod">Prod</span>
+                    <span class="scope-pill pill-prev">Preview</span>
+                    <span class="scope-pill pill-dev">Dev</span>
+                  </td>
+                  <td>
+                    Prod: <code>https://physio.app</code> (or your custom domain). Preview: use the
+                    Vercel preview URL. Dev: <code>http://localhost:3000</code>. Used to build
+                    review short-links in emails/SMS.
+                  </td>
+                </tr>
+                <tr>
+                  <td class="mono">REVIEW_TEST_MODE</td>
+                  <td>Literal string: <code>true</code></td>
+                  <td>
+                    <span class="scope-pill pill-prod">Prod</span>
+                    <span class="scope-pill pill-prev">Preview</span>
+                    <span class="scope-pill pill-dev">Dev</span>
+                  </td>
+                  <td>
+                    Set <code>true</code> for Stages 0 and 1. All outbound email/SMS is rerouted to
+                    the test recipients below. Set <code>false</code> only at Stage 2 when you go
+                    live with V-Health patients.
+                  </td>
+                </tr>
+                <tr>
+                  <td class="mono">REVIEW_TEST_RECIPIENT_EMAIL</td>
+                  <td>Your test inbox (e.g. jasonusca@gmail.com)</td>
+                  <td>
+                    <span class="scope-pill pill-prod">Prod</span>
+                    <span class="scope-pill pill-prev">Preview</span>
+                    <span class="scope-pill pill-dev">Dev</span>
+                  </td>
+                  <td>
+                    Only used when REVIEW_TEST_MODE=true. All review emails land here regardless of
+                    what patient email is entered in the admin form.
+                  </td>
+                </tr>
+                <tr>
+                  <td class="mono">REVIEW_TEST_RECIPIENT_PHONE</td>
+                  <td>Your mobile in E.164 format: <code>+1XXXXXXXXXX</code></td>
+                  <td>
+                    <span class="scope-pill pill-prod">Prod</span>
+                    <span class="scope-pill pill-prev">Preview</span>
+                    <span class="scope-pill pill-dev">Dev</span>
+                  </td>
+                  <td>
+                    Only used when REVIEW_TEST_MODE=true. Must be a Twilio Verified Caller ID on
+                    your trial account. Verify at: console.twilio.com → Phone Numbers → Verified
+                    Caller IDs.
+                  </td>
+                </tr>
+                <tr>
+                  <td class="mono">RESEND_WEBHOOK_SECRET</td>
+                  <td>Resend Dashboard → Webhooks</td>
+                  <td>
+                    <span class="scope-pill pill-prod">Prod</span>
+                    <span class="scope-pill pill-prev">Preview</span>
+                  </td>
+                  <td>
+                    Get from Resend after creating a webhook pointed at
+                    <code>/api/webhooks/resend</code>. Enables email_delivered + email_opened funnel
+                    events. Not needed for Dev (webhook is a public URL).
+                  </td>
+                </tr>
+                <tr>
+                  <td class="mono">OPENAI_API_KEY</td>
+                  <td>platform.openai.com/api-keys</td>
+                  <td>
+                    <span class="scope-pill pill-prod">Prod</span>
+                    <span class="scope-pill pill-prev">Preview</span>
+                    <span class="scope-pill pill-dev">Dev</span>
+                  </td>
+                  <td class="warn-cell">
+                    ROTATE IMMEDIATELY — see Section 3. Old key starting sk-proj-U2QSec... was
+                    exposed in plaintext chat and must be revoked before any prod Whisper calls.
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="callout danger">
+            <span class="callout-icon">&#9888;</span>
+            <div>
+              <strong>OPENAI_API_KEY — rotate before using prod.</strong> The key starting
+              <code>sk-proj-U2QSec...</code> was pasted into a chat session in plaintext. It is now
+              compromised. Complete Section 3 immediately after finishing this section.
+            </div>
+          </div>
+
+          <h3>Already configured (reused from existing infra)</h3>
+          <p style="font-size: 13px; color: var(--gray-500)">
+            These should already exist in Vercel — confirm they are set but do not change them:
+          </p>
+          <ul style="font-size: 13px; color: var(--gray-600); padding-left: 18px; margin: 8px 0">
+            <li>
+              <code>RESEND_API_KEY</code> — existing Resend key, reused for review engine emails
+            </li>
+            <li>
+              <code>TWILIO_ACCOUNT_SID</code> / <code>TWILIO_AUTH_TOKEN</code> /
+              <code>TWILIO_PHONE_NUMBER</code> — existing Twilio credentials
+            </li>
+            <li>
+              <code>ANTHROPIC_API_KEY_WIDGET</code> — existing Haiku 4.5 key, reused for review
+              draft generation
+            </li>
+            <li>
+              <code>ADMIN_EMAIL</code> — your email; <code>requireAdminAuth</code> rejects all other
+              callers
+            </li>
+          </ul>
+
+          <h3>Resend webhook setup</h3>
+          <div class="nav-steps">
+            <p>
+              <strong>resend.com/webhooks</strong>
+              <span class="nav-arrow">→</span> Add Endpoint <span class="nav-arrow">→</span> URL:
+              <code>[REVIEW_BASE_URL]/api/webhooks/resend</code>
+              <span class="nav-arrow">→</span> Events: <code>email.delivered</code>,
+              <code>email.opened</code> <span class="nav-arrow">→</span> Copy the signing secret
+              <span class="nav-arrow">→</span> Paste into <code>RESEND_WEBHOOK_SECRET</code> in
+              Vercel
+            </p>
+          </div>
+
+          <h3>Checklist</h3>
+          <ul class="checklist" id="cl-s2">
+            <li data-section="s2">
+              <input type="checkbox" id="c2-1" onchange="handleCheck(this)" /><label for="c2-1"
+                >REVIEW_TOKEN_SECRET set in Prod + Preview + Dev (generated with openssl rand -hex
+                32)</label
+              >
+            </li>
+            <li data-section="s2">
+              <input type="checkbox" id="c2-2" onchange="handleCheck(this)" /><label for="c2-2"
+                >REVIEW_BASE_URL set for each scope (Prod = custom domain, Preview = Vercel URL, Dev
+                = localhost:3000)</label
+              >
+            </li>
+            <li data-section="s2">
+              <input type="checkbox" id="c2-3" onchange="handleCheck(this)" /><label for="c2-3"
+                >REVIEW_TEST_MODE=true set in Prod + Preview + Dev</label
+              >
+            </li>
+            <li data-section="s2">
+              <input type="checkbox" id="c2-4" onchange="handleCheck(this)" /><label for="c2-4"
+                >REVIEW_TEST_RECIPIENT_EMAIL set (your test inbox)</label
+              >
+            </li>
+            <li data-section="s2">
+              <input type="checkbox" id="c2-5" onchange="handleCheck(this)" /><label for="c2-5"
+                >REVIEW_TEST_RECIPIENT_PHONE set (E.164, verified in Twilio console)</label
+              >
+            </li>
+            <li data-section="s2">
+              <input type="checkbox" id="c2-6" onchange="handleCheck(this)" /><label for="c2-6"
+                >RESEND_WEBHOOK_SECRET set (after creating webhook endpoint in Resend
+                dashboard)</label
+              >
+            </li>
+            <li data-section="s2">
+              <input type="checkbox" id="c2-7" onchange="handleCheck(this)" /><label for="c2-7"
+                >Confirmed existing vars still set: RESEND_API_KEY, TWILIO_*,
+                ANTHROPIC_API_KEY_WIDGET, ADMIN_EMAIL</label
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────────────
+     SECTION 3 — OpenAI Key Rotation
+───────────────────────────────────────────────────────────────── -->
+      <div class="section-card" id="s3">
+        <div class="section-header" onclick="toggleSection('s3-body', this)">
+          <div class="section-number" id="num-s3">3</div>
+          <div class="section-title">OpenAI Key Rotation</div>
+          <span class="section-badge badge-urgent">URGENT — security</span>
+          <span class="section-chevron">&#8964;</span>
+        </div>
+        <div class="section-body" id="s3-body">
+          <div class="callout danger">
+            <span class="callout-icon">&#9888;</span>
+            <div>
+              <strong
+                >The key starting <code>sk-proj-U2QSec...</code> was shared in plaintext
+                chat.</strong
+              >
+              Anyone with access to that conversation history can use it. Rotate before any
+              production Whisper calls go through — otherwise you are billing to a compromised key.
+            </div>
+          </div>
+
+          <h3>Steps</h3>
+          <ul class="step-list">
+            <li class="step-item">
+              <div class="step-num">1</div>
+              <div class="step-content">
+                Go to <strong>platform.openai.com/api-keys</strong>. Log in as the account owner.
+              </div>
+            </li>
+            <li class="step-item">
+              <div class="step-num">2</div>
+              <div class="step-content">
+                Click <strong>+ Create new secret key</strong>. Name it something recognisable:
+                <code>physio-os-prod-2026-05-17</code>. Copy the key immediately — it is only shown
+                once.
+              </div>
+            </li>
+            <li class="step-item">
+              <div class="step-num">3</div>
+              <div class="step-content">
+                Go to <strong>Vercel → physio-os → Settings → Environment Variables</strong>. Find
+                <code>OPENAI_API_KEY</code>. Update the value with the new key in all three scopes:
+                Production, Preview, Development.
+              </div>
+            </li>
+            <li class="step-item">
+              <div class="step-num">4</div>
+              <div class="step-content">
+                Back in platform.openai.com/api-keys, find the old key starting with
+                <code>sk-proj-U2QSec...</code>. Click the trash icon. Confirm revocation. The old
+                key is now dead.
+              </div>
+            </li>
+            <li class="step-item">
+              <div class="step-num">5</div>
+              <div class="step-content">
+                Redeploy the Vercel Preview branch to pick up the new env var. (Push a no-op commit
+                or trigger a redeploy manually in the Vercel dashboard.)
+              </div>
+            </li>
+          </ul>
+
+          <h3>Checklist</h3>
+          <ul class="checklist" id="cl-s3">
+            <li data-section="s3">
+              <input type="checkbox" id="c3-1" onchange="handleCheck(this)" /><label for="c3-1"
+                >New OPENAI_API_KEY generated at platform.openai.com/api-keys</label
+              >
+            </li>
+            <li data-section="s3">
+              <input type="checkbox" id="c3-2" onchange="handleCheck(this)" /><label for="c3-2"
+                >New key set in Vercel: Production + Preview + Development</label
+              >
+            </li>
+            <li data-section="s3">
+              <input type="checkbox" id="c3-3" onchange="handleCheck(this)" /><label for="c3-3"
+                >Old key sk-proj-U2QSec... revoked in OpenAI dashboard</label
+              >
+            </li>
+            <li data-section="s3">
+              <input type="checkbox" id="c3-4" onchange="handleCheck(this)" /><label for="c3-4"
+                >Vercel Preview redeployed to pick up the new key</label
+              >
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- ─────────────────────────────────────────────────────────────
+     SECTION 4 — Stage 0 Smoke Test
+───────────────────────────────────────────────────────────────── -->
+      <div class="section-card" id="s4">
+        <div class="section-header" onclick="toggleSection('s4-body', this)">
+          <div class="section-number" id="num-s4">4</div>
+          <div class="section-title">Stage 0 Smoke Test</div>
+          <span class="section-badge badge-pending">After Sections 1–3</span>
+          <span class="section-chevron">&#8964;</span>
+        </div>
+        <div class="section-body" id="s4-body">
+          <div class="callout info">
+            <span class="callout-icon">&#8505;</span>
+            <div>
+              Stage 0 runs entirely in test mode — all email/SMS goes to your inbox/phone, not to
+              any real patient. Complete Sections 1, 2, and 3 before starting here. Source:
+              <code>docs/operations/s2-review-engine.md</code> Stage 0 section.
+            </div>
+          </div>
+
+          <h3>Pre-conditions</h3>
+          <ul
+            style="font-size: 14px; color: var(--gray-700); padding-left: 18px; margin: 8px 0 14px"
+          >
+            <li>Migrations 016 + 017 applied (Section 1 complete)</li>
+            <li>All 6 review engine env vars set in Vercel (Section 2 complete)</li>
+            <li>OPENAI_API_KEY rotated (Section 3 complete)</li>
+            <li>Branch <code>feat/s2-review-engine</code> deployed to Vercel Preview</li>
+            <li>Your test phone is a Verified Caller ID in Twilio console</li>
+          </ul>
+
+          <h3>Steps</h3>
+          <ul class="checklist" id="cl-s4-steps">
+            <li data-section="s4">
+              <input type="checkbox" id="c4-1" onchange="handleCheck(this)" /><label for="c4-1">
+                <strong>Step 1 — Deploy to Preview.</strong> Push latest on
+                <code>feat/s2-review-engine</code> to GitHub. Vercel auto-deploys a Preview URL.
+                Wait for the build to complete.
+              </label>
+            </li>
+            <li data-section="s4">
+              <input type="checkbox" id="c4-2" onchange="handleCheck(this)" /><label for="c4-2">
+                <strong>Step 2 — Open admin form.</strong> Navigate to
+                <code>[preview-url]/dashboard/review-requests</code> as the admin user (your
+                ADMIN_EMAIL). The send form should render with Clinic dropdown and Channel selector.
+              </label>
+            </li>
+            <li data-section="s4">
+              <input type="checkbox" id="c4-3" onchange="handleCheck(this)" /><label for="c4-3">
+                <strong>Step 3 — Send a test request.</strong> Fill in: Clinic = V-Health, Patient
+                Name = any name (e.g. "Test Patient"), Email = anything (test mode overrides it),
+                Phone = anything, Channel = <strong>both</strong>. Check the consent checkbox. Click
+                Send.
+              </label>
+            </li>
+            <li data-section="s4">
+              <input type="checkbox" id="c4-4" onchange="handleCheck(this)" /><label for="c4-4">
+                <strong>Step 4 — Email arrives within 30s.</strong> Check your test inbox
+                (<code>REVIEW_TEST_RECIPIENT_EMAIL</code>). Email should arrive from Resend with the
+                review request link. Subject line includes patient name.
+              </label>
+            </li>
+            <li data-section="s4">
+              <input type="checkbox" id="c4-5" onchange="handleCheck(this)" /><label for="c4-5">
+                <strong>Step 5 — SMS arrives within 30s.</strong> Check your test phone
+                (<code>REVIEW_TEST_RECIPIENT_PHONE</code>). Twilio trial accounts prepend "Sent from
+                a Twilio trial account" — that is expected.
+              </label>
+            </li>
+            <li data-section="s4">
+              <input type="checkbox" id="c4-6" onchange="handleCheck(this)" /><label for="c4-6">
+                <strong>Step 6 — Admin table shows sent + delivered.</strong> Back in
+                <code>/dashboard/review-requests</code>, the row for this request should show status
+                <code>sent</code>. Within 1-2 minutes (Resend webhook), the email delivered and
+                opened ticks should appear.
+              </label>
+            </li>
+            <li data-section="s4">
+              <input type="checkbox" id="c4-7" onchange="handleCheck(this)" /><label for="c4-7">
+                <strong>Step 7 — Landing page renders correctly.</strong> Click the link in the
+                email. The review landing page should load and show the
+                <strong>patient name from your form</strong> (not the test override). The keyword
+                entry field is visible.
+              </label>
+            </li>
+            <li data-section="s4">
+              <input type="checkbox" id="c4-8" onchange="handleCheck(this)" /><label for="c4-8">
+                <strong>Step 8 — Draft generates.</strong> Type 2-3 words describing a treatment
+                (e.g. "neck pain better"). Click Submit. A Google review draft should appear within
+                ~3 seconds. Admin row gains the <code>draft_generated</code> tick.
+              </label>
+            </li>
+            <li data-section="s4">
+              <input type="checkbox" id="c4-9" onchange="handleCheck(this)" /><label for="c4-9">
+                <strong>Step 9 — Copy + redirect tracking.</strong> Click
+                <strong>Copy draft</strong> — admin row gains <code>copy_clicked</code> tick. Click
+                <strong>Open Google Maps</strong> — admin row gains
+                <code>maps_redirected</code> tick.
+              </label>
+            </li>
+            <li data-section="s4">
+              <input type="checkbox" id="c4-10" onchange="handleCheck(this)" /><label for="c4-10">
+                <strong>Step 10 — Opt-out flow.</strong> Open the unsubscribe link from the email
+                footer. Confirmation page should appear. Attempt to send another review request to
+                the same email — it should be rejected with <code>send_failed</code> / reason:
+                <code>opted_out</code>.
+              </label>
+            </li>
+          </ul>
+
+          <h3>Pass / Fail criteria</h3>
+          <div class="pass-fail">
+            <div class="pass-box">
+              <strong>PASS — all of the following:</strong>
+              <ul>
+                <li>Email arrives within 30s</li>
+                <li>SMS arrives within 30s</li>
+                <li>Landing page shows correct patient name</li>
+                <li>Draft generates in under 5s</li>
+                <li>
+                  All funnel events appear in admin table: sent, delivered, link_clicked,
+                  copy_clicked, maps_redirected
+                </li>
+                <li>Opt-out correctly blocks re-send</li>
+                <li>Zero 500 errors in Vercel function logs</li>
+              </ul>
+            </div>
+            <div class="fail-box">
+              <strong>FAIL — investigate if:</strong>
+              <ul>
+                <li>No email after 2 minutes → check RESEND_API_KEY + Resend logs</li>
+                <li>SMS not arriving → phone not in Twilio Verified Caller IDs</li>
+                <li>Landing page 404 → JWT expired or wrong REVIEW_BASE_URL</li>
+                <li>Draft generation error → check ANTHROPIC_API_KEY_WIDGET in Vercel</li>
+                <li>Resend webhook events not landing → RESEND_WEBHOOK_SECRET mismatch</li>
+                <li>"Clinic not found" error → migration 016 not applied to this environment</li>
+                <li>"Patient consent must be confirmed" → consent checkbox was not checked</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="callout success">
+            <span class="callout-icon">&#10003;</span>
+            <div>
+              When Stage 0 passes, you are ready for Stage 1 (friend alpha). Tell David — he will
+              schedule Stage 1 and the Twilio Canadian 10DLC provisioning for Stage 3.
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <script>
+      // ── Persistence keys ──────────────────────────────────────────────
+      const STORAGE_KEY = 'physio-os-setup-checklist-v1'
+
+      // Per-section checkbox counts
+      const SECTION_TOTALS = {
+        s1: 4,
+        s2: 7,
+        s3: 4,
+        s4: 10,
+      }
+
+      function getState() {
+        try {
+          return JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
+        } catch {
+          return {}
+        }
+      }
+      function saveState(state) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
+        } catch {}
+      }
+
+      function handleCheck(cb) {
+        const state = getState()
+        state[cb.id] = cb.checked
+        saveState(state)
+        const li = cb.closest('li')
+        if (li) li.classList.toggle('done', cb.checked)
+        updateProgress()
+      }
+
+      function getSectionCheckedCount(sectionId) {
+        const state = getState()
+        const items = document.querySelectorAll(
+          `[data-section="${sectionId}"] input[type="checkbox"]`,
+        )
+        let count = 0
+        items.forEach((cb) => {
+          if (state[cb.id]) count++
+        })
+        return count
+      }
+
+      function updateProgress() {
+        let totalDone = 0
+        const total = 4
+
+        Object.keys(SECTION_TOTALS).forEach((sec, idx) => {
+          const checked = getSectionCheckedCount(sec)
+          const max = SECTION_TOTALS[sec]
+          const pct = Math.round((checked / max) * 100)
+          const seg = document.getElementById(`seg-${idx + 1}`)
+          const num = document.getElementById(`num-${sec}`)
+          if (seg) {
+            seg.style.setProperty('--fill', pct + '%')
+            seg.classList.toggle('done', checked === max)
+          }
+          if (num) num.classList.toggle('complete', checked === max)
+          if (checked === max) totalDone++
+        })
+
+        const pctOverall = Math.round((totalDone / total) * 100)
+        const lbl = document.getElementById('progress-label')
+        const pctEl = document.getElementById('progress-pct')
+        if (lbl) lbl.textContent = `${totalDone} / ${total} complete`
+        if (pctEl) {
+          pctEl.textContent = pctOverall + '%'
+          pctEl.style.color = pctOverall === 100 ? 'var(--green)' : 'var(--blue)'
+        }
+      }
+
+      function restoreChecks() {
+        const state = getState()
+        document.querySelectorAll('input[type="checkbox"]').forEach((cb) => {
+          if (state[cb.id]) {
+            cb.checked = true
+            const li = cb.closest('li')
+            if (li) li.classList.add('done')
+          }
+        })
+        updateProgress()
+      }
+
+      // ── Section collapse/expand ───────────────────────────────────────
+      function toggleSection(bodyId, header) {
+        const body = document.getElementById(bodyId)
+        const chevron = header.querySelector('.section-chevron')
+        const isOpen = body.classList.contains('open')
+        if (isOpen) {
+          body.classList.remove('open')
+          header.classList.remove('open')
+          chevron.classList.remove('open')
+        } else {
+          body.classList.add('open')
+          header.classList.add('open')
+          chevron.classList.add('open')
+        }
+      }
+
+      // ── Copy to clipboard ─────────────────────────────────────────────
+      function copyCode(btn, preId) {
+        const pre = document.getElementById(preId)
+        if (!pre) return
+        const text = pre.textContent
+        navigator.clipboard
+          .writeText(text)
+          .then(() => {
+            btn.textContent = 'Copied!'
+            btn.classList.add('copied')
+            setTimeout(() => {
+              btn.textContent = 'Copy'
+              btn.classList.remove('copied')
+            }, 2000)
+          })
+          .catch(() => {
+            // Fallback for older Safari
+            const ta = document.createElement('textarea')
+            ta.value = text
+            ta.style.position = 'fixed'
+            ta.style.opacity = '0'
+            document.body.appendChild(ta)
+            ta.select()
+            document.execCommand('copy')
+            document.body.removeChild(ta)
+            btn.textContent = 'Copied!'
+            btn.classList.add('copied')
+            setTimeout(() => {
+              btn.textContent = 'Copy'
+              btn.classList.remove('copied')
+            }, 2000)
+          })
+      }
+
+      // ── Boot ──────────────────────────────────────────────────────────
+      document.addEventListener('DOMContentLoaded', restoreChecks)
+    </script>
+  </body>
+</html>

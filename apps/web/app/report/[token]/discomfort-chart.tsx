@@ -46,7 +46,10 @@ export function DiscomfortChart({ data }: DiscomfortChartProps) {
             border: '1px solid #e5e7eb',
             fontSize: 12,
           }}
-          formatter={(value) => [typeof value === 'number' ? value.toFixed(1) : value, 'Discomfort']}
+          formatter={(value) => [
+            typeof value === 'number' ? value.toFixed(1) : value,
+            'Discomfort',
+          ]}
         />
         <Line
           type="monotone"

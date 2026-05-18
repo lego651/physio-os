@@ -50,15 +50,9 @@ export function ToggleActiveButton({ patientId, active }: ToggleActiveButtonProp
         disabled={pending}
         onClick={handleToggle}
       >
-        {pending
-          ? 'Updating…'
-          : optimisticActive
-            ? 'Deactivate Patient'
-            : 'Activate Patient'}
+        {pending ? 'Updating…' : optimisticActive ? 'Deactivate Patient' : 'Activate Patient'}
       </Button>
-      {error && (
-        <p className="text-xs text-destructive">{error}</p>
-      )}
+      {error && <p className="text-xs text-destructive">{error}</p>}
     </div>
   )
 }

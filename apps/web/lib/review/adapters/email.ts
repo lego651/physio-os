@@ -49,7 +49,7 @@ export class EmailAdapter {
       throw new Error(`Resend send failed: ${res.status} ${body}`)
     }
 
-    const data = await (res as any).json() as { id: string }
+    const data = (await (res as any).json()) as { id: string }
     return { providerMessageId: data.id }
   }
 }

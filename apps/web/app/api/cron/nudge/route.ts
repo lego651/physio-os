@@ -72,10 +72,16 @@ export async function GET(req: Request) {
     .in('patient_id', patientIds)
     .order('recorded_at', { ascending: false })
 
-  const lastMetricByPatient = new Map<string, { discomfort: number | null; pain_level: number | null }>()
+  const lastMetricByPatient = new Map<
+    string,
+    { discomfort: number | null; pain_level: number | null }
+  >()
   for (const row of metricRows ?? []) {
     if (!lastMetricByPatient.has(row.patient_id)) {
-      lastMetricByPatient.set(row.patient_id, { discomfort: row.discomfort, pain_level: row.pain_level })
+      lastMetricByPatient.set(row.patient_id, {
+        discomfort: row.discomfort,
+        pain_level: row.pain_level,
+      })
     }
   }
 
@@ -87,7 +93,8 @@ export async function GET(req: Request) {
     if (lastMessageAt && lastMessageAt > threeDaysAgo) return false
 
     // Skip if already nudged during this inactive period
-    if (patient.last_nudged_at && lastMessageAt && patient.last_nudged_at >= lastMessageAt) return false
+    if (patient.last_nudged_at && lastMessageAt && patient.last_nudged_at >= lastMessageAt)
+      return false
 
     // Never-messaged patients: only nudge if account > 3 days old and not already nudged
     if (!lastMessageAt) {
@@ -131,14 +138,18 @@ export async function GET(req: Request) {
       const now = new Date().toISOString()
 
       // Persist audit record (required for CASL compliance logging)
-      await supabase.from('messages').insert({
-        patient_id: patient.id,
-        role: 'assistant',
-        content: nudgeText,
-        channel: 'sms',
-      }).then(({ error }) => {
-        if (error) console.error('[nudge-cron] Failed to save nudge message for audit:', patient.id, error)
-      })
+      await supabase
+        .from('messages')
+        .insert({
+          patient_id: patient.id,
+          role: 'assistant',
+          content: nudgeText,
+          channel: 'sms',
+        })
+        .then(({ error }) => {
+          if (error)
+            console.error('[nudge-cron] Failed to save nudge message for audit:', patient.id, error)
+        })
 
       const { error: updateError } = await supabase
         .from('patients')

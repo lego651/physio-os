@@ -147,7 +147,9 @@ export function AddPatientDialog() {
                 aria-label="Country code"
               >
                 {COUNTRY_CODES.map((cc) => (
-                  <option key={cc.code} value={cc.code}>{cc.label}</option>
+                  <option key={cc.code} value={cc.code}>
+                    {cc.label}
+                  </option>
                 ))}
               </select>
               <Input
@@ -180,7 +182,7 @@ export function AddPatientDialog() {
                     'flex-1 rounded-lg border py-1.5 text-sm font-medium transition-colors',
                     form.language === lang
                       ? 'border-primary bg-primary text-primary-foreground'
-                      : 'border-border bg-background text-foreground hover:bg-muted'
+                      : 'border-border bg-background text-foreground hover:bg-muted',
                   )}
                 >
                   {lang === 'en' ? 'EN' : 'CN'}

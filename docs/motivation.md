@@ -18,6 +18,7 @@ Jason wants to make money with AI by serving Calgary-area local businesses — c
 **Target:** $1M ARR delivering AI advisory + SaaS services to local Calgary service businesses.
 
 This is not a product vision statement — it is a personal income target. The path is:
+
 1. Find 3 already-validated AI-for-local-business playbooks (other cities).
 2. Run them on V-Health, measure results in ≤60 days.
 3. If at least 1 shows traction, package and sell to clinic #2 and beyond at $99/mo or similar.
@@ -48,13 +49,13 @@ No "innovative AI" required. No new category creation. Speed and execution over 
 
 ## Constraints and Non-Goals
 
-| Constraint | What it means in practice |
-|---|---|
-| Not doing this for V-Health's benefit | We can and should reject "owner-stated" pain points that don't map to real data |
-| Not doing this to build a portfolio or de-risk a career change | Don't over-engineer; don't optimize for impressiveness |
-| Not innovating | Don't build novel AI systems; copy playbooks that already work elsewhere |
-| Not committed to V-Health long-term | Do not architect for a 3-year V-Health roadmap; architect for "clinic #2 in 20 minutes" |
-| 60-day experiment window | Do not scope anything that takes >4 weeks to get to measurable results |
+| Constraint                                                     | What it means in practice                                                               |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Not doing this for V-Health's benefit                          | We can and should reject "owner-stated" pain points that don't map to real data         |
+| Not doing this to build a portfolio or de-risk a career change | Don't over-engineer; don't optimize for impressiveness                                  |
+| Not innovating                                                 | Don't build novel AI systems; copy playbooks that already work elsewhere                |
+| Not committed to V-Health long-term                            | Do not architect for a 3-year V-Health roadmap; architect for "clinic #2 in 20 minutes" |
+| 60-day experiment window                                       | Do not scope anything that takes >4 weeks to get to measurable results                  |
 
 ---
 
@@ -103,4 +104,4 @@ Discovery → audit (baseline numbers) → SOW with single success metric per se
 
 ---
 
-*Last updated: 2026-05-16. Source: Jason direct answers to physio-david Q1–Q5. Consulting posture added 2026-05-16.*
+_Last updated: 2026-05-16. Source: Jason direct answers to physio-david Q1–Q5. Consulting posture added 2026-05-16._

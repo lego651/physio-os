@@ -8,11 +8,11 @@ vi.mock('../../../../../lib/intake/whisper', () => ({
 vi.mock('../../../../../lib/intake/extract', () => ({
   extractIntakeFields: vi.fn().mockResolvedValue({
     fields: {
-      patient_name:   'John Smith',
-      date_of_visit:  '2026-05-13',
+      patient_name: 'John Smith',
+      date_of_visit: '2026-05-13',
       therapist_name: 'David',
       treatment_area: 'lower back',
-      session_notes:  'Manual therapy session',
+      session_notes: 'Manual therapy session',
     },
     warnings: [],
   }),

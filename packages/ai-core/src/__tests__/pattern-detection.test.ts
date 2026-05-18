@@ -15,7 +15,7 @@ type MetricRow = {
 /** Check whether a patient has at least 14 days of metric data. */
 function hasEnoughData(metrics: MetricRow[]): boolean {
   if (metrics.length === 0) return false
-  const dates = metrics.map(m => new Date(m.recorded_at).getTime())
+  const dates = metrics.map((m) => new Date(m.recorded_at).getTime())
   const earliest = Math.min(...dates)
   const latest = Math.max(...dates)
   const daysCovered = (latest - earliest) / (1000 * 60 * 60 * 24)
@@ -26,7 +26,7 @@ function hasEnoughData(metrics: MetricRow[]): boolean {
 function isConstantSeries(values: (number | null)[]): boolean {
   const nonNull = values.filter((v): v is number => v !== null)
   if (nonNull.length === 0) return true
-  return nonNull.every(v => v === nonNull[0])
+  return nonNull.every((v) => v === nonNull[0])
 }
 
 /**
@@ -59,9 +59,9 @@ function pearsonCorrelation(xs: number[], ys: number[]): number | null {
 
 /** Summarise a constant metric series for the stability message. */
 function buildStabilityMessage(metrics: MetricRow[]): string {
-  const painValues = metrics.map(m => m.pain_level)
+  const painValues = metrics.map((m) => m.pain_level)
   if (isConstantSeries(painValues)) {
-    const val = painValues.find(v => v !== null) ?? null
+    const val = painValues.find((v) => v !== null) ?? null
     const label = val !== null ? `${val}/10` : 'unchanged'
     return `Pain levels have remained consistently at ${label} throughout the tracked period.`
   }

@@ -45,7 +45,7 @@ would accept it without rewriting). Mark `✗` if it is wrong,
 missing, or would need to be redone manually.
 
 | Clip  | patient_name | date_of_visit | therapist_name | treatment_area | session_notes | Score |
-|-------|--------------|---------------|----------------|----------------|---------------|-------|
+| ----- | ------------ | ------------- | -------------- | -------------- | ------------- | ----- |
 | 1     | ✓/✗          | ✓/✗           | ✓/✗            | ✓/✗            | ✓/✗           | /5    |
 | 2     | ✓/✗          | ✓/✗           | ✓/✗            | ✓/✗            | ✓/✗           | /5    |
 | 3     | ✓/✗          | ✓/✗           | ✓/✗            | ✓/✗            | ✓/✗           | /5    |

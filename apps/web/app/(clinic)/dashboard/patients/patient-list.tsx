@@ -6,7 +6,16 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Users, Search, ArrowUpDown, AlertTriangle, Clock, TrendingDown, Activity, MessageSquare } from 'lucide-react'
+import {
+  Users,
+  Search,
+  ArrowUpDown,
+  AlertTriangle,
+  Clock,
+  TrendingDown,
+  Activity,
+  MessageSquare,
+} from 'lucide-react'
 import { AddPatientDialog } from './add-patient-dialog'
 import type { PatientWithAggregates } from './page'
 
@@ -26,7 +35,8 @@ export function PatientList({ patients }: { patients: PatientWithAggregates[] })
 
   const alertCount = patients.filter((p) => p.status === 'alert').length
   const inactiveCount = patients.filter((p) => {
-    const days = p.days_since_last_message ?? Math.floor((now - new Date(p.created_at).getTime()) / 86400000)
+    const days =
+      p.days_since_last_message ?? Math.floor((now - new Date(p.created_at).getTime()) / 86400000)
     return days >= 5
   }).length
 
@@ -130,7 +140,9 @@ export function PatientList({ patients }: { patients: PatientWithAggregates[] })
       </div>
 
       {filtered.length === 0 && search && (
-        <p className="py-8 text-center text-muted-foreground">No patients match &ldquo;{search}&rdquo;</p>
+        <p className="py-8 text-center text-muted-foreground">
+          No patients match &ldquo;{search}&rdquo;
+        </p>
       )}
     </div>
   )
@@ -150,13 +162,21 @@ function PatientCard({ patient }: { patient: PatientWithAggregates }) {
                   <Badge variant="outline" className="text-[10px]">
                     {patient.language === 'zh' ? 'CN' : 'EN'}
                   </Badge>
-                  <StatusBadge status={patient.status} daysSinceMessage={patient.days_since_last_message} createdAt={patient.created_at} />
+                  <StatusBadge
+                    status={patient.status}
+                    daysSinceMessage={patient.days_since_last_message}
+                    createdAt={patient.created_at}
+                  />
                 </div>
                 {patient.alert_detail && (
-                  <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">{patient.alert_detail}</p>
+                  <p className="mt-0.5 text-xs text-red-600 dark:text-red-400">
+                    {patient.alert_detail}
+                  </p>
                 )}
                 <p className="text-xs text-muted-foreground">
-                  {patient.last_message_at ? relativeTime(patient.last_message_at) : 'No activity yet'}
+                  {patient.last_message_at
+                    ? relativeTime(patient.last_message_at)
+                    : 'No activity yet'}
                 </p>
               </div>
             </div>
@@ -197,11 +217,14 @@ function StatusBadge({
   createdAt: string
 }) {
   const [now] = useState(() => Date.now())
-  const inactiveDays = daysSinceMessage ?? Math.floor((now - new Date(createdAt).getTime()) / 86400000)
+  const inactiveDays =
+    daysSinceMessage ?? Math.floor((now - new Date(createdAt).getTime()) / 86400000)
 
   switch (status) {
     case 'alert':
-      return <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">Alert</Badge>
+      return (
+        <Badge className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300">Alert</Badge>
+      )
     case 'inactive':
       return (
         <Badge className="bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300">
@@ -209,9 +232,15 @@ function StatusBadge({
         </Badge>
       )
     case 'new':
-      return <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">New</Badge>
+      return (
+        <Badge className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300">New</Badge>
+      )
     case 'active':
-      return <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Active</Badge>
+      return (
+        <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+          Active
+        </Badge>
+      )
     default:
       return null
   }

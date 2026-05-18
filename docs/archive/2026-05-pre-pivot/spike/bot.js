@@ -168,10 +168,7 @@ bot.on('voice', async (msg) => {
 bot.onText(/^\/start\b/, (msg) => {
   console.log('[bot] /start', { chatId: msg.chat.id })
   bot
-    .sendMessage(
-      msg.chat.id,
-      'physio-os spike bot online. Send a voice memo to test the pipeline.',
-    )
+    .sendMessage(msg.chat.id, 'physio-os spike bot online. Send a voice memo to test the pipeline.')
     .catch((err) => {
       console.error('[bot] /start reply failed', { message: err.message })
     })

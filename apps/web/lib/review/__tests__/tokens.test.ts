@@ -11,8 +11,8 @@ describe('review tokens', () => {
 
   it('mint then verify returns the original payload', async () => {
     const requestId = '00000000-0000-0000-0000-000000000001'
-    const clinicId  = '00000000-0000-0000-0000-000000000002'
-    const jti       = '00000000-0000-0000-0000-000000000003'
+    const clinicId = '00000000-0000-0000-0000-000000000002'
+    const jti = '00000000-0000-0000-0000-000000000003'
 
     const token = await mintReviewToken({ requestId, clinicId, jti, expiresInDays: 14 })
     const decoded = await verifyReviewToken(token)
@@ -22,7 +22,10 @@ describe('review tokens', () => {
 
   it('verify returns null on an expired token', async () => {
     const token = await mintReviewToken({
-      requestId: 'r', clinicId: 'c', jti: 'j', expiresInDays: -1,
+      requestId: 'r',
+      clinicId: 'c',
+      jti: 'j',
+      expiresInDays: -1,
     })
     const decoded = await verifyReviewToken(token)
     expect(decoded).toBeNull()
@@ -30,7 +33,10 @@ describe('review tokens', () => {
 
   it('verify returns null on a signature mismatch', async () => {
     const token = await mintReviewToken({
-      requestId: 'r', clinicId: 'c', jti: 'j', expiresInDays: 14,
+      requestId: 'r',
+      clinicId: 'c',
+      jti: 'j',
+      expiresInDays: 14,
     })
     process.env.REVIEW_TOKEN_SECRET = 'b'.repeat(64)
     const decoded = await verifyReviewToken(token)

@@ -3,10 +3,7 @@ import { sendSMSWithRetry } from '@/lib/sms/send'
 import { requireAdminAuth } from '@/lib/auth/require-admin'
 import { isValidUUID } from '@/lib/validation'
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const auth = await requireAdminAuth()
   if (auth.error) return auth.error
 
@@ -57,13 +54,13 @@ export async function POST(
   if ((count ?? 0) > 0) {
     return Response.json(
       { error: 'Check-in already sent today. Max 1 per patient per day.' },
-      { status: 429 }
+      { status: 429 },
     )
   }
 
   // Get message body from request or use default
   const MAX_MESSAGE_LENGTH = 1600 // 10 SMS segments — hard ceiling
-  const body = await request.json().catch(() => ({})) as { message?: string }
+  const body = (await request.json().catch(() => ({}))) as { message?: string }
 
   if (body.message !== undefined) {
     if (typeof body.message !== 'string') {
@@ -80,9 +77,10 @@ export async function POST(
     }
   }
 
-  const messageText = (typeof body.message === 'string' && body.message.trim().length > 0)
-    ? body.message.trim()
-    : `Hi ${patient.name ?? 'there'}, this is V-Health. How are you feeling? We'd love to hear an update.`
+  const messageText =
+    typeof body.message === 'string' && body.message.trim().length > 0
+      ? body.message.trim()
+      : `Hi ${patient.name ?? 'there'}, this is V-Health. How are you feeling? We'd love to hear an update.`
 
   // Send SMS
   try {

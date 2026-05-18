@@ -28,8 +28,11 @@ export async function POST(req: Request) {
   }
 
   let body: any
-  try { body = JSON.parse(raw) }
-  catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
   const eventType = TRACKED_EVENTS[body?.type]
   if (!eventType) return Response.json({ ok: true, ignored: true })
@@ -65,7 +68,8 @@ export async function POST(req: Request) {
   if (!requestId) return Response.json({ ok: true, unmatched: true })
 
   await logFunnelEvent(supabase, {
-    requestId, eventType,
+    requestId,
+    eventType,
     metadata: { provider_message_id: providerMessageId },
   })
 

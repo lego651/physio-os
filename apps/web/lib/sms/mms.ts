@@ -1,12 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import type { Database } from '@physio-os/shared'
 
-const ACCEPTED_IMAGE_TYPES = new Set([
-  'image/jpeg',
-  'image/png',
-  'image/gif',
-  'image/webp',
-])
+const ACCEPTED_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp'])
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024 // 5MB
 

@@ -4,7 +4,9 @@ import { openai } from '@ai-sdk/openai'
 export class EmptyTranscriptError extends Error {
   readonly reason: 'empty_audio' | 'silent_audio'
   constructor(reason: 'empty_audio' | 'silent_audio') {
-    super(`[whisper] ${reason === 'empty_audio' ? 'empty audio buffer' : 'empty transcript — audio may be silent or corrupted'}`)
+    super(
+      `[whisper] ${reason === 'empty_audio' ? 'empty audio buffer' : 'empty transcript — audio may be silent or corrupted'}`,
+    )
     this.name = 'EmptyTranscriptError'
     this.reason = reason
   }
@@ -19,10 +21,7 @@ export class EmptyTranscriptError extends Error {
  * @param filename - Filename with extension, e.g. "voice.ogg" — for logging only
  * @returns Transcript string, or throws on API error
  */
-export async function transcribeAudio(
-  audioBuffer: Buffer,
-  filename: string,
-): Promise<string> {
+export async function transcribeAudio(audioBuffer: Buffer, filename: string): Promise<string> {
   if (audioBuffer.length === 0) {
     throw new EmptyTranscriptError('empty_audio')
   }

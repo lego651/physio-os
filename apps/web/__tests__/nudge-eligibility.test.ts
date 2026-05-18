@@ -29,11 +29,7 @@ type Message = {
  *    (i.e., no outbound nudge sent after the last inbound message).
  * 5. Patient with no messages ever is eligible if the account is > 3 days old.
  */
-function isNudgeEligible(
-  patient: Patient,
-  messages: Message[],
-  nowMs: number,
-): boolean {
+function isNudgeEligible(patient: Patient, messages: Message[], nowMs: number): boolean {
   if (!patient.consent_given) return false
   if (patient.opted_out) return false
 
@@ -46,7 +42,7 @@ function isNudgeEligible(
 
   // Find last inbound message
   const inboundMessages = messages
-    .filter(m => m.direction === 'inbound')
+    .filter((m) => m.direction === 'inbound')
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 
   if (inboundMessages.length === 0) {
@@ -62,7 +58,7 @@ function isNudgeEligible(
 
   // Check if a nudge was already sent after the last inbound message
   const nudgeSentAfterLastInbound = messages.some(
-    m =>
+    (m) =>
       m.direction === 'outbound' &&
       m.is_nudge === true &&
       new Date(m.created_at).getTime() > lastInboundMs,
@@ -89,23 +85,17 @@ const BASE_PATIENT: Patient = {
 
 describe('isNudgeEligible', () => {
   it('returns true when patient has been inactive for 3+ days', () => {
-    const messages: Message[] = [
-      { created_at: daysAgo(5), direction: 'inbound' },
-    ]
+    const messages: Message[] = [{ created_at: daysAgo(5), direction: 'inbound' }]
     expect(isNudgeEligible(BASE_PATIENT, messages, NOW)).toBe(true)
   })
 
   it('returns false when patient has been inactive for only 2 days', () => {
-    const messages: Message[] = [
-      { created_at: daysAgo(2), direction: 'inbound' },
-    ]
+    const messages: Message[] = [{ created_at: daysAgo(2), direction: 'inbound' }]
     expect(isNudgeEligible(BASE_PATIENT, messages, NOW)).toBe(false)
   })
 
   it('returns false when patient was active today', () => {
-    const messages: Message[] = [
-      { created_at: daysAgo(0), direction: 'inbound' },
-    ]
+    const messages: Message[] = [{ created_at: daysAgo(0), direction: 'inbound' }]
     expect(isNudgeEligible(BASE_PATIENT, messages, NOW)).toBe(false)
   })
 
@@ -140,17 +130,13 @@ describe('isNudgeEligible', () => {
 
   it('returns false for opted-out patient regardless of inactivity', () => {
     const optedOut: Patient = { ...BASE_PATIENT, opted_out: true }
-    const messages: Message[] = [
-      { created_at: daysAgo(10), direction: 'inbound' },
-    ]
+    const messages: Message[] = [{ created_at: daysAgo(10), direction: 'inbound' }]
     expect(isNudgeEligible(optedOut, messages, NOW)).toBe(false)
   })
 
   it('returns false for patient without consent', () => {
     const noConsent: Patient = { ...BASE_PATIENT, consent_given: false }
-    const messages: Message[] = [
-      { created_at: daysAgo(10), direction: 'inbound' },
-    ]
+    const messages: Message[] = [{ created_at: daysAgo(10), direction: 'inbound' }]
     expect(isNudgeEligible(noConsent, messages, NOW)).toBe(false)
   })
 
@@ -174,7 +160,7 @@ describe('isNudgeEligible', () => {
   })
 
   it('treats exactly 3 days inactive as eligible (boundary condition)', () => {
-    const THREE_DAYS_AND_ONE_SECOND_MS = NOW - (3 * 24 * 60 * 60 * 1000) - 1000
+    const THREE_DAYS_AND_ONE_SECOND_MS = NOW - 3 * 24 * 60 * 60 * 1000 - 1000
     const messages: Message[] = [
       { created_at: new Date(THREE_DAYS_AND_ONE_SECOND_MS).toISOString(), direction: 'inbound' },
     ]

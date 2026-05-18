@@ -84,6 +84,7 @@ packages/ai-core/src/index.ts                # export haiku model const if neede
 ### Task 1.1: Add widget DB schema migration
 
 **Files:**
+
 - Create: `supabase/migrations/012_widget_schema.sql`
 
 - [ ] **Step 1: Write the migration**
@@ -216,6 +217,7 @@ git commit -m "feat(widget): add multi-tenant-capable schema (clinics, therapist
 ### Task 1.2: Seed V-Health clinic + 12 therapists
 
 **Files:**
+
 - Create: `supabase/migrations/013_widget_vhealth_seed.sql`
 
 - [ ] **Step 1: Write seed migration with real JaneApp data**
@@ -290,6 +292,7 @@ git commit -m "feat(widget): seed V-Health clinic and 12 therapists from JaneApp
 ### Task 1.3: Environment variables
 
 **Files:**
+
 - Modify: `.env.example`
 
 - [ ] **Step 1: Add new env vars**
@@ -328,6 +331,7 @@ git commit -m "chore(widget): document new env vars for widget module"
 ### Task 2.1: Constants module
 
 **Files:**
+
 - Create: `apps/web/lib/widget/constants.ts`
 
 - [ ] **Step 1: Write constants**
@@ -348,7 +352,8 @@ export const WIDGET_CONSTANTS = {
 
 export const WIDGET_MESSAGES = {
   DISABLED: 'Our assistant is temporarily unavailable. Please call us at 403-966-6386.',
-  CAP_REACHED: 'This chat has reached its message limit. Please text us at 403-966-6386 to continue.',
+  CAP_REACHED:
+    'This chat has reached its message limit. Please text us at 403-966-6386 to continue.',
   RATE_LIMITED: 'You are sending messages too quickly. Please wait a moment.',
   LOCKED_OFFTOPIC: 'This chat is for V-Health questions only. Refresh to start a new session.',
   FORBIDDEN_ORIGIN: 'This widget can only run on approved domains.',
@@ -367,6 +372,7 @@ git commit -m "feat(widget): add constants module (caps, limits, messages)"
 ### Task 2.2: Kill switch
 
 **Files:**
+
 - Create: `apps/web/lib/widget/kill-switch.ts`
 - Test: `apps/web/lib/widget/__tests__/kill-switch.test.ts`
 
@@ -378,7 +384,9 @@ import { isWidgetEnabled } from '../kill-switch'
 
 describe('isWidgetEnabled', () => {
   const original = process.env.WIDGET_ENABLED
-  afterEach(() => { process.env.WIDGET_ENABLED = original })
+  afterEach(() => {
+    process.env.WIDGET_ENABLED = original
+  })
 
   it('returns true when env is "true"', () => {
     process.env.WIDGET_ENABLED = 'true'
@@ -427,6 +435,7 @@ git commit -m "feat(widget): kill switch env gate"
 ### Task 2.3: Origin check
 
 **Files:**
+
 - Create: `apps/web/lib/widget/origin.ts`
 - Test: `apps/web/lib/widget/__tests__/origin.test.ts`
 
@@ -489,6 +498,7 @@ git commit -m "feat(widget): origin allowlist per clinic"
 ### Task 2.4: IP-based rate limiter (multi-window)
 
 **Files:**
+
 - Create: `apps/web/lib/widget/rate-limit.ts`
 - Test: `apps/web/lib/widget/__tests__/rate-limit.test.ts`
 
@@ -506,7 +516,11 @@ vi.mock('@upstash/ratelimit', () => ({
     { slidingWindow: (n: number, w: string) => ({ n, w }) },
   ),
 }))
-vi.mock('@upstash/redis', () => ({ Redis: class { constructor(public o: unknown) {} } }))
+vi.mock('@upstash/redis', () => ({
+  Redis: class {
+    constructor(public o: unknown) {}
+  },
+}))
 
 import { checkWidgetRateLimit } from '../rate-limit'
 
@@ -531,7 +545,10 @@ describe('checkWidgetRateLimit', () => {
 // apps/web/lib/widget/rate-limit.ts
 import { WIDGET_CONSTANTS as C } from './constants'
 
-interface LimitResult { allowed: boolean; limit: string | null }
+interface LimitResult {
+  allowed: boolean
+  limit: string | null
+}
 
 const memoryBuckets = new Map<string, { minute: number[]; hour: number[]; day: number[] }>()
 
@@ -543,22 +560,36 @@ async function getUpstash() {
   const { Redis } = await import('@upstash/redis')
   const redis = new Redis({ url, token })
   return {
-    minute: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(C.RATE_LIMIT_PER_MIN, '60 s'), prefix: 'widget-rl-m' }),
-    hour:   new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(C.RATE_LIMIT_PER_HOUR, '3600 s'), prefix: 'widget-rl-h' }),
-    day:    new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(C.RATE_LIMIT_PER_DAY, '86400 s'), prefix: 'widget-rl-d' }),
+    minute: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(C.RATE_LIMIT_PER_MIN, '60 s'),
+      prefix: 'widget-rl-m',
+    }),
+    hour: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(C.RATE_LIMIT_PER_HOUR, '3600 s'),
+      prefix: 'widget-rl-h',
+    }),
+    day: new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(C.RATE_LIMIT_PER_DAY, '86400 s'),
+      prefix: 'widget-rl-d',
+    }),
   }
 }
 
 function checkMemory(ipHash: string): LimitResult {
   const now = Date.now()
   const b = memoryBuckets.get(ipHash) ?? { minute: [], hour: [], day: [] }
-  b.minute = b.minute.filter(t => now - t < 60_000)
-  b.hour   = b.hour.filter(t => now - t < 3_600_000)
-  b.day    = b.day.filter(t => now - t < 86_400_000)
+  b.minute = b.minute.filter((t) => now - t < 60_000)
+  b.hour = b.hour.filter((t) => now - t < 3_600_000)
+  b.day = b.day.filter((t) => now - t < 86_400_000)
   if (b.minute.length >= C.RATE_LIMIT_PER_MIN) return { allowed: false, limit: 'minute' }
-  if (b.hour.length   >= C.RATE_LIMIT_PER_HOUR) return { allowed: false, limit: 'hour' }
-  if (b.day.length    >= C.RATE_LIMIT_PER_DAY)  return { allowed: false, limit: 'day' }
-  b.minute.push(now); b.hour.push(now); b.day.push(now)
+  if (b.hour.length >= C.RATE_LIMIT_PER_HOUR) return { allowed: false, limit: 'hour' }
+  if (b.day.length >= C.RATE_LIMIT_PER_DAY) return { allowed: false, limit: 'day' }
+  b.minute.push(now)
+  b.hour.push(now)
+  b.day.push(now)
   memoryBuckets.set(ipHash, b)
   return { allowed: true, limit: null }
 }
@@ -566,7 +597,11 @@ function checkMemory(ipHash: string): LimitResult {
 export async function checkWidgetRateLimit(ipHash: string): Promise<LimitResult> {
   const up = await getUpstash()
   if (!up) return checkMemory(ipHash)
-  const [m, h, d] = await Promise.all([up.minute.limit(ipHash), up.hour.limit(ipHash), up.day.limit(ipHash)])
+  const [m, h, d] = await Promise.all([
+    up.minute.limit(ipHash),
+    up.hour.limit(ipHash),
+    up.day.limit(ipHash),
+  ])
   if (!m.success) return { allowed: false, limit: 'minute' }
   if (!h.success) return { allowed: false, limit: 'hour' }
   if (!d.success) return { allowed: false, limit: 'day' }
@@ -593,6 +628,7 @@ git commit -m "feat(widget): IP-based sliding-window rate limiter (10/min, 30/hr
 ### Task 2.5: Turnstile verify
 
 **Files:**
+
 - Create: `apps/web/lib/widget/turnstile.ts`
 - Test: `apps/web/lib/widget/__tests__/turnstile.test.ts`
 
@@ -664,6 +700,7 @@ git commit -m "feat(widget): Cloudflare Turnstile server-side verify"
 ### Task 3.1: Session module (create + cap + strike)
 
 **Files:**
+
 - Create: `apps/web/lib/widget/session.ts`
 - Test: `apps/web/lib/widget/__tests__/session.test.ts`
 
@@ -675,18 +712,31 @@ import { checkConversationState, registerOffTopicStrike } from '../session'
 
 // In-memory Supabase-like mock
 function mockSupabase(initial: { status?: string; strikes?: number; msgCount?: number } = {}) {
-  const state = { status: initial.status ?? 'active', strikes: initial.strikes ?? 0, msgCount: initial.msgCount ?? 0 }
+  const state = {
+    status: initial.status ?? 'active',
+    strikes: initial.strikes ?? 0,
+    msgCount: initial.msgCount ?? 0,
+  }
   return {
     state,
     client: {
       from: (_: string) => ({
         select: () => ({
           eq: () => ({
-            single: async () => ({ data: { status: state.status, offtopic_strikes: state.strikes }, error: null }),
+            single: async () => ({
+              data: { status: state.status, offtopic_strikes: state.strikes },
+              error: null,
+            }),
           }),
         }),
         update: (patch: { status?: string; offtopic_strikes?: number }) => ({
-          eq: async () => { Object.assign(state, { status: patch.status ?? state.status, strikes: patch.offtopic_strikes ?? state.strikes }); return { error: null } },
+          eq: async () => {
+            Object.assign(state, {
+              status: patch.status ?? state.status,
+              strikes: patch.offtopic_strikes ?? state.strikes,
+            })
+            return { error: null }
+          },
         }),
       }),
       rpc: async () => ({ data: state.msgCount, error: null }),
@@ -769,11 +819,15 @@ export async function checkConversationState(
     .select('*', { count: 'exact', head: true })
     .eq('conversation_id', conversationId)
     .neq('role', 'system')
-  if ((count ?? 0) >= C.MAX_MESSAGES_PER_CONVERSATION) return { blocked: true, reason: 'cap_reached' }
+  if ((count ?? 0) >= C.MAX_MESSAGES_PER_CONVERSATION)
+    return { blocked: true, reason: 'cap_reached' }
   return { blocked: false }
 }
 
-export interface StrikeResult { newStrikes: number; locked: boolean }
+export interface StrikeResult {
+  newStrikes: number
+  locked: boolean
+}
 
 export async function registerOffTopicStrike(
   supabase: SupabaseClient,
@@ -811,6 +865,7 @@ git commit -m "feat(widget): conversation state + off-topic strike counter"
 ### Task 4.1: Knowledge base builder
 
 **Files:**
+
 - Create: `apps/web/lib/widget/knowledge-base.ts`
 
 - [ ] **Step 1: Implement**
@@ -851,15 +906,24 @@ const VHEALTH_STATIC = {
   phone: '403-966-6386',
   email: 'vhealthc@gmail.com',
   insurance: 'Accepts all insurance benefits; direct billing available.',
-  cancellation: '24 hours notice required. No-show / late cancel charged at 50% of scheduled visit rate.',
+  cancellation:
+    '24 hours notice required. No-show / late cancel charged at 50% of scheduled visit rate.',
   services: [
-    'Deep Tissue Massage', 'Swedish / Relaxation Massage', 'Acupuncture',
-    'Manual Osteopathy Therapy', 'Foot Reflexology Therapy',
-    'Lymphatic Drainage Massage', 'Cupping Massage Therapy', 'Tui Na Treatment',
+    'Deep Tissue Massage',
+    'Swedish / Relaxation Massage',
+    'Acupuncture',
+    'Manual Osteopathy Therapy',
+    'Foot Reflexology Therapy',
+    'Lymphatic Drainage Massage',
+    'Cupping Massage Therapy',
+    'Tui Na Treatment',
   ],
 }
 
-export async function loadClinicKB(supabase: SupabaseClient, clinicSlug: string): Promise<ClinicKB | null> {
+export async function loadClinicKB(
+  supabase: SupabaseClient,
+  clinicSlug: string,
+): Promise<ClinicKB | null> {
   const { data: clinic } = await supabase
     .from('clinics')
     .select('id, name, domain, janeapp_base_url')
@@ -876,7 +940,7 @@ export async function loadClinicKB(supabase: SupabaseClient, clinicSlug: string)
 
   return {
     clinic: { ...clinic, ...VHEALTH_STATIC },
-    therapists: (therapists ?? []).map(t => ({
+    therapists: (therapists ?? []).map((t) => ({
       ...t,
       bookingUrl: t.janeapp_staff_id ? `${clinic.janeapp_base_url}/${t.janeapp_staff_id}` : null,
     })),
@@ -894,6 +958,7 @@ git commit -m "feat(widget): clinic knowledge-base loader with V-Health static f
 ### Task 4.2: System prompt builder
 
 **Files:**
+
 - Create: `apps/web/lib/widget/system-prompt.ts`
 - Test: `apps/web/lib/widget/__tests__/system-prompt.test.ts`
 
@@ -906,14 +971,29 @@ import type { ClinicKB } from '../knowledge-base'
 
 const kb: ClinicKB = {
   clinic: {
-    id: 'c', name: 'V-Health', domain: 'vhealth.ca', janeapp_base_url: 'https://vhealthc.janeapp.com/#/staff_member',
-    hours: 'Mon–Fri', address: 'x', phone: '403', email: 'e', insurance: 'all', cancellation: '24h',
+    id: 'c',
+    name: 'V-Health',
+    domain: 'vhealth.ca',
+    janeapp_base_url: 'https://vhealthc.janeapp.com/#/staff_member',
+    hours: 'Mon–Fri',
+    address: 'x',
+    phone: '403',
+    email: 'e',
+    insurance: 'all',
+    cancellation: '24h',
     services: ['Massage'],
   },
   therapists: [
-    { id: 't1', name: 'Wendy Chen', role: 'RMT', bio: 'deep tissue',
-      janeapp_staff_id: 13, specialties: ['deep tissue'], languages: ['English'],
-      bookingUrl: 'https://vhealthc.janeapp.com/#/staff_member/13' },
+    {
+      id: 't1',
+      name: 'Wendy Chen',
+      role: 'RMT',
+      bio: 'deep tissue',
+      janeapp_staff_id: 13,
+      specialties: ['deep tissue'],
+      languages: ['English'],
+      bookingUrl: 'https://vhealthc.janeapp.com/#/staff_member/13',
+    },
   ],
 }
 
@@ -948,13 +1028,16 @@ import type { ClinicKB } from './knowledge-base'
 import { WIDGET_CONSTANTS as C } from './constants'
 
 export function buildWidgetSystemPrompt(kb: ClinicKB): string {
-  const therapistBlock = kb.therapists.map(t => (
-`- ${t.name} — ${t.role}
+  const therapistBlock = kb.therapists
+    .map(
+      (t) =>
+        `- ${t.name} — ${t.role}
   Bio: ${t.bio}
   Specialties: ${t.specialties.join(', ') || 'see clinic'}
   Languages: ${t.languages.join(', ')}
-  Booking: ${t.bookingUrl ?? 'call the clinic'}`
-  )).join('\n\n')
+  Booking: ${t.bookingUrl ?? 'call the clinic'}`,
+    )
+    .join('\n\n')
 
   return `You are ${kb.clinic.name}'s online receptionist. You help visitors understand the clinic's services, recommend the right therapist for their needs, and help them book.
 
@@ -1022,6 +1105,7 @@ git commit -m "feat(widget): system prompt builder with JSON envelope contract"
 ### Task 5.1: Session start route (`POST /api/widget/session`)
 
 **Files:**
+
 - Create: `apps/web/app/api/widget/session/route.ts`
 
 - [ ] **Step 1: Implement**
@@ -1059,7 +1143,11 @@ export async function POST(req: Request) {
 
   const supabase = adminSupabase()
   const { data: clinic } = await supabase
-    .from('clinics').select('id, domain').eq('slug', body.data.clinicSlug).eq('is_active', true).single()
+    .from('clinics')
+    .select('id, domain')
+    .eq('slug', body.data.clinicSlug)
+    .eq('is_active', true)
+    .single()
   if (!clinic) return NextResponse.json({ error: 'Unknown clinic' }, { status: 404 })
 
   const origin = req.headers.get('origin')
@@ -1109,6 +1197,7 @@ git commit -m "feat(widget): POST /api/widget/session — rate-limit + origin + 
 ### Task 5.2: Chat streaming route (`POST /api/widget/chat`)
 
 **Files:**
+
 - Create: `apps/web/app/api/widget/chat/route.ts`
 
 - [ ] **Step 1: Implement (uses widget-specific Anthropic key + generateObject pattern for JSON envelope; we stream the reply text only)**
@@ -1166,13 +1255,20 @@ export async function POST(req: Request) {
 
   const state = await checkConversationState(supabase, conversationId)
   if (state.blocked) {
-    const text = state.reason === 'locked' ? M.LOCKED_OFFTOPIC : state.reason === 'cap_reached' ? M.CAP_REACHED : M.ERROR_GENERIC
+    const text =
+      state.reason === 'locked'
+        ? M.LOCKED_OFFTOPIC
+        : state.reason === 'cap_reached'
+          ? M.CAP_REACHED
+          : M.ERROR_GENERIC
     return NextResponse.json({ reply: text, on_topic: true, blocked: true, reason: state.reason })
   }
 
   // Persist user message
   await supabase.from('widget_messages').insert({
-    conversation_id: conversationId, role: 'user', content: message,
+    conversation_id: conversationId,
+    role: 'user',
+    content: message,
   })
 
   // Load last N messages for context
@@ -1195,15 +1291,22 @@ export async function POST(req: Request) {
       model: provider(C.MODEL_ID),
       output: Output.object({ schema: envelopeSchema }),
       system: buildWidgetSystemPrompt(kb),
-      messages: (history ?? []).map(h => ({ role: h.role as 'user' | 'assistant', content: h.content })),
+      messages: (history ?? []).map((h) => ({
+        role: h.role as 'user' | 'assistant',
+        content: h.content,
+      })),
       maxOutputTokens: C.MAX_TOKENS,
       abortSignal: AbortSignal.timeout(C.CONVO_TIMEOUT_MS),
     })
 
     // Persist assistant message + on_topic flag
     await supabase.from('widget_messages').insert({
-      conversation_id: conversationId, role: 'assistant', content: output.reply,
-      tokens_in: usage?.inputTokens ?? 0, tokens_out: usage?.outputTokens ?? 0, on_topic: output.on_topic,
+      conversation_id: conversationId,
+      role: 'assistant',
+      content: output.reply,
+      tokens_in: usage?.inputTokens ?? 0,
+      tokens_out: usage?.outputTokens ?? 0,
+      on_topic: output.on_topic,
     })
 
     // Strike logic
@@ -1215,15 +1318,24 @@ export async function POST(req: Request) {
 
     // Bump usage rollup (best-effort)
     const today = new Date().toISOString().slice(0, 10)
-    await supabase.rpc('widget_usage_increment', {
-      p_clinic_id: kb.clinic.id, p_date: today,
-      p_tokens_in: usage?.inputTokens ?? 0, p_tokens_out: usage?.outputTokens ?? 0,
-    }).catch(() => {/* rpc added in Task 5.4 — ignore until then */})
+    await supabase
+      .rpc('widget_usage_increment', {
+        p_clinic_id: kb.clinic.id,
+        p_date: today,
+        p_tokens_in: usage?.inputTokens ?? 0,
+        p_tokens_out: usage?.outputTokens ?? 0,
+      })
+      .catch(() => {
+        /* rpc added in Task 5.4 — ignore until then */
+      })
 
     return NextResponse.json({ reply: output.reply, on_topic: output.on_topic, locked })
   } catch (e) {
     Sentry.captureException(e, { tags: { component: 'widget-chat' } })
-    return NextResponse.json({ reply: M.ERROR_GENERIC, on_topic: true, error: true }, { status: 200 })
+    return NextResponse.json(
+      { reply: M.ERROR_GENERIC, on_topic: true, error: true },
+      { status: 200 },
+    )
   }
 }
 ```
@@ -1244,6 +1356,7 @@ git commit -m "feat(widget): POST /api/widget/chat — Claude Haiku + JSON envel
 ### Task 5.3: Lead capture route (`POST /api/widget/lead`)
 
 **Files:**
+
 - Create: `apps/web/app/api/widget/lead/route.ts`
 - Create: `apps/web/lib/email/send-lead-notification.ts`
 
@@ -1254,8 +1367,12 @@ git commit -m "feat(widget): POST /api/widget/chat — Claude Haiku + JSON envel
 import * as Sentry from '@sentry/nextjs'
 
 export interface LeadEmailParams {
-  clinicName: string; clinicEmail: string
-  leadName: string; leadEmail?: string | null; leadPhone?: string | null; interest?: string | null
+  clinicName: string
+  clinicEmail: string
+  leadName: string
+  leadEmail?: string | null
+  leadPhone?: string | null
+  interest?: string | null
   transcriptSnippet: string
   consentText: string
   createdAt: string
@@ -1265,7 +1382,10 @@ const RESEND_API_URL = 'https://api.resend.com/emails'
 
 export async function sendLeadNotification(p: LeadEmailParams): Promise<boolean> {
   const apiKey = process.env.RESEND_API_KEY
-  if (!apiKey) { console.warn('[widget-lead] RESEND_API_KEY missing — skipping email'); return false }
+  if (!apiKey) {
+    console.warn('[widget-lead] RESEND_API_KEY missing — skipping email')
+    return false
+  }
 
   const subject = `New lead via chatbot — ${p.leadName}`
   const html = `<h2>New lead from chatbot</h2>
@@ -1283,11 +1403,22 @@ export async function sendLeadNotification(p: LeadEmailParams): Promise<boolean>
     const res = await fetch(RESEND_API_URL, {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: `${p.clinicName} <onboarding@resend.dev>`, to: p.clinicEmail, subject, html }),
+      body: JSON.stringify({
+        from: `${p.clinicName} <onboarding@resend.dev>`,
+        to: p.clinicEmail,
+        subject,
+        html,
+      }),
     })
-    if (!res.ok) { Sentry.captureMessage(`lead email failed: ${res.status}`, 'warning'); return false }
+    if (!res.ok) {
+      Sentry.captureMessage(`lead email failed: ${res.status}`, 'warning')
+      return false
+    }
     return true
-  } catch (e) { Sentry.captureException(e, { tags: { component: 'widget-lead-email' } }); return false }
+  } catch (e) {
+    Sentry.captureException(e, { tags: { component: 'widget-lead-email' } })
+    return false
+  }
 }
 ```
 
@@ -1319,13 +1450,21 @@ const schema = z.object({
 export async function POST(req: Request) {
   if (!isWidgetEnabled()) return NextResponse.json({ error: M.DISABLED }, { status: 503 })
   const parsed = schema.safeParse(await req.json())
-  if (!parsed.success) return NextResponse.json({ error: 'Bad request', issues: parsed.error.flatten() }, { status: 400 })
+  if (!parsed.success)
+    return NextResponse.json(
+      { error: 'Bad request', issues: parsed.error.flatten() },
+      { status: 400 },
+    )
   const d = parsed.data
-  if (!d.email && !d.phone) return NextResponse.json({ error: 'Email or phone required' }, { status: 400 })
+  if (!d.email && !d.phone)
+    return NextResponse.json({ error: 'Email or phone required' }, { status: 400 })
 
   const supabase = adminSupabase()
   const { data: clinic } = await supabase
-    .from('clinics').select('id, name, domain').eq('slug', d.clinicSlug).single()
+    .from('clinics')
+    .select('id, name, domain')
+    .eq('slug', d.clinicSlug)
+    .single()
   if (!clinic) return NextResponse.json({ error: 'Unknown clinic' }, { status: 404 })
 
   const origin = req.headers.get('origin')
@@ -1334,26 +1473,47 @@ export async function POST(req: Request) {
   }
 
   const { data: lead, error } = await supabase
-    .from('widget_leads').insert({
-      conversation_id: d.conversationId, clinic_id: clinic.id,
-      name: d.name, email: d.email || null, phone: d.phone || null, interest: d.interest || null,
-      consent_given: d.consentGiven, consent_text: d.consentText,
-    }).select('id, created_at').single()
+    .from('widget_leads')
+    .insert({
+      conversation_id: d.conversationId,
+      clinic_id: clinic.id,
+      name: d.name,
+      email: d.email || null,
+      phone: d.phone || null,
+      interest: d.interest || null,
+      consent_given: d.consentGiven,
+      consent_text: d.consentText,
+    })
+    .select('id, created_at')
+    .single()
   if (error || !lead) return NextResponse.json({ error: M.ERROR_GENERIC }, { status: 500 })
 
   // Transcript snippet
   const { data: msgs } = await supabase
-    .from('widget_messages').select('role, content').eq('conversation_id', d.conversationId)
-    .order('created_at', { ascending: true }).limit(10)
-  const snippet = (msgs ?? []).map(m => `${m.role}: ${m.content}`).join('\n')
+    .from('widget_messages')
+    .select('role, content')
+    .eq('conversation_id', d.conversationId)
+    .order('created_at', { ascending: true })
+    .limit(10)
+  const snippet = (msgs ?? []).map((m) => `${m.role}: ${m.content}`).join('\n')
 
   const clinicEmail = process.env.WIDGET_CLINIC_EMAIL ?? 'vhealthc@gmail.com'
   const ok = await sendLeadNotification({
-    clinicName: clinic.name, clinicEmail,
-    leadName: d.name, leadEmail: d.email || null, leadPhone: d.phone || null, interest: d.interest || null,
-    transcriptSnippet: snippet, consentText: d.consentText, createdAt: lead.created_at,
+    clinicName: clinic.name,
+    clinicEmail,
+    leadName: d.name,
+    leadEmail: d.email || null,
+    leadPhone: d.phone || null,
+    interest: d.interest || null,
+    transcriptSnippet: snippet,
+    consentText: d.consentText,
+    createdAt: lead.created_at,
   })
-  if (ok) await supabase.from('widget_leads').update({ notified_at: new Date().toISOString() }).eq('id', lead.id)
+  if (ok)
+    await supabase
+      .from('widget_leads')
+      .update({ notified_at: new Date().toISOString() })
+      .eq('id', lead.id)
 
   return NextResponse.json({ ok: true, leadId: lead.id })
 }
@@ -1369,6 +1529,7 @@ git commit -m "feat(widget): POST /api/widget/lead — CASL consent + Resend not
 ### Task 5.4: Usage increment RPC (Postgres function)
 
 **Files:**
+
 - Create: `supabase/migrations/014_widget_usage_rpc.sql`
 
 - [ ] **Step 1: Write RPC**
@@ -1409,6 +1570,7 @@ git commit -m "feat(widget): widget_usage_increment RPC for per-day rollup"
 ### Task 6.1: Iframe-safe layout + bare page
 
 **Files:**
+
 - Create: `apps/web/app/widget/[clinicId]/layout.tsx`
 - Create: `apps/web/app/widget/[clinicId]/page.tsx`
 - Modify: `apps/web/next.config.ts` (frame-ancestors CSP)
@@ -1435,12 +1597,14 @@ export default async function WidgetPage({ params }: { params: Promise<{ clinicI
   const { clinicId } = await params
   const kb = await loadClinicKB(adminSupabase(), clinicId)
   if (!kb) notFound()
-  return <ChatPanel
-    clinicSlug={clinicId}
-    clinicName={kb.clinic.name}
-    phone={kb.clinic.phone}
-    turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? ''}
-  />
+  return (
+    <ChatPanel
+      clinicSlug={clinicId}
+      clinicName={kb.clinic.name}
+      phone={kb.clinic.phone}
+      turnstileSiteKey={process.env.TURNSTILE_SITE_KEY ?? ''}
+    />
+  )
 }
 ```
 
@@ -1470,6 +1634,7 @@ git commit -m "feat(widget): iframe-safe layout + server page with KB load + CSP
 ### Task 6.2: Chat panel client component
 
 **Files:**
+
 - Create: `apps/web/app/widget/[clinicId]/chat-panel.tsx`
 - Create: `apps/web/app/widget/[clinicId]/suggested-chips.tsx`
 - Create: `apps/web/app/widget/[clinicId]/handoff-buttons.tsx`
@@ -1486,10 +1651,25 @@ import { HandoffButtons } from './handoff-buttons'
 
 type Msg = { role: 'user' | 'assistant' | 'system'; content: string }
 
-declare global { interface Window { turnstile?: { render: (el: HTMLElement, opts: Record<string, unknown>) => string; reset?: () => void } } }
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (el: HTMLElement, opts: Record<string, unknown>) => string
+      reset?: () => void
+    }
+  }
+}
 
-export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
-  clinicSlug: string; clinicName: string; phone: string; turnstileSiteKey: string
+export function ChatPanel({
+  clinicSlug,
+  clinicName,
+  phone,
+  turnstileSiteKey,
+}: {
+  clinicSlug: string
+  clinicName: string
+  phone: string
+  turnstileSiteKey: string
 }) {
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
@@ -1505,45 +1685,71 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
     const tryRender = () => {
       if (!window.turnstile || !turnstileRef.current) return false
       window.turnstile.render(turnstileRef.current, {
-        sitekey: turnstileSiteKey, size: 'invisible',
-        callback: (tok: string) => { turnstileTokenRef.current = tok },
+        sitekey: turnstileSiteKey,
+        size: 'invisible',
+        callback: (tok: string) => {
+          turnstileTokenRef.current = tok
+        },
       })
       return true
     }
-    const iv = setInterval(() => { if (tryRender()) clearInterval(iv) }, 250)
+    const iv = setInterval(() => {
+      if (tryRender()) clearInterval(iv)
+    }, 250)
     return () => clearInterval(iv)
   }, [turnstileSiteKey])
 
   const ensureSession = useCallback(async () => {
     if (conversationId) return conversationId
     const res = await fetch('/api/widget/session', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ clinicSlug, turnstileToken: turnstileTokenRef.current ?? '' }),
     })
     const data = await res.json()
-    if (!res.ok) { setError(data.error ?? 'Failed to start session'); return null }
+    if (!res.ok) {
+      setError(data.error ?? 'Failed to start session')
+      return null
+    }
     setConversationId(data.conversationId)
     return data.conversationId as string
   }, [clinicSlug, conversationId])
 
-  const send = useCallback(async (text: string) => {
-    if (!text.trim() || sending) return
-    setError(null); setSending(true); setInput('')
-    setMessages(m => [...m, { role: 'user', content: text }])
-    const cid = await ensureSession()
-    if (!cid) { setSending(false); return }
-    try {
-      const res = await fetch('/api/widget/chat', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversationId: cid, clinicSlug, message: text }),
-      })
-      const data = await res.json()
-      setMessages(m => [...m, { role: 'assistant', content: data.reply ?? 'Something went wrong.' }])
-      if (data.locked) setError('This chat is locked. Please refresh to start a new one.')
-    } catch {
-      setMessages(m => [...m, { role: 'assistant', content: 'Sorry, something went wrong. Please text us at ' + phone }])
-    } finally { setSending(false) }
-  }, [clinicSlug, ensureSession, phone, sending])
+  const send = useCallback(
+    async (text: string) => {
+      if (!text.trim() || sending) return
+      setError(null)
+      setSending(true)
+      setInput('')
+      setMessages((m) => [...m, { role: 'user', content: text }])
+      const cid = await ensureSession()
+      if (!cid) {
+        setSending(false)
+        return
+      }
+      try {
+        const res = await fetch('/api/widget/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversationId: cid, clinicSlug, message: text }),
+        })
+        const data = await res.json()
+        setMessages((m) => [
+          ...m,
+          { role: 'assistant', content: data.reply ?? 'Something went wrong.' },
+        ])
+        if (data.locked) setError('This chat is locked. Please refresh to start a new one.')
+      } catch {
+        setMessages((m) => [
+          ...m,
+          { role: 'assistant', content: 'Sorry, something went wrong. Please text us at ' + phone },
+        ])
+      } finally {
+        setSending(false)
+      }
+    },
+    [clinicSlug, ensureSession, phone, sending],
+  )
 
   return (
     <div className="flex h-full flex-col bg-white text-black">
@@ -1552,8 +1758,12 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
         {messages.length === 0 && <SuggestedChips onPick={send} />}
         {messages.map((m, i) => (
           <div key={i} className={m.role === 'user' ? 'text-right' : ''}>
-            <div className={'inline-block max-w-[85%] rounded-xl px-3 py-2 ' +
-              (m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100')}>
+            <div
+              className={
+                'inline-block max-w-[85%] rounded-xl px-3 py-2 ' +
+                (m.role === 'user' ? 'bg-blue-600 text-white' : 'bg-gray-100')
+              }
+            >
               {m.content}
             </div>
           </div>
@@ -1563,21 +1773,34 @@ export function ChatPanel({ clinicSlug, clinicName, phone, turnstileSiteKey }: {
       </div>
       <HandoffButtons phone={phone} />
       <form
-        onSubmit={e => { e.preventDefault(); send(input) }}
+        onSubmit={(e) => {
+          e.preventDefault()
+          send(input)
+        }}
         className="flex gap-2 border-t p-2"
       >
         <input
-          value={input} onChange={e => setInput(e.target.value)}
-          maxLength={500} placeholder={`Ask ${clinicName} a question…`}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          maxLength={500}
+          placeholder={`Ask ${clinicName} a question…`}
           className="flex-1 rounded border px-3 py-2"
           disabled={sending}
         />
-        <button type="submit" disabled={sending || !input.trim()}
-          className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50">Send</button>
+        <button
+          type="submit"
+          disabled={sending || !input.trim()}
+          className="rounded bg-blue-600 px-4 py-2 text-white disabled:opacity-50"
+        >
+          Send
+        </button>
       </form>
       <div ref={turnstileRef} aria-hidden />
       {turnstileSiteKey && (
-        <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" strategy="afterInteractive" />
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          strategy="afterInteractive"
+        />
       )}
     </div>
   )
@@ -1600,9 +1823,12 @@ export function SuggestedChips({ onPick }: { onPick: (q: string) => void }) {
     <div>
       <div className="text-sm text-gray-600 mb-2">Ask me about:</div>
       <div className="flex flex-wrap gap-2">
-        {CHIPS.map(c => (
-          <button key={c} onClick={() => onPick(c)}
-            className="rounded-full border px-3 py-1 text-sm hover:bg-gray-100">
+        {CHIPS.map((c) => (
+          <button
+            key={c}
+            onClick={() => onPick(c)}
+            className="rounded-full border px-3 py-1 text-sm hover:bg-gray-100"
+          >
             {c}
           </button>
         ))}
@@ -1619,8 +1845,12 @@ export function SuggestedChips({ onPick }: { onPick: (q: string) => void }) {
 export function HandoffButtons({ phone }: { phone: string }) {
   return (
     <div className="flex gap-2 border-t px-3 py-2 text-sm">
-      <a href={`sms:${phone}`} className="rounded bg-gray-100 px-3 py-1 hover:bg-gray-200">Text us</a>
-      <a href={`tel:${phone}`} className="rounded bg-gray-100 px-3 py-1 hover:bg-gray-200">Call us</a>
+      <a href={`sms:${phone}`} className="rounded bg-gray-100 px-3 py-1 hover:bg-gray-200">
+        Text us
+      </a>
+      <a href={`tel:${phone}`} className="rounded bg-gray-100 px-3 py-1 hover:bg-gray-200">
+        Call us
+      </a>
     </div>
   )
 }
@@ -1640,6 +1870,7 @@ git commit -m "feat(widget): chat panel UI with Turnstile + suggested chips + ha
 ### Task 6.3: Lead form inside chat panel
 
 **Files:**
+
 - Create: `apps/web/app/widget/[clinicId]/lead-form.tsx`
 - Modify: `apps/web/app/widget/[clinicId]/chat-panel.tsx` (open lead form when assistant reply contains a booking link OR after 4 exchanges)
 
@@ -1650,46 +1881,102 @@ git commit -m "feat(widget): chat panel UI with Turnstile + suggested chips + ha
 'use client'
 import { useState } from 'react'
 
-const CONSENT_TEXT = 'I consent to be contacted by V-Health Rehab Clinic by email, phone, or text regarding my appointment request.'
+const CONSENT_TEXT =
+  'I consent to be contacted by V-Health Rehab Clinic by email, phone, or text regarding my appointment request.'
 
-export function LeadForm({ clinicSlug, conversationId, onDone }: {
-  clinicSlug: string; conversationId: string; onDone: () => void
+export function LeadForm({
+  clinicSlug,
+  conversationId,
+  onDone,
+}: {
+  clinicSlug: string
+  conversationId: string
+  onDone: () => void
 }) {
-  const [name, setName] = useState(''); const [phone, setPhone] = useState('')
-  const [email, setEmail] = useState(''); const [interest, setInterest] = useState('')
-  const [consent, setConsent] = useState(false); const [submitting, setSubmitting] = useState(false)
+  const [name, setName] = useState('')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [interest, setInterest] = useState('')
+  const [consent, setConsent] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
   async function submit(e: React.FormEvent) {
-    e.preventDefault(); setErr(null); setSubmitting(true)
+    e.preventDefault()
+    setErr(null)
+    setSubmitting(true)
     try {
       const res = await fetch('/api/widget/lead', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          clinicSlug, conversationId, name, phone, email, interest,
-          consentGiven: consent, consentText: CONSENT_TEXT,
+          clinicSlug,
+          conversationId,
+          name,
+          phone,
+          email,
+          interest,
+          consentGiven: consent,
+          consentText: CONSENT_TEXT,
         }),
       })
-      if (!res.ok) { const d = await res.json(); throw new Error(d.error ?? 'Failed') }
+      if (!res.ok) {
+        const d = await res.json()
+        throw new Error(d.error ?? 'Failed')
+      }
       onDone()
-    } catch (e) { setErr(e instanceof Error ? e.message : 'Failed') }
-    finally { setSubmitting(false) }
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
     <form onSubmit={submit} className="rounded border p-3 space-y-2 bg-gray-50">
       <div className="font-semibold text-sm">Leave your contact — we'll reach out</div>
-      <input required placeholder="Your name *" value={name} onChange={e => setName(e.target.value)} className="w-full rounded border px-2 py-1" />
-      <input placeholder="Phone" value={phone} onChange={e => setPhone(e.target.value)} className="w-full rounded border px-2 py-1" />
-      <input type="email" placeholder="Email" value={email} onChange={e => setEmail(e.target.value)} className="w-full rounded border px-2 py-1" />
-      <input placeholder="What brings you in?" value={interest} onChange={e => setInterest(e.target.value)} className="w-full rounded border px-2 py-1" />
+      <input
+        required
+        placeholder="Your name *"
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        className="w-full rounded border px-2 py-1"
+      />
+      <input
+        placeholder="Phone"
+        value={phone}
+        onChange={(e) => setPhone(e.target.value)}
+        className="w-full rounded border px-2 py-1"
+      />
+      <input
+        type="email"
+        placeholder="Email"
+        value={email}
+        onChange={(e) => setEmail(e.target.value)}
+        className="w-full rounded border px-2 py-1"
+      />
+      <input
+        placeholder="What brings you in?"
+        value={interest}
+        onChange={(e) => setInterest(e.target.value)}
+        className="w-full rounded border px-2 py-1"
+      />
       <label className="flex items-start gap-2 text-xs">
-        <input type="checkbox" checked={consent} onChange={e => setConsent(e.target.checked)} className="mt-0.5" required />
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-0.5"
+          required
+        />
         <span>{CONSENT_TEXT}</span>
       </label>
       {err && <div className="text-red-600 text-sm">{err}</div>}
-      <button type="submit" disabled={!consent || !name || (!phone && !email) || submitting}
-        className="w-full rounded bg-blue-600 py-2 text-white disabled:opacity-50">
+      <button
+        type="submit"
+        disabled={!consent || !name || (!phone && !email) || submitting}
+        className="w-full rounded bg-blue-600 py-2 text-white disabled:opacity-50"
+      >
         {submitting ? 'Sending…' : 'Submit'}
       </button>
     </form>
@@ -1715,35 +2002,44 @@ git commit -m "feat(widget): lead capture form with CASL consent inside chat pan
 ### Task 7.1: widget.js loader
 
 **Files:**
+
 - Create: `apps/web/public/widget.js`
 
 - [ ] **Step 1: Write the loader**
 
 ```javascript
 /* apps/web/public/widget.js — V-Health chatbot widget loader */
-(function () {
-  var script = document.currentScript;
-  var clinicId = script && script.getAttribute('data-clinic-id');
-  if (!clinicId) { console.error('[physio-widget] data-clinic-id is required'); return; }
-  var host = script && script.getAttribute('data-host') || 'https://YOUR-VERCEL-DOMAIN.vercel.app';
+;(function () {
+  var script = document.currentScript
+  var clinicId = script && script.getAttribute('data-clinic-id')
+  if (!clinicId) {
+    console.error('[physio-widget] data-clinic-id is required')
+    return
+  }
+  var host = (script && script.getAttribute('data-host')) || 'https://YOUR-VERCEL-DOMAIN.vercel.app'
 
-  var btn = document.createElement('button');
-  btn.setAttribute('aria-label', 'Open chat');
-  btn.style.cssText = 'position:fixed;right:16px;bottom:16px;width:56px;height:56px;border-radius:50%;background:#2563eb;color:#fff;border:0;font-size:28px;cursor:pointer;z-index:2147483647;box-shadow:0 4px 12px rgba(0,0,0,.2)';
-  btn.textContent = '💬';
-  document.body.appendChild(btn);
+  var btn = document.createElement('button')
+  btn.setAttribute('aria-label', 'Open chat')
+  btn.style.cssText =
+    'position:fixed;right:16px;bottom:16px;width:56px;height:56px;border-radius:50%;background:#2563eb;color:#fff;border:0;font-size:28px;cursor:pointer;z-index:2147483647;box-shadow:0 4px 12px rgba(0,0,0,.2)'
+  btn.textContent = '💬'
+  document.body.appendChild(btn)
 
-  var iframe;
+  var iframe
   btn.addEventListener('click', function () {
-    if (iframe) { iframe.style.display = iframe.style.display === 'none' ? 'block' : 'none'; return; }
-    iframe = document.createElement('iframe');
-    iframe.src = host + '/widget/' + encodeURIComponent(clinicId);
-    iframe.style.cssText = 'position:fixed;right:16px;bottom:84px;width:380px;height:560px;border:0;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:2147483647;background:#fff';
-    iframe.title = 'Chat with clinic';
-    iframe.allow = 'clipboard-write';
-    document.body.appendChild(iframe);
-  });
-})();
+    if (iframe) {
+      iframe.style.display = iframe.style.display === 'none' ? 'block' : 'none'
+      return
+    }
+    iframe = document.createElement('iframe')
+    iframe.src = host + '/widget/' + encodeURIComponent(clinicId)
+    iframe.style.cssText =
+      'position:fixed;right:16px;bottom:84px;width:380px;height:560px;border:0;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.25);z-index:2147483647;background:#fff'
+    iframe.title = 'Chat with clinic'
+    iframe.allow = 'clipboard-write'
+    document.body.appendChild(iframe)
+  })
+})()
 ```
 
 - [ ] **Step 2: Commit**
@@ -1756,6 +2052,7 @@ git commit -m "feat(widget): widget.js loader — floating bubble + iframe"
 ### Task 7.2: Middleware allows public widget routes
 
 **Files:**
+
 - Modify: `apps/web/middleware.ts`
 
 - [ ] **Step 1: Exempt /widget/** and /api/widget/** from auth**
@@ -1776,6 +2073,7 @@ git commit -m "fix(widget): exempt /widget/** and /api/widget/** from auth middl
 ### Task 8.1: Simulation data generator
 
 **Files:**
+
 - Create: `apps/web/lib/widget/seed-metrics.ts`
 
 - [ ] **Step 1: Implement**
@@ -1784,27 +2082,40 @@ git commit -m "fix(widget): exempt /widget/** and /api/widget/** from auth middl
 // apps/web/lib/widget/seed-metrics.ts
 // Deterministic pseudo-data for the April 30 demo — NEVER call this at runtime against production.
 export interface SimMetrics {
-  conversations: number; leads: number; topQuestions: Array<{ q: string; count: number }>
+  conversations: number
+  leads: number
+  topQuestions: Array<{ q: string; count: number }>
   therapistDistribution: Array<{ name: string; recommendations: number }>
-  reviewsGenerated: number; reviewCompletion: number; hoursSaved: number
+  reviewsGenerated: number
+  reviewCompletion: number
+  hoursSaved: number
   dailySeries: Array<{ date: string; conversations: number; leads: number }>
 }
 
 export function generateSimMetrics(therapistNames: string[]): SimMetrics {
-  const days = 30; const daily = []
-  let convos = 0, leads = 0
+  const days = 30
+  const daily = []
+  let convos = 0,
+    leads = 0
   for (let i = 0; i < days; i++) {
-    const d = new Date(); d.setDate(d.getDate() - (days - 1 - i))
+    const d = new Date()
+    d.setDate(d.getDate() - (days - 1 - i))
     const c = Math.round(3 + i * 0.25 + Math.random() * 3)
     const l = Math.round(c * (0.12 + (i / days) * 0.1))
     daily.push({ date: d.toISOString().slice(0, 10), conversations: c, leads: l })
-    convos += c; leads += l
+    convos += c
+    leads += l
   }
   const distribution = therapistNames.map((name, i) => ({
-    name, recommendations: Math.max(1, Math.round((leads * (1 / therapistNames.length)) * (1 + (i % 3 - 1) * 0.2))),
+    name,
+    recommendations: Math.max(
+      1,
+      Math.round(leads * (1 / therapistNames.length) * (1 + ((i % 3) - 1) * 0.2)),
+    ),
   }))
   return {
-    conversations: convos, leads,
+    conversations: convos,
+    leads,
     topQuestions: [
       { q: 'Do you accept my insurance?', count: 38 },
       { q: 'I have back pain, who should I see?', count: 31 },
@@ -1813,7 +2124,8 @@ export function generateSimMetrics(therapistNames: string[]): SimMetrics {
       { q: 'Do you do direct billing?', count: 19 },
     ],
     therapistDistribution: distribution,
-    reviewsGenerated: 18, reviewCompletion: 0.72,
+    reviewsGenerated: 18,
+    reviewCompletion: 0.72,
     hoursSaved: Math.round((convos * 4) / 60),
     dailySeries: daily,
   }
@@ -1830,6 +2142,7 @@ git commit -m "feat(widget): simulation metrics generator (labeled)"
 ### Task 8.2: Dashboard page
 
 **Files:**
+
 - Create: `apps/web/app/(clinic)/dashboard/widget/page.tsx`
 
 - [ ] **Step 1: Implement with "Simulated" banner and Recharts**
@@ -1843,11 +2156,12 @@ import { WidgetDashboardCharts } from './charts'
 
 export default async function WidgetDashboard() {
   const kb = await loadClinicKB(adminSupabase(), 'vhealth')
-  const metrics = generateSimMetrics((kb?.therapists ?? []).map(t => t.name))
+  const metrics = generateSimMetrics((kb?.therapists ?? []).map((t) => t.name))
   return (
     <div className="p-6 space-y-4">
       <div className="rounded-md bg-amber-100 border border-amber-300 px-4 py-3 text-amber-900 text-sm">
-        <strong>Simulated data.</strong> These numbers are projections based on industry benchmarks for clinics of this size. Real usage replaces these on Day 1 of the pilot.
+        <strong>Simulated data.</strong> These numbers are projections based on industry benchmarks
+        for clinics of this size. Real usage replaces these on Day 1 of the pilot.
       </div>
       <h1 className="text-2xl font-semibold">Chatbot — last 30 days (projected)</h1>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -1862,7 +2176,12 @@ export default async function WidgetDashboard() {
 }
 
 function Card({ title, value }: { title: string; value: string }) {
-  return <div className="rounded border p-3"><div className="text-xs text-gray-600">{title}</div><div className="text-2xl font-semibold">{value}</div></div>
+  return (
+    <div className="rounded border p-3">
+      <div className="text-xs text-gray-600">{title}</div>
+      <div className="text-2xl font-semibold">{value}</div>
+    </div>
+  )
 }
 ```
 
@@ -1871,7 +2190,16 @@ function Card({ title, value }: { title: string; value: string }) {
 ```tsx
 // apps/web/app/(clinic)/dashboard/widget/charts.tsx
 'use client'
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
+import {
+  BarChart,
+  Bar,
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  ResponsiveContainer,
+} from 'recharts'
 import type { SimMetrics } from '@/lib/widget/seed-metrics'
 
 export function WidgetDashboardCharts({ metrics }: { metrics: SimMetrics }) {
@@ -1881,7 +2209,14 @@ export function WidgetDashboardCharts({ metrics }: { metrics: SimMetrics }) {
         <div className="font-semibold mb-2">Therapist recommendations</div>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={metrics.therapistDistribution}>
-            <XAxis dataKey="name" interval={0} angle={-25} textAnchor="end" height={80} fontSize={10} />
+            <XAxis
+              dataKey="name"
+              interval={0}
+              angle={-25}
+              textAnchor="end"
+              height={80}
+              fontSize={10}
+            />
             <YAxis />
             <Tooltip />
             <Bar dataKey="recommendations" />
@@ -1903,7 +2238,11 @@ export function WidgetDashboardCharts({ metrics }: { metrics: SimMetrics }) {
       <div className="rounded border p-3 col-span-2">
         <div className="font-semibold mb-2">Top questions asked</div>
         <ol className="list-decimal ml-6">
-          {metrics.topQuestions.map(q => <li key={q.q} className="py-1">{q.q} <span className="text-gray-500 text-sm">— {q.count}</span></li>)}
+          {metrics.topQuestions.map((q) => (
+            <li key={q.q} className="py-1">
+              {q.q} <span className="text-gray-500 text-sm">— {q.count}</span>
+            </li>
+          ))}
         </ol>
       </div>
     </div>
@@ -1926,6 +2265,7 @@ git commit -m "feat(widget): dashboard page with labeled simulation metrics"
 ### Task 9.1: Daily usage + spend alert cron
 
 **Files:**
+
 - Create: `apps/web/app/api/cron/widget-usage-alert/route.ts`
 - Modify: `apps/web/vercel.json`
 
@@ -1947,13 +2287,16 @@ export async function GET(req: Request) {
   const totalToday = (data ?? []).reduce((sum, r) => sum + Number(r.estimated_cost_usd), 0)
   const threshold = Number(process.env.WIDGET_DAILY_SPEND_ALERT_USD ?? '2')
   if (totalToday >= threshold) {
-    const key = process.env.RESEND_API_KEY; const to = process.env.ADMIN_EMAIL
+    const key = process.env.RESEND_API_KEY
+    const to = process.env.ADMIN_EMAIL
     if (key && to) {
       await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          from: 'Widget alert <onboarding@resend.dev>', to, subject: `[widget] daily spend $${totalToday.toFixed(2)} exceeded $${threshold}`,
+          from: 'Widget alert <onboarding@resend.dev>',
+          to,
+          subject: `[widget] daily spend $${totalToday.toFixed(2)} exceeded $${threshold}`,
           html: `<p>Today's widget spend is <strong>$${totalToday.toFixed(2)}</strong>. Consider inspecting the Anthropic console and maybe toggling <code>WIDGET_ENABLED=false</code>.</p>`,
         }),
       })
@@ -1985,6 +2328,7 @@ git commit -m "feat(widget): daily spend alert cron (9am ET)"
 ### Task 10.1: S601 adversarial suite against widget
 
 **Files:**
+
 - Create: `apps/web/__tests__/widget-adversarial.test.ts`
 
 - [ ] **Step 1: Port the 50+ adversarial cases from S601 to target the widget system prompt + envelope contract**
@@ -2014,7 +2358,12 @@ Sign up for Wix free, enable Dev Mode. Add an HTML embed block to the home page.
 - [ ] **Step 2: Paste the widget snippet**
 
 ```html
-<script src="https://YOUR-VERCEL-DOMAIN.vercel.app/widget.js" data-clinic-id="vhealth" data-host="https://YOUR-VERCEL-DOMAIN.vercel.app" async></script>
+<script
+  src="https://YOUR-VERCEL-DOMAIN.vercel.app/widget.js"
+  data-clinic-id="vhealth"
+  data-host="https://YOUR-VERCEL-DOMAIN.vercel.app"
+  async
+></script>
 ```
 
 - [ ] **Step 3: Verify iframe renders, bubble opens, chat works**

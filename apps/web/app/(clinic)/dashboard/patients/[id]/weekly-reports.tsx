@@ -70,7 +70,10 @@ export async function WeeklyReports({ patientId }: { patientId: string }) {
           {reportList.map((report, i) => {
             const weekEnd = new Date(report.week_start)
             weekEnd.setDate(weekEnd.getDate() + 6)
-            const start = new Date(report.week_start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+            const start = new Date(report.week_start).toLocaleDateString('en-US', {
+              month: 'short',
+              day: 'numeric',
+            })
             const end = weekEnd.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
             return (
@@ -85,9 +88,7 @@ export async function WeeklyReports({ patientId }: { patientId: string }) {
                   <div>
                     <p className="text-sm font-medium">
                       {start} – {end}
-                      {i === 0 && (
-                        <Badge className="ml-2 bg-primary/10 text-primary">Latest</Badge>
-                      )}
+                      {i === 0 && <Badge className="ml-2 bg-primary/10 text-primary">Latest</Badge>}
                     </p>
                     {report.summary && (
                       <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">

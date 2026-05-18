@@ -26,8 +26,12 @@ export default async function StaffIntakePage() {
         <h1 className="mb-6 text-2xl font-semibold">New Session Record</h1>
         <Tabs defaultValue="voice">
           <TabsList className="mb-4 w-full">
-            <TabsTrigger value="voice" className="flex-1">Voice</TabsTrigger>
-            <TabsTrigger value="manual" className="flex-1">Manual</TabsTrigger>
+            <TabsTrigger value="voice" className="flex-1">
+              Voice
+            </TabsTrigger>
+            <TabsTrigger value="manual" className="flex-1">
+              Manual
+            </TabsTrigger>
           </TabsList>
           <TabsContent value="voice">
             <VoiceIntakeChat />

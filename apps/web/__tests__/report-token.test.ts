@@ -6,7 +6,7 @@ import { describe, it, expect } from 'vitest'
 // ---------------------------------------------------------------------------
 
 type TokenPayload = {
-  sub: string        // patientId
+  sub: string // patientId
   reportId: string
   iat: number
   exp: number
@@ -21,10 +21,7 @@ type VerifyResult =
  * In production this delegates to `jose` for JWT operations;
  * here we test the structural validation layer independently.
  */
-function verifyReportTokenPayload(
-  payload: unknown,
-  nowMs: number,
-): VerifyResult {
+function verifyReportTokenPayload(payload: unknown, nowMs: number): VerifyResult {
   if (!payload || typeof payload !== 'object') {
     return { valid: false, reason: 'invalid' }
   }

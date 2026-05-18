@@ -24,7 +24,8 @@ describe('EmailAdapter', () => {
     const [url, opts] = fetchMock.mock.calls[0]
     expect(url).toBe('https://api.resend.com/emails')
     expect(JSON.parse((opts as any).body)).toMatchObject({
-      to: 'patient@example.com', subject: 'subject',
+      to: 'patient@example.com',
+      subject: 'subject',
     })
   })
 
@@ -35,7 +36,8 @@ describe('EmailAdapter', () => {
       text: async () => 'invalid recipient',
     })
     const adapter = new EmailAdapter({ fetch: fetchMock as any })
-    await expect(adapter.send({ to: 'x', from: 'y', subject: 's', html: 'h' }))
-      .rejects.toThrow(/422.*invalid recipient/)
+    await expect(adapter.send({ to: 'x', from: 'y', subject: 's', html: 'h' })).rejects.toThrow(
+      /422.*invalid recipient/,
+    )
   })
 })
