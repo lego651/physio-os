@@ -1,12 +1,23 @@
 import { z } from 'zod'
 
-/** The 5 structured fields extracted from a voice memo or entered manually */
+/** Service type extracted from the voice session (D18-1) */
+export const SessionTypeSchema = z.enum([
+  'massage',
+  'physio',
+  'acupuncture',
+  'chiropractor',
+  'other',
+])
+export type SessionType = z.infer<typeof SessionTypeSchema>
+
+/** The structured fields extracted from a voice memo or entered manually */
 export const IntakeFieldsSchema = z.object({
   patient_name: z.string().min(1),
   date_of_visit: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Must be YYYY-MM-DD'),
   therapist_name: z.string().min(1),
   treatment_area: z.string().min(1),
   session_notes: z.string().min(1),
+  session_type: SessionTypeSchema.optional(),
 })
 
 export type IntakeFields = z.infer<typeof IntakeFieldsSchema>
