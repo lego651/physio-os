@@ -585,7 +585,6 @@ Wrap the chart in a `Suspense` boundary with a skeleton fallback:
 
 ```tsx
 import { Suspense } from 'react'
-
 ;<Suspense fallback={<div className="h-40 animate-pulse rounded bg-muted" />}>
   <DiscomfortChart data={chartData} />
 </Suspense>

@@ -1,8 +1,8 @@
 # V-Health Recovery Coach — Launch Checklist
 
 **Version:** 1.0
-**Date completed:** ****\_\_\_****
-**Completed by:** ****\_\_\_****
+**Date completed:** \***\*\_\_\_\*\***
+**Completed by:** \***\*\_\_\_\*\***
 **Environment:** https://vhealth.ai (production)
 
 ---
@@ -173,6 +173,6 @@ List any failed items that are non-critical:
 - [ ] **GO** — All critical items passed. Ready for first patients.
 - [ ] **NO GO** — Critical failures exist. Resolve before launching.
 
-**Signed off by:** ************\_\_\_************
+**Signed off by:** \***\*\*\*\*\*\*\***\_\_\_\***\*\*\*\*\*\*\***
 
-**Date:** ************\_\_\_************
+**Date:** \***\*\*\*\*\*\*\***\_\_\_\***\*\*\*\*\*\*\***

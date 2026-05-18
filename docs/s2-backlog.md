@@ -13,7 +13,7 @@
 - ✅ PR #38 merged to main (commit `380ae2c`)
 - ✅ Migrations 016 + 017 applied to Supabase
 - ✅ Vercel cleanup: deleted duplicate `physio-os` project, kept `physio-os-web`, migrated 9 env vars, transferred `physio-os-pi.vercel.app` alias
-- ✅ 11 env vars set (REVIEW*\*, RESEND*_, TWILIO\__, ANTHROPIC*\*, SUPABASE*\*, ADMIN_EMAIL)
+- ✅ 11 env vars set (REVIEW*\*, RESEND*\_, TWILIO\_\_, ANTHROPIC*\*, SUPABASE*\*, ADMIN_EMAIL)
 - ✅ Admin user `legogao651@gmail.com` / `123456` works
 - ✅ Sidebar nav: Review Requests link added
 - ✅ Stage 0 functional flow verified end-to-end:
