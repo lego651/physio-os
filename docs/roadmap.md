@@ -1,6 +1,6 @@
 # PhysioOS — Roadmap
 
-> Owner: `physio-david` (agent). Manager: `manager-mathieu`. Last updated: 2026-05-16.
+> Owner: `physio-david` (agent). Manager: `manager-mathieu`. Last updated: 2026-05-17.
 > Source of truth for current AI productization direction. Supersedes all archived roadmap docs.
 
 ---
@@ -11,7 +11,7 @@ Legend: ✅ done · 🟡 in progress · ⬜ not started · 🅿️ deferred
 
 | # | Feature | Dev | QA | Prod | Notes |
 |---|---------|-----|----|----- |-------|
-| **1** | **Post-visit Review Engine** (SMS + Email → AI draft → Google Maps) | ✅ | 🟡 | ⬜ | Stage 0 functional. QA remaining: unsubscribe + opt-out reject. Prod gated by Stage 2 prereqs in [s2-backlog.md](s2-backlog.md). Was "S2" in spec. |
+| **1** | **Post-visit Review Engine** (SMS + Email → AI draft → Google Maps) | ✅ | 🟡 | ⬜ | Stage 0 functional. S1.5 UX improvements spec locked 2026-05-17 — table redesign + WeChat-style voice intake. QA remaining: unsubscribe + opt-out. Prod gated by Stage 2 prereqs. |
 | 2 | In-clinic QR review prompt | 🅿️ | — | — | Deferred — attribution contamination with V-Health's existing front-desk QR. Re-evaluate after #1 has clean baseline data. |
 | 3 | Post-treatment AI recovery brief | ⬜ | — | — | Phase 2+ backlog. |
 | 4 | SOAP note voice transcription | ⬜ | — | — | Phase 2+ backlog. |
@@ -19,7 +19,7 @@ Legend: ✅ done · 🟡 in progress · ⬜ not started · 🅿️ deferred
 | 6 | AI rebooking retention (cancellation rescue) | ⬜ | — | — | Phase 2+ backlog. |
 | 7 | Outcomes tracking (3 / 7 / 14-day follow-up) | ⬜ | — | — | Phase 2+ backlog. |
 
-**Right now we are improving #1** (QA + Stage 2 prereqs) — see [s2-backlog.md](s2-backlog.md) for the prioritized punch list. Nothing else is in active development.
+**Right now:** S1.5 spec approved, build starting. Scope: review requests table redesign (compact rows, global settings, per-row consent, bulk send) + WeChat-style 4-step voice intake. Spec: [docs/superpowers/specs/2026-05-17-s1.5-table-voice-design.md](superpowers/specs/2026-05-17-s1.5-table-voice-design.md). S2 Stage 0 finish (items 1.1–1.3) runs in parallel — see [s2-backlog.md](s2-backlog.md).
 
 ---
 
