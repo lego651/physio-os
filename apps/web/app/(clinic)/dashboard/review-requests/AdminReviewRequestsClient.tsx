@@ -184,24 +184,13 @@ export default function AdminReviewRequestsClient({ clinics, therapists, optOuts
       return
     }
 
-    const phone = editPhone[row.id] ?? row.patient_phone
-    const email = editEmail[row.id] ?? row.patient_email
-
     setSendingId(row.id)
     try {
+      // Pass the existing row id so the server resends without creating a new row.
       const res = await fetch('/api/admin/review-requests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clinicId,
-          patientName: row.patient_name,
-          patientPhone: ch === 'sms' || ch === 'both' ? phone : null,
-          patientEmail: ch === 'email' || ch === 'both' ? email : null,
-          therapistName: row.therapist_name,
-          serviceType: row.service_type ?? 'massage',
-          channel: ch,
-          consentConfirmed: true,
-        }),
+        body: JSON.stringify({ id: row.id, consentConfirmed: true }),
       })
       if (!res.ok) {
         const j = (await res.json().catch(() => ({}))) as { error?: unknown }
@@ -234,23 +223,12 @@ export default function AdminReviewRequestsClient({ clinics, therapists, optOuts
     setBulkProgress({ sent: 0, total: sendable.length })
     for (let i = 0; i < sendable.length; i++) {
       const row = sendable[i]
-      const ch = effectiveChannel(row, globalChannel)
-      const phone = editPhone[row.id] ?? row.patient_phone
-      const email = editEmail[row.id] ?? row.patient_email
       try {
+        // Pass the existing row id — server resends without inserting a new row.
         await fetch('/api/admin/review-requests', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            clinicId,
-            patientName: row.patient_name,
-            patientPhone: ch === 'sms' || ch === 'both' ? phone : null,
-            patientEmail: ch === 'email' || ch === 'both' ? email : null,
-            therapistName: row.therapist_name,
-            serviceType: row.service_type ?? 'massage',
-            channel: ch,
-            consentConfirmed: true,
-          }),
+          body: JSON.stringify({ id: row.id, consentConfirmed: true }),
         })
       } catch (_) {
         // continue on individual failure — best effort

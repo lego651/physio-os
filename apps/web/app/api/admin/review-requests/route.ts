@@ -12,7 +12,8 @@ export const runtime = 'nodejs'
 const E164_REGEX = /^\+[1-9]\d{7,14}$/
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-const bodySchema = z
+// Schema for creating a brand-new review request (no existing row id).
+const createBodySchema = z
   .object({
     clinicId: z.string().uuid(),
     patientName: z.string().trim().min(1).max(120),
@@ -39,6 +40,15 @@ const bodySchema = z
       })
     }
   })
+
+// Schema for resending an existing review request by id.
+const resendBodySchema = z.object({
+  id: z.string().uuid(),
+  consentConfirmed: z.literal(true),
+})
+
+// Union discriminated by presence of `id`.
+const bodySchema = z.union([resendBodySchema, createBodySchema])
 
 export async function POST(req: Request) {
   const auth = await requireAdminAuth()
@@ -69,6 +79,16 @@ export async function POST(req: Request) {
   })
 
   try {
+    // If the payload includes an `id`, resend the existing row — no new INSERT.
+    // This is the path used by the bulk-send and single-send buttons in the
+    // admin table, which operate on rows that already exist in review_requests.
+    if ('id' in parsed.data) {
+      const out = await engine.resend(parsed.data.id)
+      return Response.json({ id: out.id, token: out.token })
+    }
+
+    // No `id` → create a brand-new review request row and send immediately.
+    // This is the path used by the "Add & send" form.
     const out = await engine.create({
       clinicId: parsed.data.clinicId,
       patientName: parsed.data.patientName,

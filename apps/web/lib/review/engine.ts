@@ -104,6 +104,9 @@ export class ReviewRequestEngine {
     const smsLink = `${this.deps.config.baseUrl}/review/${requestId}`
     const unsubLink = `${this.deps.config.baseUrl}/api/review-requests/unsubscribe?token=${encodeURIComponent(token)}`
 
+    // Track whether at least one channel successfully dispatched.
+    let anySent = false
+
     if (wantsEmail) {
       const realEmail = input.patientEmail
       const recipient = this.deps.config.testMode ? this.deps.config.testRecipientEmail : realEmail
@@ -148,6 +151,7 @@ export class ReviewRequestEngine {
             eventType: 'sent_email',
             metadata: { provider_message_id: result.providerMessageId },
           })
+          anySent = true
         } catch (err) {
           await logFunnelEvent(this.deps.supabase, {
             requestId,
@@ -195,6 +199,7 @@ export class ReviewRequestEngine {
             eventType: 'sent_sms',
             metadata: { provider_message_id: result.providerMessageId },
           })
+          anySent = true
         } catch (err) {
           await logFunnelEvent(this.deps.supabase, {
             requestId,
@@ -204,6 +209,149 @@ export class ReviewRequestEngine {
         }
       }
     }
+
+    // Update status from 'queued' to 'sent' or 'failed' based on dispatch outcome.
+    const finalStatus = anySent ? 'sent' : 'failed'
+    await this.deps.supabase
+      .from('review_requests')
+      .update({ status: finalStatus })
+      .eq('id', requestId)
+
+    return { id: requestId, token }
+  }
+
+  /**
+   * Resend a review request that already exists in the DB.
+   * Mints a fresh token (new jti + expiry), resets status to 'queued',
+   * dispatches via the stored channel, then updates status to 'sent'/'failed'.
+   * Does NOT create a new row — the existing row id is preserved.
+   */
+  async resend(requestId: string): Promise<CreateReviewRequestResult> {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase = this.deps.supabase as any
+    const { data: existing, error: fetchErr } = await supabase
+      .from('review_requests')
+      .select(
+        'id, clinic_id, patient_name, patient_email, patient_phone, therapist_name, service_type, channel, test_mode',
+      )
+      .eq('id', requestId)
+      .single()
+    if (fetchErr || !existing) {
+      throw new Error(`review_request not found: ${requestId}`)
+    }
+
+    const jti = randomUUID()
+    const expiresAt = new Date(Date.now() + TOKEN_EXPIRES_IN_DAYS * 86_400_000).toISOString()
+
+    // Reset token + expiry + status back to queued so the new token is valid.
+    const { error: resetErr } = await supabase
+      .from('review_requests')
+      .update({ token_jti: jti, expires_at: expiresAt, status: 'queued', failure_reason: null })
+      .eq('id', requestId)
+    if (resetErr) throw new Error(`Failed to reset review_request: ${resetErr.message}`)
+
+    await logFunnelEvent(this.deps.supabase, { requestId, eventType: 'queued' })
+
+    const clinic = await this.loadClinic(existing.clinic_id as string)
+    const senderName = clinic.review_sender_name ?? clinic.name
+
+    const token = await mintReviewToken({
+      requestId,
+      clinicId: existing.clinic_id as string,
+      jti,
+      expiresInDays: TOKEN_EXPIRES_IN_DAYS,
+    })
+    const shortLink = `${this.deps.config.baseUrl}/review/${token}`
+    const smsLink = `${this.deps.config.baseUrl}/review/${requestId}`
+    const unsubLink = `${this.deps.config.baseUrl}/api/review-requests/unsubscribe?token=${encodeURIComponent(token)}`
+
+    const channel = existing.channel as 'email' | 'sms' | 'both'
+    const wantsEmail = channel === 'email' || channel === 'both'
+    const wantsSms = channel === 'sms' || channel === 'both'
+    let anySent = false
+
+    if (wantsEmail) {
+      const realEmail = existing.patient_email as string | null
+      const recipient = this.deps.config.testMode ? this.deps.config.testRecipientEmail : realEmail
+      if (recipient) {
+        try {
+          const result = await this.deps.email.send({
+            to: recipient,
+            from: `${senderName} <onboarding@resend.dev>`,
+            subject: buildReviewEmailSubject({
+              clinicName: clinic.name,
+              patientName: existing.patient_name as string,
+            }),
+            html: buildReviewEmailHtml({
+              clinicName: clinic.name,
+              senderName,
+              patientName: existing.patient_name as string,
+              shortLink,
+              unsubscribeLink: unsubLink,
+            }),
+          })
+          await logFunnelEvent(this.deps.supabase, {
+            requestId,
+            eventType: 'sent_email',
+            metadata: { provider_message_id: result.providerMessageId, resend: true },
+          })
+          anySent = true
+        } catch (err) {
+          await logFunnelEvent(this.deps.supabase, {
+            requestId,
+            eventType: 'send_failed',
+            metadata: { channel: 'email', reason: 'provider_error', error: String(err) },
+          })
+        }
+      } else {
+        await logFunnelEvent(this.deps.supabase, {
+          requestId,
+          eventType: 'send_failed',
+          metadata: { channel: 'email', reason: 'no_recipient' },
+        })
+      }
+    }
+
+    if (wantsSms) {
+      const realPhone = existing.patient_phone as string | null
+      const recipient = this.deps.config.testMode ? this.deps.config.testRecipientPhone : realPhone
+      if (recipient) {
+        try {
+          const result = await this.deps.sms.send({
+            to: recipient,
+            body: buildReviewSmsBody({
+              senderName,
+              patientName: existing.patient_name as string,
+              shortLink: smsLink,
+            }),
+          })
+          await logFunnelEvent(this.deps.supabase, {
+            requestId,
+            eventType: 'sent_sms',
+            metadata: { provider_message_id: result.providerMessageId, resend: true },
+          })
+          anySent = true
+        } catch (err) {
+          await logFunnelEvent(this.deps.supabase, {
+            requestId,
+            eventType: 'send_failed',
+            metadata: { channel: 'sms', reason: 'provider_error', error: String(err) },
+          })
+        }
+      } else {
+        await logFunnelEvent(this.deps.supabase, {
+          requestId,
+          eventType: 'send_failed',
+          metadata: { channel: 'sms', reason: 'no_recipient' },
+        })
+      }
+    }
+
+    const finalStatus = anySent ? 'sent' : 'failed'
+    await supabase
+      .from('review_requests')
+      .update({ status: finalStatus })
+      .eq('id', requestId)
 
     return { id: requestId, token }
   }
