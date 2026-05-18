@@ -1,6 +1,7 @@
 import { generateText, Output } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
-import { IntakeFieldsSchema, type IntakeFields } from '@physio-os/shared'
+import { z } from 'zod'
+import { IntakeFieldsSchema, SessionTypeSchema, type IntakeFields } from '@physio-os/shared'
 import { requireEnv } from '@/lib/env'
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -96,4 +97,62 @@ Return ONLY the field value string. No JSON, no labels, no extra text.`,
     (text ?? '').trim() || (field === 'treatment_area' ? 'unspecified' : 'No notes recorded')
   console.log('[extract] single-field complete', { field, resultChars: result.length })
   return result
+}
+
+const TreatmentStepSchema = z.object({
+  treatment_area: z.string().min(1),
+  session_type: SessionTypeSchema,
+})
+
+export type TreatmentStepOutput = z.infer<typeof TreatmentStepSchema>
+
+/**
+ * Step 2 extractor: returns both treatment_area and session_type from
+ * a single therapist voice answer ("deep tissue massage on right shoulder").
+ *
+ * Classification rules (D18-1):
+ *   massage      — massage, RMT, deep tissue, Swedish, relaxation
+ *   physio       — physio, physiotherapy, rehabilitation, stretching, mobility, strengthening, exercise
+ *   acupuncture  — acupuncture, TCM, needles, cupping
+ *   chiropractor — chiro, chiropractic, adjustment, manipulation
+ *   other        — ambiguous or unrecognized
+ */
+export async function extractTreatmentStep(transcript: string): Promise<TreatmentStepOutput> {
+  requireEnv('ANTHROPIC_API_KEY')
+
+  console.log('[extract] treatment-step extraction', { transcriptChars: transcript.length })
+
+  const { output } = await generateText({
+    model: anthropic('claude-sonnet-4-5'),
+    output: Output.object({ schema: TreatmentStepSchema }),
+    prompt: `You are a medical scribe assistant for a physiotherapy clinic.
+
+The therapist just dictated what treatment they did. Extract two fields:
+
+1. treatment_area: The body area treated. Short phrase, e.g. "lower back", "right shoulder", "knee". If unclear, "unspecified".
+
+2. session_type: One of: 'massage', 'physio', 'acupuncture', 'chiropractor', 'other'.
+   Classification rules:
+   - 'massage'      → massage, RMT, deep tissue, Swedish, relaxation
+   - 'physio'       → physio, physiotherapy, rehabilitation, stretching, mobility, strengthening, exercise
+   - 'acupuncture'  → acupuncture, TCM, needles, cupping
+   - 'chiropractor' → chiro, chiropractic, adjustment, manipulation
+   - Ambiguous or unrecognized → 'other'
+
+Rule: Output all fields in English, even if the transcript is in another language. Translate naturally; do not transliterate.
+
+Transcript:
+"""
+${transcript}
+"""
+
+Return the structured JSON object.`,
+  })
+
+  const parsed = TreatmentStepSchema.parse(output)
+  console.log('[extract] treatment-step complete', {
+    area: parsed.treatment_area,
+    type: parsed.session_type,
+  })
+  return parsed
 }
