@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,6 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import type { SessionType } from '@physio-os/shared'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -21,11 +23,11 @@ type Step =
   | 'STEP_3_THERAPIST'
   | 'STEP_4_NOTES'
   | 'CONFIRM'
-  | 'DONE'
 
 export interface VoiceIntakeResult {
   patient_name: string
   treatment_area: string
+  session_type: SessionType
   therapist_name: string
   session_notes: string
   date_of_visit: string
@@ -94,6 +96,8 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [editingStep, setEditingStep] = useState<keyof VoiceIntakeResult | null>(null)
   const [editValue, setEditValue] = useState('')
+
+  const router = useRouter()
 
   const recorderRef = useRef<MediaRecorder | null>(null)
   const chunksRef = useRef<BlobPart[]>([])
@@ -187,7 +191,12 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         const d = (await res.json().catch(() => null)) as { error?: string } | null
         throw new Error(d?.error ?? `Upload failed (${res.status})`)
       }
-      const data = (await res.json()) as { transcript?: string; field?: string }
+      const data = (await res.json()) as {
+        transcript?: string
+        field?: string
+        treatment_area?: string
+        session_type?: SessionType
+      }
 
       if (step === 'STEP_1_NAME') {
         const name = data.transcript?.trim() ?? ''
@@ -195,8 +204,9 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         pushBubble({ role: 'user', text: name, stepKey: 'patient_name', editable: true })
         advanceStep('STEP_2_TREATMENT')
       } else if (step === 'STEP_2_TREATMENT') {
-        const area = data.field?.trim() ?? ''
-        setResult((prev) => ({ ...prev, treatment_area: area }))
+        const area = data.treatment_area?.trim() ?? ''
+        const sessionType: SessionType = data.session_type ?? 'other'
+        setResult((prev) => ({ ...prev, treatment_area: area, session_type: sessionType }))
         pushBubble({ role: 'user', text: area, stepKey: 'treatment_area', editable: true })
         advanceStep('STEP_3_THERAPIST')
       } else if (step === 'STEP_4_NOTES') {
@@ -244,6 +254,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     const full: VoiceIntakeResult = {
       patient_name: result.patient_name ?? '',
       treatment_area: result.treatment_area ?? '',
+      session_type: result.session_type ?? 'other',
       therapist_name: result.therapist_name ?? '',
       session_notes: result.session_notes ?? '',
       date_of_visit: todayDate(),
@@ -260,8 +271,12 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         const d = (await res.json().catch(() => null)) as { error?: string } | null
         throw new Error(d?.error ?? `Save failed (${res.status})`)
       }
-      setStep('DONE')
+      const saveBody = (await res.json()) as { review_request_id: string | null }
       onComplete?.(full)
+      const target = saveBody.review_request_id
+        ? `/dashboard/review-requests?highlight=${encodeURIComponent(saveBody.review_request_id)}`
+        : '/dashboard/review-requests'
+      router.push(target)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Save failed')
     } finally {
@@ -280,21 +295,6 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
           </p>
           <Button onClick={startSession} className="h-12 w-full">
             Start voice intake
-          </Button>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  if (step === 'DONE') {
-    return (
-      <Card className="mb-6">
-        <CardContent className="pt-6">
-          <p className="text-sm text-emerald-700 dark:text-emerald-400">
-            Session saved. Start another voice intake?
-          </p>
-          <Button variant="outline" onClick={startSession} className="mt-4 h-10">
-            New session
           </Button>
         </CardContent>
       </Card>
@@ -408,6 +408,15 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                 <span>{result.treatment_area}</span>
                 <span className="font-medium">Therapist</span>
                 <span>{result.therapist_name}</span>
+                <span className="font-medium">Service</span>
+                <span>
+                  {result.session_type ?? 'other'}
+                  {(result.session_type ?? 'other') === 'other' && (
+                    <span className="ml-2 text-xs text-amber-600">
+                      Other — verify before sending review
+                    </span>
+                  )}
+                </span>
                 <span className="font-medium">Notes</span>
                 <span>{result.session_notes}</span>
                 <span className="font-medium">Date</span>
