@@ -1,4 +1,9 @@
-export type SafetyCategory = 'safe' | 'emergency' | 'off_topic' | 'medical_advice_request' | 'adversarial'
+export type SafetyCategory =
+  | 'safe'
+  | 'emergency'
+  | 'off_topic'
+  | 'medical_advice_request'
+  | 'adversarial'
 export type SafetyAction = 'proceed' | 'escalate' | 'redirect' | 'block'
 
 export interface SafetyResult {
@@ -80,11 +85,11 @@ const MEDICAL_ADVICE_PATTERNS = [
 const PAIN_PROXIMITY_PATTERN = /\bpain\b/i
 
 function isHistoricalPainReference(message: string): boolean {
-  return HISTORICAL_PAIN_PATTERNS.some(pattern => pattern.test(message))
+  return HISTORICAL_PAIN_PATTERNS.some((pattern) => pattern.test(message))
 }
 
 function matchesAny(message: string, patterns: RegExp[]): boolean {
-  return patterns.some(pattern => pattern.test(message))
+  return patterns.some((pattern) => pattern.test(message))
 }
 
 function isEmergencyPainScore(message: string): boolean {
@@ -112,12 +117,13 @@ export function classifyInput(message: string, recentHistory?: string[]): Safety
   }
 
   // Build combined text for multi-turn analysis (cheap mitigation)
-  const combinedText = recentHistory
-    ? [...recentHistory.slice(-2), trimmed].join(' ')
-    : trimmed
+  const combinedText = recentHistory ? [...recentHistory.slice(-2), trimmed].join(' ') : trimmed
 
   // Check adversarial first (highest priority block) — check both single and combined
-  if (matchesAny(trimmed, ADVERSARIAL_PATTERNS) || (recentHistory && matchesAny(combinedText, ADVERSARIAL_PATTERNS))) {
+  if (
+    matchesAny(trimmed, ADVERSARIAL_PATTERNS) ||
+    (recentHistory && matchesAny(combinedText, ADVERSARIAL_PATTERNS))
+  ) {
     return {
       safe: false,
       category: 'adversarial',

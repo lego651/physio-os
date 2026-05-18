@@ -23,11 +23,13 @@ export class SmsAdapter {
   }
 
   async send(input: SmsSendInput): Promise<SmsSendResult> {
-    const sid   = process.env.TWILIO_ACCOUNT_SID
+    const sid = process.env.TWILIO_ACCOUNT_SID
     const token = process.env.TWILIO_AUTH_TOKEN
-    const from  = process.env.TWILIO_PHONE_NUMBER
+    const from = process.env.TWILIO_PHONE_NUMBER
     if (!sid || !token || !from) {
-      throw new Error('Missing Twilio configuration (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)')
+      throw new Error(
+        'Missing Twilio configuration (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)',
+      )
     }
 
     const formData = new URLSearchParams()
@@ -46,11 +48,11 @@ export class SmsAdapter {
     })
 
     if (!res.ok) {
-      const body = await (res as any).text()
+      const body = await res.text()
       throw new Error(`Twilio send failed: ${res.status} ${body}`)
     }
 
-    const data = await (res as any).json() as { sid: string }
+    const data = (await res.json()) as { sid: string }
     return { providerMessageId: data.sid }
   }
 }

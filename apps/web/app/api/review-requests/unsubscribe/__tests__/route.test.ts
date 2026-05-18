@@ -6,19 +6,31 @@ vi.mock('@/lib/supabase/admin', () => ({
     from(table: string) {
       if (table === 'review_requests') {
         return {
-          select() { return this },
-          eq() { return this },
-          async single() {
-            return { data: { id: 'r1', patient_email: 'a@b.com', patient_phone: null, clinic_id: 'c1' }, error: null }
+          select() {
+            return this
           },
+          eq() {
+            return this
+          },
+          async single() {
+            return {
+              data: { id: 'r1', patient_email: 'a@b.com', patient_phone: null, clinic_id: 'c1' },
+              error: null,
+            }
+          },
+          // Partial mock — only implements the subset used by doUnsubscribe.
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any
       }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return {} as any
     },
   }),
 }))
 const recordOptOut = vi.fn().mockResolvedValue(undefined)
-vi.mock('@/lib/review/opt-outs', () => ({ recordOptOut: (...args: any[]) => recordOptOut(...args) }))
+vi.mock('@/lib/review/opt-outs', () => ({
+  recordOptOut: (...args: unknown[]) => recordOptOut(...args),
+}))
 
 import { GET, POST } from '../route'
 import { verifyReviewToken } from '@/lib/review/tokens'
@@ -43,10 +55,13 @@ describe('/api/review-requests/unsubscribe', () => {
   })
 
   it('POST returns JSON ok on success', async () => {
-    const res = await POST(new Request('http://x', {
-      method: 'POST', body: JSON.stringify({ token: 'tok' }),
-      headers: { 'Content-Type': 'application/json' },
-    }))
+    const res = await POST(
+      new Request('http://x', {
+        method: 'POST',
+        body: JSON.stringify({ token: 'tok' }),
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json.ok).toBe(true)

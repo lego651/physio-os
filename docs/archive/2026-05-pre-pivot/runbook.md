@@ -62,6 +62,7 @@ The patient record is created immediately. The system sends a welcome SMS to the
 > "Welcome to V-Health Recovery Coach! By continuing, you agree to our privacy policy: https://vhealth.ai/privacy. Reply YES to continue or STOP to opt out."
 
 The patient then completes a 4-step SMS onboarding:
+
 1. Reply **YES** to consent
 2. Provide their **name**
 3. Describe their **condition** (e.g., "back pain")
@@ -71,12 +72,12 @@ Once onboarding is complete, the patient can message freely via SMS or at `vheal
 
 ### Patient statuses in the dashboard
 
-| Status | Meaning |
-|--------|---------|
-| **Active** | Messaged within the last 4 days |
-| **New** | Enrolled within the last 7 days |
-| **Inactive** | No message for 5+ days |
-| **Alert** | Latest pain report is 2+ points above their 7-day average |
+| Status       | Meaning                                                   |
+| ------------ | --------------------------------------------------------- |
+| **Active**   | Messaged within the last 4 days                           |
+| **New**      | Enrolled within the last 7 days                           |
+| **Inactive** | No message for 5+ days                                    |
+| **Alert**    | Latest pain report is 2+ points above their 7-day average |
 
 ---
 
@@ -85,6 +86,7 @@ Once onboarding is complete, the patient can message freely via SMS or at `vheal
 ### Patient list overview
 
 The dashboard home (`/dashboard/patients`) shows:
+
 - Total active patients, active this week, messages this week
 - Average discomfort this week vs. last week
 - Per-patient: latest pain, latest discomfort, exercise days this week, days since last message, status badge
@@ -102,14 +104,14 @@ Click any patient row to open their detail page. This page includes:
 
 ### Metrics tracked
 
-| Metric | Description |
-|--------|-------------|
-| Pain level | 0–10 scale, self-reported |
-| Discomfort | 0–3 scale (0 = none, 3 = severe) |
-| Sitting tolerance | Minutes patient can sit comfortably |
-| Exercises done | Which exercises the patient completed |
-| Exercise count | Number of exercises completed |
-| Notes | Free-text notes from patient messages |
+| Metric            | Description                           |
+| ----------------- | ------------------------------------- |
+| Pain level        | 0–10 scale, self-reported             |
+| Discomfort        | 0–3 scale (0 = none, 3 = severe)      |
+| Sitting tolerance | Minutes patient can sit comfortably   |
+| Exercises done    | Which exercises the patient completed |
+| Exercise count    | Number of exercises completed         |
+| Notes             | Free-text notes from patient messages |
 
 ### Sending a manual check-in
 
@@ -124,6 +126,7 @@ On the patient detail page, click **Send Check-in** to send the patient a prompt
 The system detects emergency language — such as extreme pain reports, statements of distress, or crisis indicators — in both English and Chinese. When triggered:
 
 1. The patient immediately receives a hardcoded response (not AI-generated):
+
    > "It sounds like you may need immediate help. Please contact V-Health at [clinic phone] or call 911 if this is an emergency."
 
 2. An email is sent to the admin email address (`ADMIN_EMAIL`) with:
@@ -152,22 +155,26 @@ The system is calibrated to over-escalate rather than miss real emergencies. Fal
 ### Types of complaints and responses
 
 **"The AI gave me bad advice"**
+
 - Review the conversation log for the patient in the dashboard.
 - The AI is not permitted to give medical advice. If the AI stayed within its scope, reassure the patient.
 - If the AI genuinely overstepped: document the example, contact platform support (see Section 7), and report to Anthropic if needed.
 
 **"I'm not receiving SMS messages"**
+
 - Check the patient's record in the dashboard:
   - Is `opted_out` set to true? If so, they texted STOP. Ask them to text START to re-subscribe.
   - Is their phone number correct (including country code)?
 - See Troubleshooting (Section 9) for SMS delivery issues.
 
 **"I want my data deleted"**
+
 - V1 does not have automated data deletion. To delete a patient's data manually:
   1. Contact platform support (see Section 7) to run a database deletion.
   2. Inform the patient their data has been removed within a reasonable timeframe (PIPEDA: 30 days is standard).
 
 **"I want to stop receiving messages"**
+
 - Instruct the patient to text **STOP** to the V-Health SMS number. This immediately opts them out.
 - Alternatively, deactivate the patient in the dashboard (Toggle Active button on the patient detail page).
 
@@ -184,6 +191,7 @@ SMS costs are managed through the Twilio console:
 3. Filter by date range to see messages sent and total cost.
 
 Typical costs (Twilio Canada long-code):
+
 - Outbound SMS: ~$0.0079 USD per message
 - Inbound SMS: ~$0.0075 USD per message
 
@@ -202,16 +210,19 @@ The dashboard Settings page (`/dashboard/settings`) is a placeholder in V1 — d
 Platform support is handled by the V-Health founder/developer.
 
 **For technical issues (outages, bugs, data requests):**
+
 - Contact the founder directly via the agreed support channel (phone/email/Signal).
 - For production outages: check **https://vercel.com/status** and **https://status.supabase.com** first — some issues are upstream.
 
 **What to include in your support request:**
+
 - Description of the issue
 - When it started
 - Affected patient(s) — name and phone (do not send full conversation logs over unsecured channels)
 - Any error messages you see
 
 **Monitoring:**
+
 - Errors are automatically captured in **Sentry** and the founder receives alert emails.
 - For minor issues the founder may already be aware before you reach out.
 
@@ -221,19 +232,19 @@ Platform support is handled by the V-Health founder/developer.
 
 The following features are intentionally not in V1 and are planned for future releases:
 
-| Limitation | Details |
-|------------|---------|
-| No appointment booking | V-Health Recovery Coach does not integrate with scheduling systems. Appointments are managed through the clinic's existing tools. |
-| No exercise library | The AI can discuss exercises in general terms but cannot prescribe specific exercise routines or reference a library. |
-| No automated data deletion | Patient data must be deleted manually by the platform operator on request. |
-| Single admin account | Only one admin login is supported. There is no multi-user or role-based access. |
-| No in-app note-taking | Clinicians cannot add notes to patient records within the dashboard. Use the clinic's existing case management tools. |
-| No appointment reminders | The app sends recovery check-ins and weekly reports only — not appointment reminders. |
-| No image analysis | If a patient sends a photo via MMS, it appears in the conversation log but the AI does not analyze it. |
-| Settings page not functional | The `/dashboard/settings` page is a placeholder. Configuration changes require platform operator involvement. |
-| English and Chinese only | The AI supports English and Simplified Chinese. Other languages are not supported. |
-| No multi-clinic support | V1 is a single-clinic deployment. All patients belong to one clinic. |
-| No GDPR compliance | The system is designed for the Canadian market under PIPEDA. GDPR compliance is out of scope for V1. |
+| Limitation                   | Details                                                                                                                           |
+| ---------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| No appointment booking       | V-Health Recovery Coach does not integrate with scheduling systems. Appointments are managed through the clinic's existing tools. |
+| No exercise library          | The AI can discuss exercises in general terms but cannot prescribe specific exercise routines or reference a library.             |
+| No automated data deletion   | Patient data must be deleted manually by the platform operator on request.                                                        |
+| Single admin account         | Only one admin login is supported. There is no multi-user or role-based access.                                                   |
+| No in-app note-taking        | Clinicians cannot add notes to patient records within the dashboard. Use the clinic's existing case management tools.             |
+| No appointment reminders     | The app sends recovery check-ins and weekly reports only — not appointment reminders.                                             |
+| No image analysis            | If a patient sends a photo via MMS, it appears in the conversation log but the AI does not analyze it.                            |
+| Settings page not functional | The `/dashboard/settings` page is a placeholder. Configuration changes require platform operator involvement.                     |
+| English and Chinese only     | The AI supports English and Simplified Chinese. Other languages are not supported.                                                |
+| No multi-clinic support      | V1 is a single-clinic deployment. All patients belong to one clinic.                                                              |
+| No GDPR compliance           | The system is designed for the Canadian market under PIPEDA. GDPR compliance is out of scope for V1.                              |
 
 ---
 

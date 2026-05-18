@@ -15,7 +15,11 @@ import type { UIMessage } from 'ai'
 const MESSAGES_PER_PAGE = 50
 const MAX_MESSAGE_LENGTH = 2000
 
-function MetricBadge({ metric }: { metric: { name: string; value: number | string; trend?: string } }) {
+function MetricBadge({
+  metric,
+}: {
+  metric: { name: string; value: number | string; trend?: string }
+}) {
   const colorMap: Record<string, string> = {
     pain: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300',
     discomfort: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300',
@@ -24,26 +28,33 @@ function MetricBadge({ metric }: { metric: { name: string; value: number | strin
   }
 
   const color = colorMap[metric.name] || 'bg-muted text-muted-foreground'
-  const label = metric.name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  const label = metric.name.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase())
 
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${color}`}>
+    <span
+      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${color}`}
+    >
       {label}: {metric.value}
       {metric.trend && <span>{metric.trend}</span>}
     </span>
   )
 }
 
-function extractMetricsFromParts(message: UIMessage): Array<{ name: string; value: number | string }> {
+function extractMetricsFromParts(
+  message: UIMessage,
+): Array<{ name: string; value: number | string }> {
   const metrics: Array<{ name: string; value: number | string }> = []
   for (const part of message.parts) {
     // AI SDK v6: tool parts use `tool-<toolName>` pattern
     if (part.type === 'tool-log_metrics') {
       const args = (part as unknown as { args: Record<string, unknown> }).args
       if (args.pain_level != null) metrics.push({ name: 'pain', value: args.pain_level as number })
-      if (args.discomfort != null) metrics.push({ name: 'discomfort', value: args.discomfort as number })
-      if (args.sitting_tolerance_min != null) metrics.push({ name: 'sitting_tolerance', value: `${args.sitting_tolerance_min}min` })
-      if (args.exercise_count != null) metrics.push({ name: 'exercises', value: args.exercise_count as number })
+      if (args.discomfort != null)
+        metrics.push({ name: 'discomfort', value: args.discomfort as number })
+      if (args.sitting_tolerance_min != null)
+        metrics.push({ name: 'sitting_tolerance', value: `${args.sitting_tolerance_min}min` })
+      if (args.exercise_count != null)
+        metrics.push({ name: 'exercises', value: args.exercise_count as number })
     }
   }
   return metrics
@@ -74,7 +85,9 @@ export default function ChatPage() {
     async function loadHistory() {
       try {
         const supabase = createClient()
-        const { data: { user } } = await supabase.auth.getUser()
+        const {
+          data: { user },
+        } = await supabase.auth.getUser()
         if (!user) {
           router.push('/login')
           return
@@ -109,7 +122,7 @@ export default function ChatPage() {
         if (dbMessages && dbMessages.length > 0) {
           const newTs = new Map<string, Date>()
           const newChannels = new Map<string, string>()
-          const uiMessages: UIMessage[] = dbMessages.reverse().map(msg => {
+          const uiMessages: UIMessage[] = dbMessages.reverse().map((msg) => {
             newTs.set(msg.id, new Date(msg.created_at))
             if (msg.channel) newChannels.set(msg.id, msg.channel)
             return {
@@ -164,22 +177,24 @@ export default function ChatPage() {
         .limit(MESSAGES_PER_PAGE)
 
       if (olderMessages && olderMessages.length > 0) {
-        const uiMessages: UIMessage[] = olderMessages.reverse().map(msg => ({
+        const uiMessages: UIMessage[] = olderMessages.reverse().map((msg) => ({
           id: msg.id,
           role: msg.role as 'user' | 'assistant',
           parts: [{ type: 'text' as const, text: msg.content }],
         }))
-        setTimestamps(prev => {
+        setTimestamps((prev) => {
           const next = new Map(prev)
-          olderMessages.forEach(msg => next.set(msg.id, new Date(msg.created_at)))
+          olderMessages.forEach((msg) => next.set(msg.id, new Date(msg.created_at)))
           return next
         })
-        setChannels(prev => {
+        setChannels((prev) => {
           const next = new Map(prev)
-          olderMessages.forEach(msg => { if (msg.channel) next.set(msg.id, msg.channel) })
+          olderMessages.forEach((msg) => {
+            if (msg.channel) next.set(msg.id, msg.channel)
+          })
           return next
         })
-        setMessages(prev => [...uiMessages, ...prev])
+        setMessages((prev) => [...uiMessages, ...prev])
         setHasMore((count || 0) > MESSAGES_PER_PAGE)
       }
     } finally {
@@ -243,7 +258,10 @@ export default function ChatPage() {
           const channel = channels.get(msg.id)
 
           return (
-            <div key={msg.id} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div
+              key={msg.id}
+              className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+            >
               <div className="max-w-[85%] space-y-1">
                 <Card
                   className={`px-4 py-3 ${
@@ -254,7 +272,10 @@ export default function ChatPage() {
                 >
                   {msg.parts.map((part, index) =>
                     part.type === 'text' ? (
-                      <p key={`${msg.id}-part-${index}`} className="text-sm leading-relaxed whitespace-pre-wrap">
+                      <p
+                        key={`${msg.id}-part-${index}`}
+                        className="text-sm leading-relaxed whitespace-pre-wrap"
+                      >
                         {part.text}
                       </p>
                     ) : null,

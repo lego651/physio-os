@@ -19,7 +19,9 @@ export async function sendSMS(options: SendSMSOptions): Promise<{ sid: string }>
   const from = process.env.TWILIO_PHONE_NUMBER
 
   if (!accountSid || !authToken || !from) {
-    throw new Error('Missing Twilio configuration (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)')
+    throw new Error(
+      'Missing Twilio configuration (TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_PHONE_NUMBER)',
+    )
   }
 
   const formData = new URLSearchParams()
@@ -39,7 +41,7 @@ export async function sendSMS(options: SendSMSOptions): Promise<{ sid: string }>
   const response = await fetch(url, {
     method: 'POST',
     headers: {
-      'Authorization': `Basic ${auth}`,
+      Authorization: `Basic ${auth}`,
       'Content-Type': 'application/x-www-form-urlencoded',
     },
     body: formData.toString(),
@@ -53,7 +55,7 @@ export async function sendSMS(options: SendSMSOptions): Promise<{ sid: string }>
     throw err
   }
 
-  const result = await response.json() as { sid: string; num_segments: string }
+  const result = (await response.json()) as { sid: string; num_segments: string }
 
   // Fire-and-forget: track usage without blocking the caller.
   const segments = parseInt(result.num_segments ?? '1', 10)
@@ -65,11 +67,16 @@ export async function sendSMS(options: SendSMSOptions): Promise<{ sid: string }>
 }
 
 class TwilioSendError extends Error {
-  constructor(public readonly statusCode: number, body: string) {
+  constructor(
+    public readonly statusCode: number,
+    body: string,
+  ) {
     super(`Twilio send failed (${statusCode}): ${body}`)
     this.name = 'TwilioSendError'
   }
-  get retryable() { return this.statusCode === 429 || this.statusCode >= 500 }
+  get retryable() {
+    return this.statusCode === 429 || this.statusCode >= 500
+  }
 }
 
 /**
@@ -97,7 +104,7 @@ export async function sendSMSWithRetry(
         throw err
       }
       if (attempt < maxAttempts - 1) {
-        await new Promise(r => setTimeout(r, delays[attempt]))
+        await new Promise((r) => setTimeout(r, delays[attempt]))
       }
     }
   }

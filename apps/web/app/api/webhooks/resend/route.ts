@@ -27,16 +27,32 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Invalid signature' }, { status: 401 })
   }
 
-  let body: any
-  try { body = JSON.parse(raw) }
-  catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }) }
+  let body: unknown
+  try {
+    body = JSON.parse(raw)
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
-  const eventType = TRACKED_EVENTS[body?.type]
+  // Narrow the parsed webhook payload to the fields we access.
+  const payload =
+    body !== null && typeof body === 'object'
+      ? (body as Record<string, unknown>)
+      : ({} as Record<string, unknown>)
+  const payloadType = typeof payload.type === 'string' ? payload.type : ''
+  const payloadData =
+    payload.data !== null && typeof payload.data === 'object'
+      ? (payload.data as Record<string, unknown>)
+      : ({} as Record<string, unknown>)
+
+  const eventType = TRACKED_EVENTS[payloadType]
   if (!eventType) return Response.json({ ok: true, ignored: true })
 
-  const providerMessageId = body?.data?.email_id
+  const providerMessageId = typeof payloadData.email_id === 'string' ? payloadData.email_id : null
   if (!providerMessageId) return Response.json({ ok: true, missing: 'email_id' })
 
+  // createAdminClient returns an untyped Supabase client (no generated schema yet).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createAdminClient() as any
 
   // Match by sent_email event metadata.provider_message_id.
@@ -47,25 +63,33 @@ export async function POST(req: Request) {
     .eq('metadata->>provider_message_id', providerMessageId)
     .maybeSingle()
 
-  let requestId = (ev as any)?.request_id ?? null
+  let requestId: string | null = (ev as { request_id: string } | null)?.request_id ?? null
 
   // Optional X-header fallback (in case Resend ever forwards a tracking header).
   if (!requestId) {
-    const headerRid = body?.data?.headers?.['X-Review-Request-Id']
+    const payloadHeaders =
+      payloadData.headers !== null && typeof payloadData.headers === 'object'
+        ? (payloadData.headers as Record<string, unknown>)
+        : null
+    const headerRid =
+      payloadHeaders && typeof payloadHeaders['X-Review-Request-Id'] === 'string'
+        ? payloadHeaders['X-Review-Request-Id']
+        : null
     if (headerRid) {
       const { data: row } = await supabase
         .from('review_requests')
         .select('id')
         .eq('id', headerRid)
         .maybeSingle()
-      requestId = (row as any)?.id ?? null
+      requestId = (row as { id: string } | null)?.id ?? null
     }
   }
 
   if (!requestId) return Response.json({ ok: true, unmatched: true })
 
   await logFunnelEvent(supabase, {
-    requestId, eventType,
+    requestId,
+    eventType,
     metadata: { provider_message_id: providerMessageId },
   })
 

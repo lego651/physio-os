@@ -8,19 +8,19 @@
 
 ## Route Audit Table
 
-| Route | Method | Auth | Rate Limit | Input Validation | Twilio Sig | Status |
-|---|---|---|---|---|---|---|
-| `/api/chat` | POST | Supabase session (patient) | 20/hr per patient (added) | Zod schema, max 5000 chars | N/A | Fixed |
-| `/api/sms` | POST | Twilio signature | 10/hr per phone (Upstash/mem) | Required fields, phone normalisation | Yes (HMAC-SHA1, timing-safe) | Pass |
-| `/api/cron/nudge` | GET | `CRON_SECRET` Bearer (timing-safe) | N/A | N/A | N/A | Pass |
-| `/api/cron/weekly-report` | GET | `CRON_SECRET` Bearer (timing-safe) | N/A | N/A | N/A | Pass |
-| `/api/admin/patients` | POST | Supabase session + `ADMIN_EMAIL` | N/A | name, phone (E.164), language | N/A | Pass |
-| `/api/admin/patients/[id]` | PATCH | Supabase session + `ADMIN_EMAIL` | N/A | UUID, field-level types | N/A | Pass |
-| `/api/admin/patients/[id]/messages` | GET | Supabase session + `ADMIN_EMAIL` | N/A | UUID, limit clamped (fixed NaN) | N/A | Fixed |
-| `/api/admin/patients/[id]/toggle-active` | POST | Supabase session + `ADMIN_EMAIL` | N/A | UUID | N/A | Pass |
-| `/api/admin/patients/[id]/send-checkin` | POST | Supabase session + `ADMIN_EMAIL` | 1/patient/day | UUID, active check (added), message length 1600 chars (added) | N/A | Fixed |
-| `/api/admin/sms-usage` | GET | `ADMIN_API_KEY` Bearer (timing-safe) | N/A | N/A | N/A | Pass |
-| `/report/[token]` | Page | JWT (`jwtVerify` via `jose`) + DB lookup | N/A | JWT expiry + tamper detection | N/A | Pass |
+| Route                                    | Method | Auth                                     | Rate Limit                    | Input Validation                                              | Twilio Sig                   | Status |
+| ---------------------------------------- | ------ | ---------------------------------------- | ----------------------------- | ------------------------------------------------------------- | ---------------------------- | ------ |
+| `/api/chat`                              | POST   | Supabase session (patient)               | 20/hr per patient (added)     | Zod schema, max 5000 chars                                    | N/A                          | Fixed  |
+| `/api/sms`                               | POST   | Twilio signature                         | 10/hr per phone (Upstash/mem) | Required fields, phone normalisation                          | Yes (HMAC-SHA1, timing-safe) | Pass   |
+| `/api/cron/nudge`                        | GET    | `CRON_SECRET` Bearer (timing-safe)       | N/A                           | N/A                                                           | N/A                          | Pass   |
+| `/api/cron/weekly-report`                | GET    | `CRON_SECRET` Bearer (timing-safe)       | N/A                           | N/A                                                           | N/A                          | Pass   |
+| `/api/admin/patients`                    | POST   | Supabase session + `ADMIN_EMAIL`         | N/A                           | name, phone (E.164), language                                 | N/A                          | Pass   |
+| `/api/admin/patients/[id]`               | PATCH  | Supabase session + `ADMIN_EMAIL`         | N/A                           | UUID, field-level types                                       | N/A                          | Pass   |
+| `/api/admin/patients/[id]/messages`      | GET    | Supabase session + `ADMIN_EMAIL`         | N/A                           | UUID, limit clamped (fixed NaN)                               | N/A                          | Fixed  |
+| `/api/admin/patients/[id]/toggle-active` | POST   | Supabase session + `ADMIN_EMAIL`         | N/A                           | UUID                                                          | N/A                          | Pass   |
+| `/api/admin/patients/[id]/send-checkin`  | POST   | Supabase session + `ADMIN_EMAIL`         | 1/patient/day                 | UUID, active check (added), message length 1600 chars (added) | N/A                          | Fixed  |
+| `/api/admin/sms-usage`                   | GET    | `ADMIN_API_KEY` Bearer (timing-safe)     | N/A                           | N/A                                                           | N/A                          | Pass   |
+| `/report/[token]`                        | Page   | JWT (`jwtVerify` via `jose`) + DB lookup | N/A                           | JWT expiry + tamper detection                                 | N/A                          | Pass   |
 
 ---
 
@@ -81,6 +81,7 @@
 **File:** `apps/web/.env.example`
 
 **Finding:** The following variables were used in code but absent from the example file, creating a risk that new deployments or new developers would miss them:
+
 - `ADMIN_API_KEY` — required by `/api/admin/sms-usage`
 - `CRON_SECRET` — required by both cron routes
 - `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER` — required by SMS
@@ -95,6 +96,7 @@
 ## Unchanged Routes — Findings
 
 ### `/api/sms` — Pass
+
 - Twilio signature validated first (before any body parsing side-effects), using constant-time HMAC-SHA1.
 - Idempotency check via `twilio_sid` prevents replay attacks.
 - Rate limiting via Upstash Redis (10/hr per phone).
@@ -102,17 +104,20 @@
 - Phone normalisation applied before DB lookup.
 
 ### `/api/cron/nudge` and `/api/cron/weekly-report` — Pass
+
 - Both check `CRON_SECRET` presence before comparing.
 - `verifyBearerToken` uses `timingSafeEqual` from Node's `crypto` module — not vulnerable to timing attacks.
 - No user-supplied data in query or body; all data sourced from DB.
 
 ### `/api/admin/patients` (POST) and `[id]` (PATCH) — Pass
+
 - E.164 phone format enforced with regex.
 - Language constrained to `en` | `zh` allowlist.
 - UUID validated before DB queries.
 - No raw user content rendered as HTML anywhere in the stack.
 
 ### `/report/[token]` page — Pass
+
 - `jwtVerify` from `jose` covers: expiry, signature tamper, algorithm confusion (library uses strict defaults).
 - Secondary DB lookup by `token` column provides defense-in-depth — a valid JWT for a deleted report still returns `ExpiredTokenPage`.
 - `REPORT_TOKEN_SECRET` absence is handled gracefully (returns expired page, not a 500 or secret exposure).
@@ -122,10 +127,10 @@
 
 ## Remaining / Accepted Risks
 
-| Risk | Severity | Rationale |
-|---|---|---|
-| Single-admin model (`ADMIN_EMAIL`) | Low | Acceptable for current scale. Multi-admin would require a roles table. |
-| In-memory rate limiter fallback for chat | Low | Fallback only used locally. Production requires Upstash (documented in `.env.example`). |
-| No CSRF token on admin POST routes | Low | All admin routes check Supabase session cookie + `sameSite` cookie default. CORS preflight is not enforced at route level, but Supabase's cookie auth mitigates CSRF for same-origin requests. |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public | Informational | Correct by design — anon key is RLS-gated. Service role key (`SUPABASE_SERVICE_ROLE_KEY`) is correctly non-public. |
-| No audit log for admin mutations | Low | Out of scope for this sprint; tracked as a future enhancement. |
+| Risk                                      | Severity      | Rationale                                                                                                                                                                                      |
+| ----------------------------------------- | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Single-admin model (`ADMIN_EMAIL`)        | Low           | Acceptable for current scale. Multi-admin would require a roles table.                                                                                                                         |
+| In-memory rate limiter fallback for chat  | Low           | Fallback only used locally. Production requires Upstash (documented in `.env.example`).                                                                                                        |
+| No CSRF token on admin POST routes        | Low           | All admin routes check Supabase session cookie + `sameSite` cookie default. CORS preflight is not enforced at route level, but Supabase's cookie auth mitigates CSRF for same-origin requests. |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` is public | Informational | Correct by design — anon key is RLS-gated. Service role key (`SUPABASE_SERVICE_ROLE_KEY`) is correctly non-public.                                                                             |
+| No audit log for admin mutations          | Low           | Out of scope for this sprint; tracked as a future enhancement.                                                                                                                                 |

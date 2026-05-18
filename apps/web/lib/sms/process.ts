@@ -23,7 +23,7 @@ const AI_FAILURE_THRESHOLD = 3
 function recordAIFailure(patientId: string, error: unknown): void {
   const now = Date.now()
   const windowStart = now - AI_FAILURE_WINDOW_MS
-  const timestamps = (aiFailureLog.get(patientId) ?? []).filter(t => t > windowStart)
+  const timestamps = (aiFailureLog.get(patientId) ?? []).filter((t) => t > windowStart)
   timestamps.push(now)
   aiFailureLog.set(patientId, timestamps)
 
@@ -39,7 +39,15 @@ function recordAIFailure(patientId: string, error: unknown): void {
 type PatientRow = Database['public']['Tables']['patients']['Row']
 type PatientSMS = Pick<
   PatientRow,
-  'id' | 'name' | 'language' | 'phone' | 'practitioner_name' | 'profile' | 'consent_at' | 'opted_out' | 'clinic_id'
+  | 'id'
+  | 'name'
+  | 'language'
+  | 'phone'
+  | 'practitioner_name'
+  | 'profile'
+  | 'consent_at'
+  | 'opted_out'
+  | 'clinic_id'
 >
 
 export const PATIENT_SMS_SELECT =
@@ -110,7 +118,7 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
     let mediaStoragePaths: string[] = []
     if (numMedia > 0) {
       const mediaResults = await processMMSMedia(params, numMedia, patient.id, supabase)
-      mediaStoragePaths = mediaResults.map(r => r.storagePath)
+      mediaStoragePaths = mediaResults.map((r) => r.storagePath)
     }
 
     // Save user message to DB immediately (for idempotency protection)
@@ -122,7 +130,8 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
         content: body,
         channel: 'sms',
         twilio_sid: messageSid,
-        media_urls: mediaStoragePaths.length > 0 ? mediaStoragePaths : collectMediaUrls(numMedia, params),
+        media_urls:
+          mediaStoragePaths.length > 0 ? mediaStoragePaths : collectMediaUrls(numMedia, params),
       })
       .select('id')
       .single()
@@ -143,9 +152,9 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
     const context = await buildContext(patient.id, supabase)
 
     const recentUserTexts = context.messages
-      .filter(m => m.role === 'user')
+      .filter((m) => m.role === 'user')
       .slice(-2)
-      .map(m => m.content)
+      .map((m) => m.content)
 
     const profile = (patient.profile || {}) as { injury?: string; practitionerName?: string }
     const clinicName = process.env.CLINIC_NAME || 'V-Health'
@@ -169,7 +178,7 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
         conversationCount: context.conversationCount,
         appUrl,
       },
-      messages: context.messages.map(m => ({
+      messages: context.messages.map((m) => ({
         role: m.role as 'user' | 'assistant' | 'system',
         content: m.content,
       })),
@@ -183,7 +192,7 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
     let isEmergency = false
 
     if (result.type === 'blocked') {
-      replyText = result.blockMessage || "I can only help with recovery-related topics."
+      replyText = result.blockMessage || 'I can only help with recovery-related topics.'
     } else if (result.type === 'emergency' && result.emergencyMessage) {
       replyText = result.emergencyMessage
       isEmergency = true
@@ -197,14 +206,16 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
         extra: { patientId: patient.id, channel: 'sms', timestamp: emergencyTimestamp },
       })
 
-      console.warn(JSON.stringify({
-        event: 'safety_classification',
-        category: result.safetyResult.category,
-        action: result.safetyResult.action,
-        patientId: patient.id,
-        channel: 'sms',
-        timestamp: emergencyTimestamp,
-      }))
+      console.warn(
+        JSON.stringify({
+          event: 'safety_classification',
+          category: result.safetyResult.category,
+          action: result.safetyResult.action,
+          patientId: patient.id,
+          channel: 'sms',
+          timestamp: emergencyTimestamp,
+        }),
+      )
 
       // Mark the user message as emergency
       if (savedMsgId) {
@@ -214,7 +225,10 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
           .update({ is_emergency: true })
           .eq('id', savedMsgId)
           .then(({ error }) => {
-            if (error) console.error('[sms] Failed to flag user message as emergency:', { patientId: patientIdForLog })
+            if (error)
+              console.error('[sms] Failed to flag user message as emergency:', {
+                patientId: patientIdForLog,
+              })
           })
       }
 
@@ -262,7 +276,9 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
       try {
         await supabase
           .from('messages')
-          .update({ content: `${body}\n\n[PROCESSING_FAILED]: ${err instanceof Error ? err.message : 'Unknown error'}` })
+          .update({
+            content: `${body}\n\n[PROCESSING_FAILED]: ${err instanceof Error ? err.message : 'Unknown error'}`,
+          })
           .eq('id', savedMsgId)
       } catch (updateErr) {
         console.error('[sms] Failed to mark message as failed:', updateErr)

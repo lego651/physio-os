@@ -15,3 +15,6 @@ coverage
 # Only root lockfile should exist
 apps/*/pnpm-lock.yaml
 packages/*/pnpm-lock.yaml
+
+# Claude Code local agent state
+.claude/

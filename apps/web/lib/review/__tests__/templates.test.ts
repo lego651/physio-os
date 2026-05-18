@@ -4,7 +4,10 @@ import { buildReviewSmsBody } from '../templates/sms'
 
 describe('email template', () => {
   it('subject includes clinic name', () => {
-    const subj = buildReviewEmailSubject({ clinicName: 'V-Health Rehab Clinic', patientName: 'Alice' })
+    const subj = buildReviewEmailSubject({
+      clinicName: 'V-Health Rehab Clinic',
+      patientName: 'Alice',
+    })
     expect(subj).toMatch(/V-Health Rehab Clinic/)
   })
 

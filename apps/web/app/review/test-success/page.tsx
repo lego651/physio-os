@@ -1,3 +1,5 @@
+import Link from 'next/link'
+
 export const metadata = {
   title: 'Test Mode — Review Submitted',
 }
@@ -11,14 +13,13 @@ export default function ReviewTestSuccessPage() {
         </div>
         <h1 className="text-2xl font-semibold mb-3">Would have opened Google Maps</h1>
         <p className="text-sm text-muted-foreground mb-6">
-          In production, this link points to V-Health&apos;s Google Maps review page so the patient can paste their AI-drafted review. In dev/preview environments, it points here instead — to prevent fake reviews on the real listing.
+          In production, this link points to V-Health&apos;s Google Maps review page so the patient
+          can paste their AI-drafted review. In dev/preview environments, it points here instead —
+          to prevent fake reviews on the real listing.
         </p>
-        <a
-          href="/review"
-          className="text-sm text-primary underline-offset-4 hover:underline"
-        >
+        <Link href="/review" className="text-sm text-primary underline-offset-4 hover:underline">
           ← Back to /review
-        </a>
+        </Link>
       </div>
     </main>
   )

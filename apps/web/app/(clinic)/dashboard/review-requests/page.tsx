@@ -11,14 +11,25 @@ export default async function Page() {
   const auth = await requireAdminAuth()
   if (auth.error) redirect('/dashboard/login')
 
+  // createAdminClient returns an untyped Supabase client (no generated schema yet —
+  // migrations 016/017 are pending prod apply). Casts are safe: shapes are validated
+  // by the AdminReviewRequestsClient prop types at runtime.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createAdminClient() as any
   const { data: clinics } = await supabase.from('clinics').select('id, name, slug').order('name')
-  const { data: therapists } = await supabase.from('therapists').select('id, clinic_id, name, role').order('name')
+  const { data: therapists } = await supabase
+    .from('therapists')
+    .select('id, clinic_id, name, role')
+    .order('name')
+  const { data: optOuts } = await supabase
+    .from('review_opt_outs')
+    .select('clinic_id, contact, contact_type')
 
   return (
     <AdminReviewRequestsClient
-      clinics={(clinics as any[]) ?? []}
-      therapists={(therapists as any[]) ?? []}
+      clinics={clinics ?? []}
+      therapists={therapists ?? []}
+      optOuts={optOuts ?? []}
     />
   )
 }

@@ -7,6 +7,7 @@
 ---
 
 ### S601 — Automated adversarial AI test suite (50+ cases)
+
 **Type:** testing
 **Points:** 5
 **Depends on:** S207, S202
@@ -14,6 +15,7 @@
 **Goal:** Automated test suite that validates AI guardrails hold across 50+ adversarial scenarios. Runs in CI. Zero-tolerance for safety violations.
 
 **Scope:**
+
 - Create `packages/ai-core/src/__tests__/adversarial.test.ts`
 - Test categories and minimum counts:
   1. **Prompt injection** (10 cases):
@@ -83,10 +85,12 @@
 - Cost: ~50 API calls per nightly run. At Claude Sonnet pricing, ~$0.50/run.
 
 **Edge cases:**
+
 - Full suite tests call real Claude API — need `ANTHROPIC_API_KEY` in CI secrets
 - Tests may be flaky due to AI non-determinism → run each critical test 3x, fail if any breach in any run
 
 **Acceptance criteria:**
+
 1. 50+ test cases across all categories
 2. Zero safety violations in passing suite
 3. Emergency inputs correctly trigger escalation in 100% of runs
@@ -97,12 +101,14 @@
 8. Test results documented in `docs/guardrail-test-results.md`
 
 **Out of scope:**
+
 - Red team testing by humans (post-launch)
 - Ongoing monitoring of production conversations (V2)
 
 ---
 
 ### S602 — Privacy policy page + consent flow integration
+
 **Type:** fullstack
 **Points:** 3
 **Depends on:** S206
@@ -110,6 +116,7 @@
 **Goal:** Privacy policy live at `/privacy`. Consent flow integrated with both web and SMS onboarding.
 
 **Scope:**
+
 - Create static page: `apps/web/app/privacy/page.tsx`
 - Privacy policy content covering:
   - What data we collect (messages, health metrics, phone number, name)
@@ -134,6 +141,7 @@
   - [ ] Data is stored in a jurisdiction with adequate protection
 
 **Acceptance criteria:**
+
 1. `/privacy` page loads with full privacy policy
 2. Toggle between EN and CN
 3. Privacy policy covers all required PIPEDA elements
@@ -142,6 +150,7 @@
 6. PIPEDA checklist documented
 
 **Out of scope:**
+
 - Legal review by lawyer (parallel process — founder handles)
 - GDPR compliance (not in scope for Canadian market)
 - Automated data deletion (V2)
@@ -149,6 +158,7 @@
 ---
 
 ### S603 — Emergency escalation flow
+
 **Type:** backend
 **Points:** 3
 **Depends on:** S207, S303
@@ -156,6 +166,7 @@
 **Goal:** When the system detects a safety emergency, respond appropriately and notify the clinic admin.
 
 **Scope:**
+
 - When safety classifier (S207) returns `category: 'emergency'`:
   1. **Immediate response to patient:**
      - Web: display message immediately (no AI call): "It sounds like you may need immediate help. Please contact V-Health at [phone] or call 911 if this is an emergency."
@@ -171,12 +182,14 @@
 - Emergency response is hardcoded (not AI-generated) to ensure reliability
 
 **Edge cases:**
+
 - False positive (patient said "this pain is killing me" figuratively) → admin reviews and responds humanly. Better to over-escalate than miss.
 - Admin email delivery fails → log to Sentry, patient still gets emergency response
 - Multiple emergency messages from same patient → send admin notification for each (don't debounce — each may be different)
 - Chinese emergency phrases → same flow
 
 **Acceptance criteria:**
+
 1. Emergency input → patient receives hardcoded help message within 5 seconds
 2. Admin receives email notification with patient details and triggering message
 3. Emergency message saved to DB with flag
@@ -186,6 +199,7 @@
 7. Chinese emergency phrases trigger same flow
 
 **Out of scope:**
+
 - Calling emergency services (that's the patient's responsibility)
 - Admin in-app notification (V2 — email is sufficient for V1)
 - Emergency keyword configuration (hardcoded for V1)
@@ -193,6 +207,7 @@
 ---
 
 ### S604 — Error handling: error pages + Claude/Twilio failures
+
 **Type:** frontend/backend
 **Points:** 3
 **Depends on:** S208
@@ -200,6 +215,7 @@
 **Goal:** Graceful error handling across all surfaces.
 
 **Scope:**
+
 - **Next.js error pages:**
   - `apps/web/app/error.tsx`: global error boundary. "Something went wrong. Please refresh or contact V-Health."
   - `apps/web/app/not-found.tsx`: custom 404. "Page not found. Go to chat →"
@@ -218,6 +234,7 @@
   - Log to Sentry
 
 **Acceptance criteria:**
+
 1. `/nonexistent` → custom 404 page
 2. Server error → custom error page with helpful message
 3. Claude failure → retry 2x → fallback message to patient
@@ -228,6 +245,7 @@
 ---
 
 ### S605 — Security audit of all API routes
+
 **Type:** security
 **Points:** 3
 **Depends on:** All previous sprints
@@ -235,16 +253,17 @@
 **Goal:** Walk every API route and verify auth guards, input validation, and rate limiting.
 
 **Scope:**
+
 - Audit checklist for each route:
 
-| Route | Auth | Rate Limit | Input Validation | Twilio Sig | CORS |
-|-------|------|------------|------------------|------------|------|
-| `POST /api/chat` | Patient session | 20/hr | Message non-empty | N/A | Same-origin |
-| `POST /api/sms` | Twilio signature | N/A (Twilio controls) | Parse body | ✓ required | N/A |
-| `GET /api/cron/weekly-report` | CRON_SECRET | N/A | N/A | N/A | N/A |
-| `GET /api/cron/nudge` | CRON_SECRET | N/A | N/A | N/A | N/A |
-| `GET /api/admin/sms-usage` | Admin session | N/A | N/A | N/A | Same-origin |
-| `GET /report/[token]` | JWT token | N/A | Token validated | N/A | Public |
+| Route                         | Auth             | Rate Limit            | Input Validation  | Twilio Sig | CORS        |
+| ----------------------------- | ---------------- | --------------------- | ----------------- | ---------- | ----------- |
+| `POST /api/chat`              | Patient session  | 20/hr                 | Message non-empty | N/A        | Same-origin |
+| `POST /api/sms`               | Twilio signature | N/A (Twilio controls) | Parse body        | ✓ required | N/A         |
+| `GET /api/cron/weekly-report` | CRON_SECRET      | N/A                   | N/A               | N/A        | N/A         |
+| `GET /api/cron/nudge`         | CRON_SECRET      | N/A                   | N/A               | N/A        | N/A         |
+| `GET /api/admin/sms-usage`    | Admin session    | N/A                   | N/A               | N/A        | Same-origin |
+| `GET /report/[token]`         | JWT token        | N/A                   | Token validated   | N/A        | Public      |
 
 - For each route:
   - Test unauthenticated access → verify rejection
@@ -255,6 +274,7 @@
 - Check all env vars are server-side only (no `NEXT_PUBLIC_` prefix on secrets)
 
 **Acceptance criteria:**
+
 1. All API routes have documented auth requirements
 2. Unauthenticated requests rejected on protected routes
 3. Invalid inputs return appropriate errors (400, not 500)
@@ -267,6 +287,7 @@
 ---
 
 ### S606 — Performance: DB indexes + query optimization
+
 **Type:** backend
 **Points:** 2
 **Depends on:** S104
@@ -274,6 +295,7 @@
 **Goal:** Verify hot queries perform well under load.
 
 **Scope:**
+
 - Identify hot queries:
   1. Messages by patient + date (chat history): `WHERE patient_id = $1 ORDER BY created_at DESC LIMIT 50`
   2. Metrics by patient + date (dashboard, reports): `WHERE patient_id = $1 AND recorded_at > $2`
@@ -285,6 +307,7 @@
 - Benchmark with 30 patients, 1000 messages, 500 metrics (realistic for V1)
 
 **Acceptance criteria:**
+
 1. All hot queries use index scans (no seq scans)
 2. Chat history query < 50ms
 3. Patient list with aggregates < 200ms with 30 patients
@@ -294,6 +317,7 @@
 ---
 
 ### S607 — CASL / SMS compliance verification
+
 **Type:** compliance
 **Points:** 2
 **Depends on:** S309, S304
@@ -301,6 +325,7 @@
 **Goal:** Verify SMS practices comply with Canadian Anti-Spam Legislation and Twilio requirements.
 
 **Scope:**
+
 - Verify checklist:
   - [ ] Consent captured before any outbound SMS (S304, S206)
   - [ ] STOP handling works and ceases all communication (S309)
@@ -315,6 +340,7 @@
 - Test full STOP → START → STOP cycle with real phone
 
 **Acceptance criteria:**
+
 1. Full opt-out cycle works (STOP → no messages → START → messages resume)
 2. Twilio console opt-out configured
 3. All outbound messages identify sender
@@ -323,6 +349,7 @@
 ---
 
 ### S613 — Provision Upstash Redis for SMS rate limiting
+
 **Type:** setup
 **Points:** 1
 **Depends on:** S608
@@ -333,12 +360,14 @@
 The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and wired into `apps/web/lib/sms/rate-limit.ts` (S3 review fix). The code automatically uses Upstash when env vars are present, falling back to in-memory (which is ineffective on Vercel serverless). This ticket provisions the backing store.
 
 **Scope:**
+
 - Provision Upstash Redis via Vercel Marketplace (auto-sets env vars) or Upstash console
 - Set `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` in Vercel production env vars
 - Verify rate limiting works across cold starts (send 11+ messages from same number within 1 hour, confirm the 11th is dropped)
 - Select a region close to the Vercel deployment region for low latency
 
 **Acceptance criteria:**
+
 1. `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` set in Vercel production
 2. Rate limiting persists across cold starts and concurrent function instances
 3. Rate-limited requests return 200 (silent drop) with `console.warn` in logs
@@ -347,6 +376,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 ---
 
 ### S608 — Production environment setup: vhealth.ai
+
 **Type:** setup
 **Points:** 2
 **Depends on:** S111
@@ -354,6 +384,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 **Goal:** Production deployment live at vhealth.ai.
 
 **Scope:**
+
 - Domain setup:
   - Register vhealth.ai (or configure DNS if already owned)
   - Add custom domain to Vercel project
@@ -374,6 +405,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 - Deploy to production and smoke test
 
 **Acceptance criteria:**
+
 1. `https://vhealth.ai` loads the app
 2. SSL certificate valid
 3. Production Supabase connected
@@ -384,6 +416,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 ---
 
 ### S609 — Clean production DB and admin setup
+
 **Type:** setup
 **Points:** 1
 **Depends on:** S608
@@ -391,6 +424,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 **Goal:** Production database is clean and admin account is ready.
 
 **Scope:**
+
 - Remove all test/seed data from production DB
 - Create admin account for V-Health owner:
   - Email: V-Health admin email
@@ -399,6 +433,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 - Verify admin can log in and see empty dashboard
 
 **Acceptance criteria:**
+
 1. Production DB has 0 test patients
 2. Admin account works
 3. Empty dashboard renders correctly
@@ -406,6 +441,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 ---
 
 ### S610 — End-to-end smoke test: full patient journey
+
 **Type:** testing
 **Points:** 3
 **Depends on:** S608, S609
@@ -413,6 +449,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 **Goal:** Manual end-to-end test of the entire patient journey on production.
 
 **Scope:**
+
 - Test script (documented in `docs/launch-checklist.md`):
   1. [ ] Admin logs into dashboard at vhealth.ai/dashboard
   2. [ ] Admin adds a test patient (name, phone)
@@ -438,6 +475,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
   22. [ ] Test emergency: "pain is 9/10" → verify emergency response + admin notification
 
 **Acceptance criteria:**
+
 1. All 22 steps pass
 2. Issues found are documented with severity
 3. Critical issues (safety, data loss) block launch
@@ -446,6 +484,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 ---
 
 ### S611 — Monitoring: Vercel Analytics + Sentry alerts + SMS cost alert
+
 **Type:** setup
 **Points:** 2
 **Depends on:** S510, S608
@@ -453,6 +492,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 **Goal:** Production monitoring configured with appropriate alerts.
 
 **Scope:**
+
 - Vercel Analytics: enable Web Analytics and Speed Insights on production
 - Sentry alert rules:
   - Any unresolved error → Sentry email notification
@@ -461,6 +501,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 - SMS cost alert: daily cron (S404) checks monthly spend and alerts at $40
 
 **Acceptance criteria:**
+
 1. Vercel Analytics collecting data
 2. Sentry alerts configured and tested (throw test error → verify email)
 3. SMS cost alert triggers at $40 threshold
@@ -468,6 +509,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 ---
 
 ### S612 — Launch documentation: internal runbook + front desk materials
+
 **Type:** documentation
 **Points:** 2
 **Depends on:** All
@@ -475,6 +517,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 **Goal:** Everything V-Health staff need to operate the system and onboard patients.
 
 **Scope:**
+
 - `docs/runbook.md` — internal operations guide:
   - How to add a patient (admin dashboard)
   - How to check patient data
@@ -491,6 +534,7 @@ The `@upstash/ratelimit` and `@upstash/redis` packages are already installed and
 - `docs/launch-checklist.md` — final launch checklist (from S610)
 
 **Acceptance criteria:**
+
 1. Runbook covers all operational scenarios
 2. Front desk guide is non-technical and clear
 3. Printed card design spec ready for print

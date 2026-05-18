@@ -11,11 +11,16 @@ interface SendCheckinButtonProps {
   hasPhone: boolean
 }
 
-export function SendCheckinButton({ patientId, patientName, optedOut, hasPhone }: SendCheckinButtonProps) {
+export function SendCheckinButton({
+  patientId,
+  patientName,
+  optedOut,
+  hasPhone,
+}: SendCheckinButtonProps) {
   const [sending, setSending] = useState(false)
   const [showForm, setShowForm] = useState(false)
   const [message, setMessage] = useState(
-    `Hi ${patientName ?? 'there'}, this is V-Health. How are you feeling? We'd love to hear an update.`
+    `Hi ${patientName ?? 'there'}, this is V-Health. How are you feeling? We'd love to hear an update.`,
   )
   const [status, setStatus] = useState<'idle' | 'success' | 'error'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
@@ -32,7 +37,7 @@ export function SendCheckinButton({ patientId, patientName, optedOut, hasPhone }
         body: JSON.stringify({ message }),
       })
       if (!res.ok) {
-        const data = await res.json() as { error: string }
+        const data = (await res.json()) as { error: string }
         throw new Error(data.error)
       }
       setStatus('success')
@@ -60,9 +65,7 @@ export function SendCheckinButton({ patientId, patientName, optedOut, hasPhone }
         {status === 'success' && (
           <span className="text-xs text-green-600">Check-in sent to {patientName}</span>
         )}
-        {status === 'error' && (
-          <span className="text-xs text-red-600">{errorMsg}</span>
-        )}
+        {status === 'error' && <span className="text-xs text-red-600">{errorMsg}</span>}
       </div>
     )
   }

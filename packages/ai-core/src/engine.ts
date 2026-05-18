@@ -44,8 +44,7 @@ const TIMEOUT_SMS_MS = 12000
 const EMERGENCY_MESSAGE =
   "I'm concerned about what you're describing. Please contact your practitioner or call emergency services (911) right away. If you're in crisis, the 988 Suicide & Crisis Lifeline is available 24/7. Your safety is the top priority."
 
-const BLOCK_MESSAGE =
-  "I can only help with recovery-related topics. Let's focus on your progress!"
+const BLOCK_MESSAGE = "I can only help with recovery-related topics. Let's focus on your progress!"
 
 /** Base conversation tools (no execute — used as fallback for web chat without server tools) */
 export const conversationTools = {
@@ -107,7 +106,8 @@ export function handleMessage(params: HandleMessageParams): HandleMessageResult 
 }
 
 export function createConversation(params: ConversationParams): ConversationResult {
-  const { systemPromptParams, messages, currentMessage, channel, temperature, additionalTools } = params
+  const { systemPromptParams, messages, currentMessage, channel, temperature, additionalTools } =
+    params
   const model = process.env.AI_MODEL || DEFAULT_MODEL
   const maxOutputTokens = channel === 'sms' ? MAX_TOKENS_SMS : MAX_TOKENS_WEB
   const defaultTemp = channel === 'sms' ? DEFAULT_TEMPERATURE_SMS : DEFAULT_TEMPERATURE
@@ -120,9 +120,7 @@ export function createConversation(params: ConversationParams): ConversationResu
   ]
 
   // Merge default tools with caller-supplied server-executed tools (e.g., createLogMetricsTool)
-  const tools = additionalTools
-    ? { ...conversationTools, ...additionalTools }
-    : conversationTools
+  const tools = additionalTools ? { ...conversationTools, ...additionalTools } : conversationTools
 
   return streamText({
     model: anthropic(model),
@@ -138,4 +136,3 @@ export function createConversation(params: ConversationParams): ConversationResu
     },
   })
 }
-

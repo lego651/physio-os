@@ -13,16 +13,12 @@ type Trend = 'improving' | 'stable' | 'worsening'
  */
 function calcTrend(
   thisWeek: QueriedMetric[],
-  lastWeek: QueriedMetric[]
+  lastWeek: QueriedMetric[],
 ): { trend: Trend; metric: string; thisAvg: number; lastAvg: number } | null {
   const thisPain = thisWeek.map((r) => r.pain_level).filter((v): v is number => v != null)
   const lastPain = lastWeek.map((r) => r.pain_level).filter((v): v is number => v != null)
-  const thisDiscomfort = thisWeek
-    .map((r) => r.discomfort)
-    .filter((v): v is number => v != null)
-  const lastDiscomfort = lastWeek
-    .map((r) => r.discomfort)
-    .filter((v): v is number => v != null)
+  const thisDiscomfort = thisWeek.map((r) => r.discomfort).filter((v): v is number => v != null)
+  const lastDiscomfort = lastWeek.map((r) => r.discomfort).filter((v): v is number => v != null)
 
   // Prefer discomfort trend; fall back to pain
   for (const [metric, thisVals, lastVals] of [
@@ -64,7 +60,7 @@ export function createGetHistoryTool(patientId: string, supabase: SupabaseClient
       const { data, error } = await supabase
         .from('metrics')
         .select(
-          'pain_level, discomfort, sitting_tolerance_min, exercises_done, exercise_count, recorded_at'
+          'pain_level, discomfort, sitting_tolerance_min, exercises_done, exercise_count, recorded_at',
         )
         .eq('patient_id', patientId)
         .gte('recorded_at', since)
@@ -84,9 +80,7 @@ export function createGetHistoryTool(patientId: string, supabase: SupabaseClient
       // --- averages and ranges ---
       const painVals = rows.map((r) => r.pain_level).filter((v): v is number => v != null)
       const discVals = rows.map((r) => r.discomfort).filter((v): v is number => v != null)
-      const sitVals = rows
-        .map((r) => r.sitting_tolerance_min)
-        .filter((v): v is number => v != null)
+      const sitVals = rows.map((r) => r.sitting_tolerance_min).filter((v): v is number => v != null)
 
       const avgPain = avg(painVals)
       const avgDisc = avg(discVals)
@@ -104,9 +98,7 @@ export function createGetHistoryTool(patientId: string, supabase: SupabaseClient
       if (rows.length > 2) {
         const weekMs = 7 * 24 * 60 * 60 * 1000
         const now = Date.now()
-        const thisWeekRows = rows.filter(
-          (r) => new Date(r.recorded_at).getTime() >= now - weekMs
-        )
+        const thisWeekRows = rows.filter((r) => new Date(r.recorded_at).getTime() >= now - weekMs)
         const lastWeekRows = rows.filter((r) => {
           const t = new Date(r.recorded_at).getTime()
           return t >= now - 2 * weekMs && t < now - weekMs
@@ -124,13 +116,13 @@ export function createGetHistoryTool(patientId: string, supabase: SupabaseClient
 
       if (avgPain != null) {
         lines.push(
-          `- Avg pain: ${round1(avgPain)}${minPain != null && maxPain != null ? ` (range: ${minPain}–${maxPain})` : ''}`
+          `- Avg pain: ${round1(avgPain)}${minPain != null && maxPain != null ? ` (range: ${minPain}–${maxPain})` : ''}`,
         )
       }
 
       if (avgDisc != null) {
         lines.push(
-          `- Avg discomfort: ${round1(avgDisc)}${minDisc != null && maxDisc != null ? ` (range: ${minDisc}–${maxDisc})` : ''}`
+          `- Avg discomfort: ${round1(avgDisc)}${minDisc != null && maxDisc != null ? ` (range: ${minDisc}–${maxDisc})` : ''}`,
         )
       }
 

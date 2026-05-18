@@ -77,6 +77,7 @@ Never pressure a patient to participate. If they express hesitation, say: "No wo
 ### "What data do you collect?"
 
 The app collects:
+
 - The patient's mobile phone number
 - Their name and the type of injury or condition they described
 - Their text messages and chat conversations with the AI
@@ -99,6 +100,7 @@ Patients use their regular text messaging. If they have a standard Canadian mobi
 ### "What if they want to stop?"
 
 The patient can stop at any time in two ways:
+
 1. **Text STOP** to the V-Health SMS number. They will immediately stop receiving all messages.
 2. **Contact the clinic** and we can deactivate their account in the dashboard.
 
@@ -136,6 +138,7 @@ The following spec is for a business-card-sized handout (3.5" x 2") that can be 
 **Layout:** Two columns
 
 **Left column (60% width):**
+
 - Headline (large, bold): "V-Health Recovery Coach"
 - Subhead (small): "Free SMS recovery support between your appointments"
 - Body (tiny): "Text updates on your pain and exercises. Get a weekly progress report. Works on any phone."
@@ -143,6 +146,7 @@ The following spec is for a business-card-sized handout (3.5" x 2") that can be 
 - Opt-out note (very small): "Text STOP to unsubscribe at any time"
 
 **Right column (40% width):**
+
 - QR code linking to **https://vhealth.ai**
 - Label below QR code: "Scan to chat online"
 
@@ -153,6 +157,7 @@ The following spec is for a business-card-sized handout (3.5" x 2") that can be 
 **Layout:** Single column, centered
 
 **Content:**
+
 - "How it works" heading
 - Three numbered steps:
   1. "You'll get a welcome text — reply YES to start"
@@ -173,12 +178,12 @@ The following spec is for a business-card-sized handout (3.5" x 2") that can be 
 
 ## Quick Reference Card (for front desk staff)
 
-| Task | How |
-|------|-----|
-| Add a patient | Login to vhealth.ai/dashboard → Add Patient → enter phone number |
-| Patient wants to stop | Tell them to text STOP — or deactivate in the dashboard |
-| Patient wants to restart | Tell them to text START |
-| Patient didn't get the welcome text | Check you have the right number, then tell the clinic manager |
-| Patient has a complaint about the AI | Direct to the clinic manager — do not try to fix it yourself |
-| Patient asks about their data | Direct them to vhealth.ai/privacy or the clinic manager |
-| Emergency situation | Follow clinic emergency protocol — call 911 if needed |
+| Task                                 | How                                                              |
+| ------------------------------------ | ---------------------------------------------------------------- |
+| Add a patient                        | Login to vhealth.ai/dashboard → Add Patient → enter phone number |
+| Patient wants to stop                | Tell them to text STOP — or deactivate in the dashboard          |
+| Patient wants to restart             | Tell them to text START                                          |
+| Patient didn't get the welcome text  | Check you have the right number, then tell the clinic manager    |
+| Patient has a complaint about the AI | Direct to the clinic manager — do not try to fix it yourself     |
+| Patient asks about their data        | Direct them to vhealth.ai/privacy or the clinic manager          |
+| Emergency situation                  | Follow clinic emergency protocol — call 911 if needed            |

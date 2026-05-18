@@ -5,11 +5,20 @@ import { recordOptOut } from '@/lib/review/opt-outs'
 
 export const runtime = 'nodejs'
 
+interface ReviewRequestContactRow {
+  id: string
+  patient_email: string | null
+  patient_phone: string | null
+  clinic_id: string
+}
+
 async function doUnsubscribe(token: string | null): Promise<'ok' | 'invalid'> {
   if (!token) return 'invalid'
   const decoded = await verifyReviewToken(token)
   if (!decoded) return 'invalid'
 
+  // createAdminClient returns an untyped Supabase client (no generated schema yet).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createAdminClient() as any
   const { data, error } = await supabase
     .from('review_requests')
@@ -18,17 +27,21 @@ async function doUnsubscribe(token: string | null): Promise<'ok' | 'invalid'> {
     .single()
   if (error || !data) return 'invalid'
 
-  const row = data as any
+  const row = data as ReviewRequestContactRow
   if (row.patient_email) {
     await recordOptOut(supabase, {
-      clinicId: row.clinic_id, contact: row.patient_email,
-      contactType: 'email', source: 'email_link',
+      clinicId: row.clinic_id,
+      contact: row.patient_email,
+      contactType: 'email',
+      source: 'email_link',
     })
   }
   if (row.patient_phone) {
     await recordOptOut(supabase, {
-      clinicId: row.clinic_id, contact: row.patient_phone,
-      contactType: 'sms', source: 'email_link',
+      clinicId: row.clinic_id,
+      contact: row.patient_phone,
+      contactType: 'sms',
+      source: 'email_link',
     })
   }
   return 'ok'
@@ -43,10 +56,17 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  let body: any
-  try { body = await req.json() }
-  catch { return Response.json({ error: 'Invalid JSON' }, { status: 400 }) }
-  const result = await doUnsubscribe(typeof body?.token === 'string' ? body.token : null)
+  let body: unknown
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+  const token =
+    body !== null && typeof body === 'object' && 'token' in body && typeof body.token === 'string'
+      ? body.token
+      : null
+  const result = await doUnsubscribe(token)
   if (result === 'invalid') return Response.json({ error: 'Invalid token' }, { status: 401 })
   return Response.json({ ok: true })
 }

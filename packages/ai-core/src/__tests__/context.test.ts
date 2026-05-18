@@ -77,9 +77,7 @@ describe('budgetMessages', () => {
 
   it('truncates when messages exceed budget', () => {
     // Create messages that exceed the budget (4000 tokens * 4 chars = 16000 chars for Latin)
-    const messages = Array.from({ length: 20 }, (_, i) =>
-      makeMessage(String(i), 'x'.repeat(1000)),
-    )
+    const messages = Array.from({ length: 20 }, (_, i) => makeMessage(String(i), 'x'.repeat(1000)))
     const result = budgetMessages(messages)
     expect(result.length).toBeLessThan(20)
     expect(result.length).toBeGreaterThan(0)

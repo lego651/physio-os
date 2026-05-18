@@ -48,12 +48,24 @@ export function IntakeList({ records }: { records: IntakeRecord[] }) {
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/50 text-left text-xs uppercase tracking-wide text-muted-foreground">
               <tr>
-                <th scope="col" className="px-4 py-3 font-medium">Date</th>
-                <th scope="col" className="px-4 py-3 font-medium">Patient</th>
-                <th scope="col" className="px-4 py-3 font-medium">Therapist</th>
-                <th scope="col" className="px-4 py-3 font-medium">Treatment Area</th>
-                <th scope="col" className="px-4 py-3 font-medium">Notes Preview</th>
-                <th scope="col" className="px-4 py-3 font-medium text-right">Action</th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Date
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Patient
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Therapist
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Treatment Area
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium">
+                  Notes Preview
+                </th>
+                <th scope="col" className="px-4 py-3 font-medium text-right">
+                  Action
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -70,7 +82,9 @@ export function IntakeList({ records }: { records: IntakeRecord[] }) {
                   <td className="px-4 py-3 font-medium">{r.patient_name}</td>
                   <td className="px-4 py-3 whitespace-nowrap">{r.therapist_name}</td>
                   <td className="px-4 py-3">{r.treatment_area}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{notesPreview(r.session_notes)}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {notesPreview(r.session_notes)}
+                  </td>
                   <td className="px-4 py-3 text-right whitespace-nowrap">
                     <Link
                       href={`/dashboard/intake/${r.id}`}

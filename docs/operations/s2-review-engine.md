@@ -12,18 +12,18 @@ Before deploying `feat/s2-review-engine` to anything other than a local dev serv
 
 ## Env vars (Vercel + local)
 
-| Var | Required | Notes |
-|-----|----------|-------|
-| `REVIEW_TOKEN_SECRET` | yes | ≥ 32 hex chars; **distinct** from `WIDGET_SESSION_SECRET` |
-| `REVIEW_BASE_URL` | yes | e.g. `https://physio.app`; used to build short links |
-| `REVIEW_TEST_MODE` | yes | `true` for Stages 0-1; `false` for Stages 2+ |
-| `REVIEW_TEST_RECIPIENT_EMAIL` | when `REVIEW_TEST_MODE=true` | Jason's test inbox |
-| `REVIEW_TEST_RECIPIENT_PHONE` | when `REVIEW_TEST_MODE=true` | Jason's test phone (E.164); must be a Twilio Verified Caller ID on trial |
-| `RESEND_WEBHOOK_SECRET` | yes (for delivered/opened tracking) | from Resend dashboard webhook config |
-| `RESEND_API_KEY` | yes | already configured (reused from existing email infra) |
-| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER` | yes | already configured (reused) |
-| `ANTHROPIC_API_KEY_WIDGET` | yes | already configured (reused for Haiku 4.5) |
-| `ADMIN_EMAIL` | yes | the email of the admin user; `requireAdminAuth` rejects everything else |
+| Var                                                                | Required                            | Notes                                                                    |
+| ------------------------------------------------------------------ | ----------------------------------- | ------------------------------------------------------------------------ |
+| `REVIEW_TOKEN_SECRET`                                              | yes                                 | ≥ 32 hex chars; **distinct** from `WIDGET_SESSION_SECRET`                |
+| `REVIEW_BASE_URL`                                                  | yes                                 | e.g. `https://physio.app`; used to build short links                     |
+| `REVIEW_TEST_MODE`                                                 | yes                                 | `true` for Stages 0-1; `false` for Stages 2+                             |
+| `REVIEW_TEST_RECIPIENT_EMAIL`                                      | when `REVIEW_TEST_MODE=true`        | Jason's test inbox                                                       |
+| `REVIEW_TEST_RECIPIENT_PHONE`                                      | when `REVIEW_TEST_MODE=true`        | Jason's test phone (E.164); must be a Twilio Verified Caller ID on trial |
+| `RESEND_WEBHOOK_SECRET`                                            | yes (for delivered/opened tracking) | from Resend dashboard webhook config                                     |
+| `RESEND_API_KEY`                                                   | yes                                 | already configured (reused from existing email infra)                    |
+| `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` / `TWILIO_PHONE_NUMBER` | yes                                 | already configured (reused)                                              |
+| `ANTHROPIC_API_KEY_WIDGET`                                         | yes                                 | already configured (reused for Haiku 4.5)                                |
+| `ADMIN_EMAIL`                                                      | yes                                 | the email of the admin user; `requireAdminAuth` rejects everything else  |
 
 ## Place ID
 
@@ -70,11 +70,13 @@ Stages 0 and 1 run with `REVIEW_TEST_MODE=true`, so the deep link is never user-
 ## Stage 2 — V-Health soft launch (email only)
 
 Pre-conditions:
+
 - `REVIEW_TEST_MODE=false`.
 - V-Health `google_place_id` populated (see above).
 - David Wang has confirmed CASL consent for V-Health patients **in writing** (WhatsApp screenshot kept in `docs/operations/`).
 
 Then:
+
 - Channel = `email` only.
 - 5-10 sends/day for 14 days.
 - Pass criteria: first real V-Health Google review traceable via operator-set `verified_at` on the request row.
@@ -88,6 +90,7 @@ Then:
 ## Stage 4 — Productize for clinic #2
 
 Onboarding checklist:
+
 1. `INSERT INTO public.clinics (slug, name, domain, review_sender_name, google_place_id, google_maps_url) VALUES (...)`.
 2. `INSERT INTO public.therapists (clinic_id, name, role) VALUES (...)` for each.
 3. Add the clinic owner's email to `ADMIN_EMAIL` (or extend `requireAdminAuth` to support multi-clinic admin lookup).
@@ -96,14 +99,14 @@ Onboarding checklist:
 
 ## Troubleshooting
 
-| Symptom | Likely cause |
-|---------|--------------|
-| Resend webhook events not landing | Signature secret mismatch — Resend regenerates `RESEND_WEBHOOK_SECRET` on rotation |
-| SMS bouncing on Twilio trial | Destination phone not in Verified Caller IDs |
-| Landing page `notFound` | JWT expired (14 days) or request `status` is `revoked`/`expired` — send a new one |
+| Symptom                                           | Likely cause                                                                                      |
+| ------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Resend webhook events not landing                 | Signature secret mismatch — Resend regenerates `RESEND_WEBHOOK_SECRET` on rotation                |
+| SMS bouncing on Twilio trial                      | Destination phone not in Verified Caller IDs                                                      |
+| Landing page `notFound`                           | JWT expired (14 days) or request `status` is `revoked`/`expired` — send a new one                 |
 | Engine throws "Patient consent must be confirmed" | The admin form did not check the consent box — but a curl bypass would also hit this; investigate |
-| `Clinic not found` | Migration 016 not applied to this environment, or wrong `clinicId` from admin form |
-| Type errors after pulling migrations | Run `pnpm gen:types` to refresh `apps/web/lib/supabase/types.ts` |
+| `Clinic not found`                                | Migration 016 not applied to this environment, or wrong `clinicId` from admin form                |
+| Type errors after pulling migrations              | Run `pnpm gen:types` to refresh `apps/web/lib/supabase/types.ts`                                  |
 
 ## Funnel queries
 

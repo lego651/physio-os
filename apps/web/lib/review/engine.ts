@@ -59,7 +59,7 @@ export class ReviewRequestEngine {
     const senderName = clinic.review_sender_name ?? clinic.name
 
     const wantsEmail = input.channel === 'email' || input.channel === 'both'
-    const wantsSms   = input.channel === 'sms'   || input.channel === 'both'
+    const wantsSms = input.channel === 'sms' || input.channel === 'both'
 
     const jti = randomUUID()
     const expiresAt = new Date(Date.now() + TOKEN_EXPIRES_IN_DAYS * 86_400_000).toISOString()
@@ -88,11 +88,14 @@ export class ReviewRequestEngine {
       throw new Error(`Failed to insert review_requests: ${error?.message ?? 'unknown'}`)
     }
 
-    const requestId = (inserted as any).id as string
+    const requestId = (inserted as { id: string }).id
     await logFunnelEvent(this.deps.supabase, { requestId, eventType: 'queued' })
 
     const token = await mintReviewToken({
-      requestId, clinicId: input.clinicId, jti, expiresInDays: TOKEN_EXPIRES_IN_DAYS,
+      requestId,
+      clinicId: input.clinicId,
+      jti,
+      expiresInDays: TOKEN_EXPIRES_IN_DAYS,
     })
     const shortLink = `${this.deps.config.baseUrl}/review/${token}`
     // SMS link uses the bare request_id (UUID, 36 chars) instead of the
@@ -103,19 +106,24 @@ export class ReviewRequestEngine {
 
     if (wantsEmail) {
       const realEmail = input.patientEmail
-      const recipient = this.deps.config.testMode
-        ? this.deps.config.testRecipientEmail
-        : realEmail
+      const recipient = this.deps.config.testMode ? this.deps.config.testRecipientEmail : realEmail
       if (!recipient) {
         await logFunnelEvent(this.deps.supabase, {
-          requestId, eventType: 'send_failed',
+          requestId,
+          eventType: 'send_failed',
           metadata: { channel: 'email', reason: 'no_recipient' },
         })
-      } else if (realEmail && await isOptedOut(this.deps.supabase, {
-        clinicId: input.clinicId, contact: realEmail, contactType: 'email',
-      })) {
+      } else if (
+        realEmail &&
+        (await isOptedOut(this.deps.supabase, {
+          clinicId: input.clinicId,
+          contact: realEmail,
+          contactType: 'email',
+        }))
+      ) {
         await logFunnelEvent(this.deps.supabase, {
-          requestId, eventType: 'send_failed',
+          requestId,
+          eventType: 'send_failed',
           metadata: { channel: 'email', reason: 'opted_out' },
         })
       } else {
@@ -123,7 +131,10 @@ export class ReviewRequestEngine {
           const result = await this.deps.email.send({
             to: recipient,
             from: `${senderName} <onboarding@resend.dev>`,
-            subject: buildReviewEmailSubject({ clinicName: clinic.name, patientName: input.patientName }),
+            subject: buildReviewEmailSubject({
+              clinicName: clinic.name,
+              patientName: input.patientName,
+            }),
             html: buildReviewEmailHtml({
               clinicName: clinic.name,
               senderName,
@@ -133,12 +144,14 @@ export class ReviewRequestEngine {
             }),
           })
           await logFunnelEvent(this.deps.supabase, {
-            requestId, eventType: 'sent_email',
+            requestId,
+            eventType: 'sent_email',
             metadata: { provider_message_id: result.providerMessageId },
           })
         } catch (err) {
           await logFunnelEvent(this.deps.supabase, {
-            requestId, eventType: 'send_failed',
+            requestId,
+            eventType: 'send_failed',
             metadata: { channel: 'email', reason: 'provider_error', error: String(err) },
           })
         }
@@ -147,34 +160,45 @@ export class ReviewRequestEngine {
 
     if (wantsSms) {
       const realPhone = input.patientPhone
-      const recipient = this.deps.config.testMode
-        ? this.deps.config.testRecipientPhone
-        : realPhone
+      const recipient = this.deps.config.testMode ? this.deps.config.testRecipientPhone : realPhone
       if (!recipient) {
         await logFunnelEvent(this.deps.supabase, {
-          requestId, eventType: 'send_failed',
+          requestId,
+          eventType: 'send_failed',
           metadata: { channel: 'sms', reason: 'no_recipient' },
         })
-      } else if (realPhone && await isOptedOut(this.deps.supabase, {
-        clinicId: input.clinicId, contact: realPhone, contactType: 'sms',
-      })) {
+      } else if (
+        realPhone &&
+        (await isOptedOut(this.deps.supabase, {
+          clinicId: input.clinicId,
+          contact: realPhone,
+          contactType: 'sms',
+        }))
+      ) {
         await logFunnelEvent(this.deps.supabase, {
-          requestId, eventType: 'send_failed',
+          requestId,
+          eventType: 'send_failed',
           metadata: { channel: 'sms', reason: 'opted_out' },
         })
       } else {
         try {
           const result = await this.deps.sms.send({
             to: recipient,
-            body: buildReviewSmsBody({ senderName, patientName: input.patientName, shortLink: smsLink }),
+            body: buildReviewSmsBody({
+              senderName,
+              patientName: input.patientName,
+              shortLink: smsLink,
+            }),
           })
           await logFunnelEvent(this.deps.supabase, {
-            requestId, eventType: 'sent_sms',
+            requestId,
+            eventType: 'sent_sms',
             metadata: { provider_message_id: result.providerMessageId },
           })
         } catch (err) {
           await logFunnelEvent(this.deps.supabase, {
-            requestId, eventType: 'send_failed',
+            requestId,
+            eventType: 'send_failed',
             metadata: { channel: 'sms', reason: 'provider_error', error: String(err) },
           })
         }

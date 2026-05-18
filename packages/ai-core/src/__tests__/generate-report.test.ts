@@ -25,11 +25,14 @@ function calculateAverages(metrics: MetricRow[]): WeeklyAverages {
     return { avgPain: null, avgDiscomfort: null, avgSitting: null, dataPoints: 0 }
   }
 
-  const painValues = metrics.map(m => m.pain_level).filter((v): v is number => v !== null)
-  const discomfortValues = metrics.map(m => m.discomfort).filter((v): v is number => v !== null)
-  const sittingValues = metrics.map(m => m.sitting_tolerance_min).filter((v): v is number => v !== null)
+  const painValues = metrics.map((m) => m.pain_level).filter((v): v is number => v !== null)
+  const discomfortValues = metrics.map((m) => m.discomfort).filter((v): v is number => v !== null)
+  const sittingValues = metrics
+    .map((m) => m.sitting_tolerance_min)
+    .filter((v): v is number => v !== null)
 
-  const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null
+  const avg = (arr: number[]) =>
+    arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null
 
   return {
     avgPain: avg(painValues),
@@ -46,10 +49,7 @@ type Trend = 'improving' | 'stable' | 'worsening'
  * For pain/discomfort lower is better; for sitting tolerance higher is better.
  * Threshold: >10% change to be considered improving/worsening.
  */
-function detectTrend(
-  current: WeeklyAverages,
-  previous: WeeklyAverages | null,
-): Trend {
+function detectTrend(current: WeeklyAverages, previous: WeeklyAverages | null): Trend {
   if (!previous || previous.avgPain === null || current.avgPain === null) {
     return 'stable'
   }
@@ -86,7 +86,9 @@ function buildInsights(averages: WeeklyAverages, trend: Trend, limitedData: bool
   if (trend === 'improving') {
     insights.push('Pain levels are trending down compared to last week — great progress!')
   } else if (trend === 'worsening') {
-    insights.push('Pain levels have increased compared to last week — consider discussing with your practitioner.')
+    insights.push(
+      'Pain levels have increased compared to last week — consider discussing with your practitioner.',
+    )
   } else {
     insights.push('Your progress appears stable compared to last week.')
   }
@@ -120,7 +122,12 @@ describe('calculateAverages', () => {
 
   it('handles null metric fields gracefully', () => {
     const metrics: MetricRow[] = [
-      { pain_level: null, discomfort: null, sitting_tolerance_min: null, recorded_at: '2026-03-24' },
+      {
+        pain_level: null,
+        discomfort: null,
+        sitting_tolerance_min: null,
+        recorded_at: '2026-03-24',
+      },
       { pain_level: 5, discomfort: null, sitting_tolerance_min: null, recorded_at: '2026-03-25' },
     ]
     const result = calculateAverages(metrics)
@@ -160,13 +167,23 @@ describe('detectTrend', () => {
 
   it('returns stable when pain changes by less than 10%', () => {
     const previous: WeeklyAverages = { avgPain: 5, avgDiscomfort: 2, avgSitting: 30, dataPoints: 5 }
-    const current: WeeklyAverages = { avgPain: 5.2, avgDiscomfort: 2, avgSitting: 30, dataPoints: 5 }
+    const current: WeeklyAverages = {
+      avgPain: 5.2,
+      avgDiscomfort: 2,
+      avgSitting: 30,
+      dataPoints: 5,
+    }
     expect(detectTrend(current, previous)).toBe('stable')
   })
 
   it('returns stable when current pain is null', () => {
     const previous: WeeklyAverages = { avgPain: 5, avgDiscomfort: 2, avgSitting: 30, dataPoints: 5 }
-    const current: WeeklyAverages = { avgPain: null, avgDiscomfort: null, avgSitting: null, dataPoints: 0 }
+    const current: WeeklyAverages = {
+      avgPain: null,
+      avgDiscomfort: null,
+      avgSitting: null,
+      dataPoints: 0,
+    }
     expect(detectTrend(current, previous)).toBe('stable')
   })
 })
@@ -186,38 +203,43 @@ describe('buildInsights', () => {
 
   it('includes limited data note when flagged', () => {
     const insights = buildInsights(fullAverages, 'stable', true)
-    expect(insights.some(i => i.includes('Limited data'))).toBe(true)
+    expect(insights.some((i) => i.includes('Limited data'))).toBe(true)
   })
 
   it('does not include limited data note when not flagged', () => {
     const insights = buildInsights(fullAverages, 'stable', false)
-    expect(insights.some(i => i.includes('Limited data'))).toBe(false)
+    expect(insights.some((i) => i.includes('Limited data'))).toBe(false)
   })
 
   it('includes improving message for improving trend', () => {
     const insights = buildInsights(fullAverages, 'improving', false)
-    expect(insights.some(i => i.includes('trending down'))).toBe(true)
+    expect(insights.some((i) => i.includes('trending down'))).toBe(true)
   })
 
   it('includes worsening message for worsening trend', () => {
     const insights = buildInsights(fullAverages, 'worsening', false)
-    expect(insights.some(i => i.includes('increased'))).toBe(true)
+    expect(insights.some((i) => i.includes('increased'))).toBe(true)
   })
 
   it('includes stable message for stable trend', () => {
     const insights = buildInsights(fullAverages, 'stable', false)
-    expect(insights.some(i => i.includes('stable'))).toBe(true)
+    expect(insights.some((i) => i.includes('stable'))).toBe(true)
   })
 
   it('includes pain level in insights when available', () => {
     const insights = buildInsights(fullAverages, 'stable', false)
-    expect(insights.some(i => i.includes('5.5'))).toBe(true)
+    expect(insights.some((i) => i.includes('5.5'))).toBe(true)
   })
 
   it('omits pain insight when avgPain is null', () => {
-    const sparse: WeeklyAverages = { avgPain: null, avgDiscomfort: null, avgSitting: null, dataPoints: 1 }
+    const sparse: WeeklyAverages = {
+      avgPain: null,
+      avgDiscomfort: null,
+      avgSitting: null,
+      dataPoints: 1,
+    }
     const insights = buildInsights(sparse, 'stable', false)
-    expect(insights.some(i => i.includes('pain level this week'))).toBe(false)
+    expect(insights.some((i) => i.includes('pain level this week'))).toBe(false)
   })
 })
 
@@ -240,7 +262,7 @@ describe('report generation — null/insufficient data guards', () => {
     expect(isLimitedData).toBe(true)
     // Report should still be generated but with the limited data note
     const insights = buildInsights(averages, 'stable', isLimitedData)
-    expect(insights.some(i => i.includes('Limited data'))).toBe(true)
+    expect(insights.some((i) => i.includes('Limited data'))).toBe(true)
   })
 
   it('does not flag limited data for 3 or more data points', () => {

@@ -18,7 +18,7 @@ import { sendEmergencyAlert } from '../lib/email/send-emergency-alert'
 const BASE_PARAMS = {
   patientName: 'Jane Doe',
   patientPhone: '+16045550001',
-  triggeringMessage: 'I have the worst pain, 10/10, can\'t move at all.',
+  triggeringMessage: "I have the worst pain, 10/10, can't move at all.",
   timestamp: '2026-04-03T12:00:00.000Z',
   channel: 'web' as const,
 }

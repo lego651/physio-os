@@ -45,11 +45,11 @@ export class EmailAdapter {
     })
 
     if (!res.ok) {
-      const body = await (res as any).text()
+      const body = await res.text()
       throw new Error(`Resend send failed: ${res.status} ${body}`)
     }
 
-    const data = await (res as any).json() as { id: string }
+    const data = (await res.json()) as { id: string }
     return { providerMessageId: data.id }
   }
 }

@@ -25,13 +25,13 @@ Sentry is integrated via `@sentry/nextjs`. Config files:
 
 Required environment variables (set in Vercel project settings):
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_SENTRY_DSN` | Client-side DSN (public) |
-| `SENTRY_DSN` | Server-side DSN |
-| `SENTRY_AUTH_TOKEN` | For source map uploads during build |
-| `SENTRY_ORG` | Sentry organisation slug |
-| `SENTRY_PROJECT` | Sentry project slug |
+| Variable                 | Description                         |
+| ------------------------ | ----------------------------------- |
+| `NEXT_PUBLIC_SENTRY_DSN` | Client-side DSN (public)            |
+| `SENTRY_DSN`             | Server-side DSN                     |
+| `SENTRY_AUTH_TOKEN`      | For source map uploads during build |
+| `SENTRY_ORG`             | Sentry organisation slug            |
+| `SENTRY_PROJECT`         | Sentry project slug                 |
 
 ### Recommended Alert Rules (configure in Sentry dashboard)
 
@@ -39,53 +39,53 @@ Navigate to **Alerts → Create Alert Rule** for each rule below.
 
 #### Rule 1 — Any unresolved error → email
 
-| Field | Value |
-|---|---|
-| Environment | `production` |
-| Conditions | `An event is seen` |
-| Filters | Issue is `Unresolved` |
-| Actions | Send email to team / owner |
-| Rate limit | Once per issue |
+| Field       | Value                      |
+| ----------- | -------------------------- |
+| Environment | `production`               |
+| Conditions  | `An event is seen`         |
+| Filters     | Issue is `Unresolved`      |
+| Actions     | Send email to team / owner |
+| Rate limit  | Once per issue             |
 
 #### Rule 2 — Error spike (5+ in 1 hour) → high-priority alert
 
-| Field | Value |
-|---|---|
-| Environment | `production` |
-| Alert type | **Metric alert** → Error count |
-| Threshold | `5` errors in `1 hour` |
-| Actions | Send email + PagerDuty / Slack (if connected) |
+| Field       | Value                                         |
+| ----------- | --------------------------------------------- |
+| Environment | `production`                                  |
+| Alert type  | **Metric alert** → Error count                |
+| Threshold   | `5` errors in `1 hour`                        |
+| Actions     | Send email + PagerDuty / Slack (if connected) |
 
 #### Rule 3 — Claude API failures
 
-| Field | Value |
-|---|---|
-| Environment | `production` |
-| Conditions | `An event is seen` |
-| Filters | `error.message` contains `anthropic` OR `claude` OR `AI generation failed` |
-| Actions | Send email — mark high priority |
+| Field       | Value                                                                      |
+| ----------- | -------------------------------------------------------------------------- |
+| Environment | `production`                                                               |
+| Conditions  | `An event is seen`                                                         |
+| Filters     | `error.message` contains `anthropic` OR `claude` OR `AI generation failed` |
+| Actions     | Send email — mark high priority                                            |
 
 These events are generated in `apps/web/app/api/cron/nudge/route.ts` when `generateText` throws.
 
 #### Rule 4 — Twilio SMS send failures
 
-| Field | Value |
-|---|---|
-| Environment | `production` |
-| Conditions | `An event is seen` |
-| Filters | `error.message` contains `Twilio send failed` OR `TwilioSendError` |
-| Actions | Send email — mark high priority |
+| Field       | Value                                                              |
+| ----------- | ------------------------------------------------------------------ |
+| Environment | `production`                                                       |
+| Conditions  | `An event is seen`                                                 |
+| Filters     | `error.message` contains `Twilio send failed` OR `TwilioSendError` |
+| Actions     | Send email — mark high priority                                    |
 
 These events are generated in `apps/web/lib/sms/send.ts`.
 
 #### Rule 5 — SMS cost threshold exceeded (fatal)
 
-| Field | Value |
-|---|---|
-| Environment | `production` |
-| Conditions | `An event is seen` |
-| Filters | `level` is `fatal` AND `tags.cron` equals `sms-cost-alert` |
-| Actions | Send email immediately (no rate limit — this fires at most once per day) |
+| Field       | Value                                                                    |
+| ----------- | ------------------------------------------------------------------------ |
+| Environment | `production`                                                             |
+| Conditions  | `An event is seen`                                                       |
+| Filters     | `level` is `fatal` AND `tags.cron` equals `sms-cost-alert`               |
+| Actions     | Send email immediately (no rate limit — this fires at most once per day) |
 
 This event is captured by the `sms-cost-alert` cron when monthly spend exceeds $40.
 
@@ -108,10 +108,10 @@ This event is captured by the `sms-cost-alert` cron when monthly spend exceeds $
 
 ### Required environment variables
 
-| Variable | Required | Description |
-|---|---|---|
-| `CRON_SECRET` | Yes | Bearer token Vercel sends with cron requests |
-| `ADMIN_EMAIL` | Yes | Alert destination (already used for admin auth) |
+| Variable         | Required | Description                                                      |
+| ---------------- | -------- | ---------------------------------------------------------------- |
+| `CRON_SECRET`    | Yes      | Bearer token Vercel sends with cron requests                     |
+| `ADMIN_EMAIL`    | Yes      | Alert destination (already used for admin auth)                  |
 | `RESEND_API_KEY` | Optional | Resend API key for email delivery. If absent, only Sentry fires. |
 
 ### Setting up Resend (optional)

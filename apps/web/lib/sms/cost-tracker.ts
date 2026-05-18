@@ -1,7 +1,7 @@
 import { createAdminClient } from '@/lib/supabase/admin'
 
 const COST_PER_SEGMENT = 0.0079 // Twilio Canada rate
-const ALERT_THRESHOLD = 40      // dollars
+const ALERT_THRESHOLD = 40 // dollars
 
 function currentMonthKey(): string {
   return new Date().toISOString().slice(0, 7) // YYYY-MM

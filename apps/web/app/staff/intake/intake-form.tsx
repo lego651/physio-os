@@ -144,12 +144,15 @@ export function IntakeForm() {
         const data = await res.json().catch(() => null)
         throw new Error(data?.error ?? `Upload failed (${res.status})`)
       }
-      const { fields: extracted, transcript, warnings: extractWarnings } =
-        (await res.json()) as {
-          fields: Partial<Fields>
-          transcript: string
-          warnings?: string[]
-        }
+      const {
+        fields: extracted,
+        transcript,
+        warnings: extractWarnings,
+      } = (await res.json()) as {
+        fields: Partial<Fields>
+        transcript: string
+        warnings?: string[]
+      }
       setFields((prev) => ({
         patient_name: extracted.patient_name ?? prev.patient_name,
         date_of_visit: extracted.date_of_visit ?? prev.date_of_visit,
@@ -217,19 +220,13 @@ export function IntakeForm() {
               {uploading ? 'Transcribing…' : 'Start recording'}
             </Button>
           ) : (
-            <Button
-              type="button"
-              onClick={stopRecording}
-              variant="destructive"
-              className="h-12"
-            >
+            <Button type="button" onClick={stopRecording} variant="destructive" className="h-12">
               Stop recording
             </Button>
           )}
           {recording ? (
             <p className="text-sm text-muted-foreground">
-              Recording… speak the patient name, date, therapist, treatment area,
-              and session notes.
+              Recording… speak the patient name, date, therapist, treatment area, and session notes.
             </p>
           ) : null}
         </div>

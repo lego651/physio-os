@@ -50,6 +50,7 @@ Exercise Completion:      #16A34A (green)
 ### White-Label Customization
 
 Clinics can override:
+
 - `--primary` and `--primary-foreground` (their brand color)
 - Logo (displayed in header and reports)
 - Clinic name (displayed everywhere)
@@ -208,20 +209,20 @@ Sitting tolerance:  text-3xl font-mono font-bold text-teal-700
 
 ### Required Components (V1)
 
-| Component | Usage |
-|-----------|-------|
-| Button | Actions, send message, navigation |
-| Card | Message bubbles, patient cards, metric cards |
-| Badge | Metric values, status indicators |
-| Input | Chat input, search |
-| Avatar | Patient initials, AI coach icon |
-| Separator | Section dividers |
-| Toast | Notifications, confirmations |
-| Dialog | Confirm actions, patient detail modal |
-| Table | Metrics history, patient list (desktop) |
-| Chart | Trend lines (use recharts or similar via shadcn charts) |
-| Sidebar | Dashboard navigation |
-| Skeleton | Loading states |
+| Component | Usage                                                   |
+| --------- | ------------------------------------------------------- |
+| Button    | Actions, send message, navigation                       |
+| Card      | Message bubbles, patient cards, metric cards            |
+| Badge     | Metric values, status indicators                        |
+| Input     | Chat input, search                                      |
+| Avatar    | Patient initials, AI coach icon                         |
+| Separator | Section dividers                                        |
+| Toast     | Notifications, confirmations                            |
+| Dialog    | Confirm actions, patient detail modal                   |
+| Table     | Metrics history, patient list (desktop)                 |
+| Chart     | Trend lines (use recharts or similar via shadcn charts) |
+| Sidebar   | Dashboard navigation                                    |
+| Skeleton  | Loading states                                          |
 
 ### Spacing
 
@@ -253,6 +254,7 @@ Reports: optimized for mobile-first (opened from SMS).
 Use Lucide icons (bundled with shadcn). Consistent 20px size in UI, 16px in compact contexts.
 
 Key icons:
+
 - `MessageSquare` — chat
 - `Activity` — metrics/health
 - `TrendingDown` / `TrendingUp` — trend indicators

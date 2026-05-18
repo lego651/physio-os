@@ -198,13 +198,19 @@ Single entry point. Coordinates clinic load, opt-out check, DB insert, token min
 ```ts
 class ReviewRequestEngine {
   constructor(deps: {
-    supabase: SupabaseClient;
-    email: EmailAdapter;
-    sms: SmsAdapter;
-    config: { baseUrl: string; tokenSecret: string; testMode: boolean; testRecipientEmail: string; testRecipientPhone: string };
-  });
+    supabase: SupabaseClient
+    email: EmailAdapter
+    sms: SmsAdapter
+    config: {
+      baseUrl: string
+      tokenSecret: string
+      testMode: boolean
+      testRecipientEmail: string
+      testRecipientPhone: string
+    }
+  })
 
-  async create(input: CreateReviewRequestInput): Promise<{ id: string; token: string }>;
+  async create(input: CreateReviewRequestInput): Promise<{ id: string; token: string }>
   // 1. Load clinic by clinic_id (name + google_place_id needed for prompt and deep link).
   // 2. Check review_opt_outs for each channel; skip the channel if opted out.
   // 3. Insert review_requests row + 'queued' event.
@@ -248,6 +254,7 @@ Logs `keywords_submitted` and `draft_generated` events. Returns `{ draft: string
 ### 5.6 `apps/web/app/review/[token]/page.tsx`
 
 Server component that:
+
 1. Decodes the JWT to get `requestId, clinicId`.
 2. Loads the clinic name and Google Maps review URL.
 3. Logs `link_clicked` event (first visit only — deduplicated by checking existing event).
@@ -274,6 +281,7 @@ This route is referenced in every email footer unsubscribe link. SMS opt-out con
 Auth-gated page (existing auth helpers).
 
 Two sections:
+
 1. **Send form.** Patient name, email, phone, therapist (autocomplete from `therapists`), service type (dropdown), channel (email / sms / both). Submit calls `POST /api/admin/review-requests`.
 2. **Recent requests table.** Last 50 rows, with per-row funnel: sent → delivered → opened → clicked → keywords → generated → copied → redirected. Each step shows a checkmark or timestamp. Filterable by channel and date range.
 
@@ -289,16 +297,16 @@ GET handler returns paginated list with embedded funnel events for the admin tab
 
 The admin table renders per-request funnel state by joining `review_requests` with `review_funnel_events` and applying a fixed projection:
 
-| Step | Source | Description |
-|------|--------|-------------|
-| sent | `event_type IN ('sent_email','sent_sms')` | Adapter call returned 200 OK from provider |
-| delivered | `event_type = 'email_delivered'` | Resend webhook only (no Twilio delivery event used in v1) |
-| opened | `event_type = 'email_opened'` | Resend pixel hit. SMS has no equivalent. |
-| clicked | `event_type = 'link_clicked'` | Patient opened `/review/[token]` |
-| keywords-submitted | `event_type = 'keywords_submitted'` | First successful POST to `/api/review/generate` |
-| draft-generated | `event_type = 'draft_generated'` | Claude returned a non-empty draft |
-| copy-clicked | `event_type = 'copy_clicked'` | Clipboard API succeeded |
-| maps-redirected | `event_type = 'maps_redirected'` | Google Maps button clicked |
+| Step               | Source                                    | Description                                               |
+| ------------------ | ----------------------------------------- | --------------------------------------------------------- |
+| sent               | `event_type IN ('sent_email','sent_sms')` | Adapter call returned 200 OK from provider                |
+| delivered          | `event_type = 'email_delivered'`          | Resend webhook only (no Twilio delivery event used in v1) |
+| opened             | `event_type = 'email_opened'`             | Resend pixel hit. SMS has no equivalent.                  |
+| clicked            | `event_type = 'link_clicked'`             | Patient opened `/review/[token]`                          |
+| keywords-submitted | `event_type = 'keywords_submitted'`       | First successful POST to `/api/review/generate`           |
+| draft-generated    | `event_type = 'draft_generated'`          | Claude returned a non-empty draft                         |
+| copy-clicked       | `event_type = 'copy_clicked'`             | Clipboard API succeeded                                   |
+| maps-redirected    | `event_type = 'maps_redirected'`          | Google Maps button clicked                                |
 
 The admin UI displays these eight columns. Conversion at each step = `count(events of step N) / count(events of step N-1)`.
 
@@ -322,6 +330,7 @@ Reuse the existing CASL checklist passed by S607 (`docs/sms-compliance.md`). Spe
 ### 7.2 Twilio test mode
 
 For development and Phase 1.0 friend-alpha:
+
 - Twilio trial credentials.
 - Verified caller IDs (Jason's phone, Jason's friends' phones).
 - Twilio's automatic trial-message prefix is accepted.
@@ -384,13 +393,13 @@ No network in unit tests; adapters and Supabase client are mocked.
 
 ## 10. Rollout
 
-| Stage | Duration | Recipients | Env | Pass criteria |
-|-------|----------|-----------|-----|---------------|
-| 0 — Internal plumbing | 1 day | Jason only | Staging, `REVIEW_TEST_MODE=true` | E2E green. All 9 event types logged for at least one request. |
-| 1 — Friend alpha | 3 days | Jason + 2–3 friends (consenting) | Staging, `REVIEW_TEST_MODE=false` but recipients are friends, not patients | Click rate > 50% on the cohort. Copy rate > 30%. Zero crashes. |
-| 2 — V-Health soft launch (email only) | 14 days | 5–10 real patients/day | Production, email channel only | First real V-Health Google review traceable through the funnel. |
-| 3 — V-Health full (email + SMS) | 30 days | All discharged patients post-treatment, **still admin-triggered** (no JaneApp auto-discovery in scope) | Production, both channels | Day 14 + Day 30 data review with PM + Mathieu. |
-| 4 — Productize for clinic #2 | TBD | New clinic onboarded via admin in ≤ 20 minutes | Production | Clinic #2 first send succeeds end-to-end. |
+| Stage                                 | Duration | Recipients                                                                                             | Env                                                                        | Pass criteria                                                   |
+| ------------------------------------- | -------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| 0 — Internal plumbing                 | 1 day    | Jason only                                                                                             | Staging, `REVIEW_TEST_MODE=true`                                           | E2E green. All 9 event types logged for at least one request.   |
+| 1 — Friend alpha                      | 3 days   | Jason + 2–3 friends (consenting)                                                                       | Staging, `REVIEW_TEST_MODE=false` but recipients are friends, not patients | Click rate > 50% on the cohort. Copy rate > 30%. Zero crashes.  |
+| 2 — V-Health soft launch (email only) | 14 days  | 5–10 real patients/day                                                                                 | Production, email channel only                                             | First real V-Health Google review traceable through the funnel. |
+| 3 — V-Health full (email + SMS)       | 30 days  | All discharged patients post-treatment, **still admin-triggered** (no JaneApp auto-discovery in scope) | Production, both channels                                                  | Day 14 + Day 30 data review with PM + Mathieu.                  |
+| 4 — Productize for clinic #2          | TBD      | New clinic onboarded via admin in ≤ 20 minutes                                                         | Production                                                                 | Clinic #2 first send succeeds end-to-end.                       |
 
 Stage 2 starts only after David Wang has signed off on CASL consent for V-Health patients (operational task, not a code dependency). Stage 3 SMS half starts only after the 10DLC Canadian number is provisioned.
 
@@ -407,17 +416,17 @@ Stage 2 starts only after David Wang has signed off on CASL consent for V-Health
 
 ## 12. Reuse map
 
-| Need | Existing asset | Path |
-|------|----------------|------|
-| Resend client | `apps/web/lib/email/send-lead-notification.ts` patterns | reuse |
-| Twilio send | `apps/web/lib/sms/send.ts` | direct reuse |
-| CASL STOP/HELP/START | `apps/web/lib/sms/keywords.ts`, `process.ts` | direct reuse |
-| Auth gate | `apps/web/lib/auth/*` | direct reuse |
-| Supabase clients | `apps/web/lib/supabase/{admin,client,server}.ts` | direct reuse |
-| Anthropic client | `apps/web/app/api/widget/chat/route.ts` pattern | pattern reuse |
-| JWT (jose) | `apps/web/lib/widget/*` token helpers | pattern reuse, new secret |
-| Turnstile (CSRF) | widget V1 implementation | pattern reuse |
-| Admin shell | `apps/web/app/api/admin/{patients,sms-usage}/*` | pattern reuse |
+| Need                 | Existing asset                                          | Path                      |
+| -------------------- | ------------------------------------------------------- | ------------------------- |
+| Resend client        | `apps/web/lib/email/send-lead-notification.ts` patterns | reuse                     |
+| Twilio send          | `apps/web/lib/sms/send.ts`                              | direct reuse              |
+| CASL STOP/HELP/START | `apps/web/lib/sms/keywords.ts`, `process.ts`            | direct reuse              |
+| Auth gate            | `apps/web/lib/auth/*`                                   | direct reuse              |
+| Supabase clients     | `apps/web/lib/supabase/{admin,client,server}.ts`        | direct reuse              |
+| Anthropic client     | `apps/web/app/api/widget/chat/route.ts` pattern         | pattern reuse             |
+| JWT (jose)           | `apps/web/lib/widget/*` token helpers                   | pattern reuse, new secret |
+| Turnstile (CSRF)     | widget V1 implementation                                | pattern reuse             |
+| Admin shell          | `apps/web/app/api/admin/{patients,sms-usage}/*`         | pattern reuse             |
 
 ---
 

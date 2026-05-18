@@ -7,6 +7,7 @@
 ---
 
 ### S401 — Weekly report generation via AI
+
 **Type:** AI/backend
 **Points:** 5
 **Depends on:** S306, S307
@@ -14,6 +15,7 @@
 **Goal:** AI generates a weekly narrative summary with structured metrics, trends, and insights for each patient.
 
 **Scope:**
+
 - Create `packages/ai-core/src/tools/generate-report.ts`:
   - `generateWeeklyReport(patientId, weekStart, supabase)` function
   - Loads: all metrics for the week, all messages for the week, patient profile
@@ -41,12 +43,14 @@
 - Report language: match patient's language preference (summary in EN or CN)
 
 **Edge cases:**
+
 - Patient has < 3 data points this week → generate report with available data + note "limited data"
 - Patient has 0 data points → skip report generation for this patient
 - Previous week has no report → can't calculate trends, show "first week" baseline
 - AI generates summary longer than expected → truncate to 500 chars
 
 **Acceptance criteria:**
+
 1. Report generated with narrative summary + structured metrics
 2. Trends calculated by comparing to previous week
 3. Insights array contains at least 1 observation (or empty if insufficient data)
@@ -56,6 +60,7 @@
 7. Unit test: mock data → verify correct averages and trends
 
 **Out of scope:**
+
 - Report delivery (S403 — SMS)
 - Report web page (S402)
 - Cross-patient reports (V2)
@@ -63,6 +68,7 @@
 ---
 
 ### S402 — Weekly report web page (mobile-first)
+
 **Type:** frontend
 **Points:** 5
 **Depends on:** S401
@@ -70,6 +76,7 @@
 **Goal:** Mobile-friendly web page showing the weekly report with charts and insights. Accessed via signed URL from SMS.
 
 **Scope:**
+
 - Route: `apps/web/app/report/[token]/page.tsx`
   - Server component: verify JWT token, load report from DB
   - Invalid/expired token → friendly 404: "This report has expired. Open your chat to see your progress."
@@ -92,12 +99,14 @@
 - Mobile-optimized: designed for 375px viewport, scroll-based layout, no horizontal overflow
 
 **Edge cases:**
+
 - Expired token (>7 days) → graceful error page with link to chat
 - Report with no pain data → hide pain card (don't show "N/A")
 - Report with only 1 data point → show single point on chart, note "limited data"
 - Chart with all identical values → still renders (flat line is valid)
 
 **Acceptance criteria:**
+
 1. Valid token → report page renders with correct patient data
 2. Expired token → friendly error page
 3. Metric cards show correct averages with trend arrows
@@ -110,6 +119,7 @@
 10. WCAG AA contrast on all text
 
 **Out of scope:**
+
 - PDF export (V2)
 - Sharing reports with practitioners via dashboard (S5 — linked from patient detail)
 - Historical report comparison
@@ -117,6 +127,7 @@
 ---
 
 ### S403 — Weekly report SMS delivery via Vercel Cron
+
 **Type:** backend
 **Points:** 2
 **Depends on:** S401, S402, S303
@@ -124,6 +135,7 @@
 **Goal:** Every Sunday at 9am PST, generate reports for all active patients and send a short SMS with link.
 
 **Scope:**
+
 - Create Vercel Cron endpoint: `apps/web/app/api/cron/weekly-report/route.ts`
   - Verify `CRON_SECRET` header (Vercel Cron sets this automatically)
   - Query all active, non-opted-out patients with at least 1 metric this week
@@ -138,6 +150,7 @@
 - Short URL: use the report token URL directly (it's already short enough)
 
 **Edge cases:**
+
 - Patient with 0 metrics this week → skip (no report generated, no SMS sent)
 - Patient opted out → skip
 - Twilio send failure → log error, continue to next patient (don't stop batch)
@@ -145,6 +158,7 @@
 - Sunday morning: some patients may have only 1-2 days of data if they started mid-week → still generate report
 
 **Acceptance criteria:**
+
 1. Cron endpoint requires `CRON_SECRET` header
 2. Reports generated only for patients with data
 3. SMS sent with summary + link (under 160 chars)
@@ -154,12 +168,14 @@
 7. Manual trigger via `curl` works for testing
 
 **Out of scope:**
+
 - Custom schedule per patient (V2)
 - Email delivery (V2)
 
 ---
 
 ### S404 — Inactivity nudge: daily cron for 3+ day inactive patients
+
 **Type:** backend
 **Points:** 3
 **Depends on:** S303, S207
@@ -167,6 +183,7 @@
 **Goal:** Patients who haven't messaged in 3+ days get a gentle, personalized SMS nudge.
 
 **Scope:**
+
 - Create Vercel Cron endpoint: `apps/web/app/api/cron/nudge/route.ts`
   - Verify `CRON_SECRET`
   - Query: patients where `last message > 3 days ago` AND `active = true` AND `opted_out = false` AND `consent_at IS NOT NULL`
@@ -184,6 +201,7 @@
 - Verify `supabase db reset` succeeds with the new column
 
 **Edge cases:**
+
 - Patient just responded yesterday → not inactive, skip
 - Patient nudged 2 days ago and still hasn't responded → don't nudge again (1 per period)
 - Patient responds after nudge → `last_nudged_at` doesn't reset automatically; the 3-day inactivity timer resets because there's a new message
@@ -191,6 +209,7 @@
 - Claude generates nudge > 160 chars → truncate
 
 **Acceptance criteria:**
+
 1. Patients inactive 3+ days get a nudge SMS
 2. Max 1 nudge per inactive period
 3. Opted-out patients never nudged
@@ -200,6 +219,7 @@
 7. `last_nudged_at` updated after nudge sent
 
 **Out of scope:**
+
 - Configurable inactivity threshold (hardcode 3 days for V1)
 - Email nudges (V2)
 - Nudge frequency settings per patient (V2)
@@ -207,6 +227,7 @@
 ---
 
 ### S405 — Pattern detection: analyze metrics for correlations
+
 **Type:** AI
 **Points:** 5
 **Depends on:** S401
@@ -214,6 +235,7 @@
 **Goal:** During weekly report generation, AI analyzes 2+ weeks of data to find recovery patterns and correlations.
 
 **Scope:**
+
 - Extend `generateWeeklyReport()` (S401) with pattern analysis:
   - If patient has 14+ days of data, include pattern detection in the report prompt
   - Pattern prompt: "Analyze the following daily metrics and look for correlations:
@@ -228,12 +250,14 @@
   - Bad: "Correlation coefficient between exercise and discomfort: -0.45"
 
 **Edge cases:**
+
 - < 14 days of data → skip pattern detection, only basic summary
 - All metrics identical → "Your metrics have been stable this week."
 - Clear correlation found → present as observation, not prescription: "We notice..." not "You should..."
 - Spurious correlation (e.g., pain lower on weekends due to rest, not exercise) → AI should caveat: "This might be due to..."
 
 **Acceptance criteria:**
+
 1. Patients with 14+ days of data get pattern analysis
 2. Patients with < 14 days get basic summary only
 3. Insights are in patient-friendly language
@@ -243,12 +267,14 @@
 7. Edge case: stable metrics → appropriate "stable" insight
 
 **Out of scope:**
+
 - Statistical modeling (V2 — for now, Claude's judgment is sufficient)
 - Cross-patient pattern analysis (V2)
 
 ---
 
 ### S406 — Conversational progress query: "how am I doing?"
+
 **Type:** AI
 **Points:** 2
 **Depends on:** S307
@@ -256,6 +282,7 @@
 **Goal:** When a patient asks about their progress, AI uses `get_history` tool to provide a data-backed answer.
 
 **Scope:**
+
 - System prompt update (S202): add instruction:
   - "When the patient asks about their progress, how they're doing, or requests a summary, use the `get_history` tool to retrieve their recent metrics before responding."
   - "Present the data conversationally: 'Over the past week, your average discomfort was 1.8, down from 2.1 the week before. You completed exercises 5 out of 7 days. Keep it up!'"
@@ -263,6 +290,7 @@
 - Test with various phrasings: "how am I doing?", "am I getting better?", "show me my progress", "这周怎么样？"
 
 **Acceptance criteria:**
+
 1. "How am I doing?" → AI calls `get_history` and responds with data
 2. "Am I getting better?" → same behavior
 3. Chinese equivalent → same behavior in Chinese
@@ -270,11 +298,13 @@
 5. New patient with no data → "We don't have enough data yet. Let's start tracking!"
 
 **Out of scope:**
+
 - Rendering charts in chat (web report handles visualization)
 
 ---
 
 ### S407 — Vercel Cron configuration
+
 **Type:** setup
 **Points:** 1
 **Depends on:** S403, S404
@@ -282,6 +312,7 @@
 **Goal:** Configure all cron jobs in `vercel.json`.
 
 **Scope:**
+
 - Update `vercel.json`:
   ```json
   {
@@ -296,6 +327,7 @@
 - Document: how to manually trigger crons for testing (curl with auth header)
 
 **Acceptance criteria:**
+
 1. `vercel.json` contains both cron entries
 2. Cron endpoints reject requests without valid secret
 3. Manual trigger via curl works
@@ -304,6 +336,7 @@
 ---
 
 ### S408 — SMS cost tracking
+
 **Type:** backend
 **Points:** 2
 **Depends on:** S303
@@ -311,21 +344,24 @@
 **Goal:** Track SMS segment usage and alert admin when approaching $50 budget.
 
 **Scope:**
+
 - Create utility `apps/web/lib/sms/cost-tracker.ts`:
   - After each SMS send, increment a counter: `sms_segments:{YYYY-MM}` in DB or simple table
   - Create small table: `sms_usage(month text PK, segments int, cost_estimate decimal)`
-  - Cost estimate: segments * $0.0079 (Twilio Canada rate for outbound SMS)
+  - Cost estimate: segments \* $0.0079 (Twilio Canada rate for outbound SMS)
   - Inbound SMS are free on Twilio
 - Admin API endpoint: `GET /api/admin/sms-usage` → returns current month usage
 - In daily nudge cron (S404): after processing, check month-to-date cost. If > $40, send alert email to `ADMIN_EMAIL` (simple `fetch` to a mail endpoint, or inline for V1)
 - Dashboard display (S5): show current month SMS cost in settings or overview
 
 **Edge cases:**
+
 - Chinese/Unicode messages use UCS-2 → 70 chars per segment vs 160. Track actual segments, not message count.
 - Twilio provides segment count in API response → use that instead of estimating
 - Month rollover: new counter starts automatically with `{YYYY-MM}` key
 
 **Acceptance criteria:**
+
 1. Each outbound SMS increments the monthly counter
 2. Cost estimate calculated from actual segment count
 3. Admin endpoint returns current month usage
@@ -333,12 +369,14 @@
 5. Month rollover handled correctly
 
 **Out of scope:**
+
 - Twilio usage API integration (approximation is fine for V1)
 - Per-patient cost tracking (V2)
 
 ---
 
 ### S409 — Report page "Open Chat" CTA
+
 **Type:** frontend
 **Points:** 1
 **Depends on:** S402
@@ -346,11 +384,13 @@
 **Goal:** Report page includes a clear call-to-action to open the web chat.
 
 **Scope:**
+
 - At bottom of report page: shadcn `Button` "Open Chat →" linking to `/chat`
 - If patient is not authenticated on web → button links to `/login` with redirect back to `/chat`
 - Button style: primary, full-width on mobile
 
 **Acceptance criteria:**
+
 1. Button visible at bottom of report page
 2. Click → navigates to `/chat` or `/login` → `/chat`
 3. Full-width on mobile
@@ -359,6 +399,7 @@
 ---
 
 ### S410 — Tests: reports, crons, nudges, patterns
+
 **Type:** testing
 **Points:** 3
 **Depends on:** S401-S408
@@ -366,6 +407,7 @@
 **Goal:** Automated tests for Sprint 4 features.
 
 **Scope:**
+
 - Report generation: mock metrics → verify averages, trends, insights structure
 - Cron auth: missing secret → 401, valid secret → 200
 - Nudge logic: inactive 3 days → eligible, inactive 2 days → not eligible, already nudged → not eligible
@@ -374,6 +416,7 @@
 - Report token: valid → renders, expired → error page
 
 **Acceptance criteria:**
+
 1. `pnpm test` passes all Sprint 4 tests
 2. 20+ test cases
 3. Cron auth tested

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { logFunnelEvent, IDEMPOTENT_EVENTS } from '../events'
 
-type Row = { request_id: string; event_type: string; metadata: any }
+type Row = { request_id: string; event_type: string; metadata: unknown }
 let rows: Row[]
 let inserted: Row[]
 
@@ -10,25 +10,40 @@ function makeSupabase() {
   return {
     from(table: string) {
       if (table !== 'review_funnel_events') throw new Error('unexpected table ' + table)
-      return {
-        select() { return this },
-        eq(col: string, val: string) { return { ...this, _filter: { ...(this as any)._filter, [col]: val } } },
+      // Use a closure-based filter so eq() can accumulate without `this` spread.
+      const filter: Record<string, string> = {}
+      const builder = {
+        select() {
+          return builder
+        },
+        eq(col: string, val: string) {
+          filter[col] = val
+          return builder
+        },
         async maybeSingle() {
-          const f = (this as any)._filter || {}
-          const found = rows.find(r => r.request_id === f.request_id && r.event_type === f.event_type)
+          const found = rows.find(
+            (r) => r.request_id === filter.request_id && r.event_type === filter.event_type,
+          )
           return { data: found ?? null, error: null }
         },
         async insert(row: Row) {
-          inserted.push(row); rows.push(row)
+          inserted.push(row)
+          rows.push(row)
           return { data: row, error: null }
         },
       }
+      return builder
     },
+    // Narrow cast — mock only implements the subset of SupabaseClient used by logFunnelEvent.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any
 }
 
 describe('logFunnelEvent', () => {
-  beforeEach(() => { rows = []; inserted = [] })
+  beforeEach(() => {
+    rows = []
+    inserted = []
+  })
 
   it('inserts an event row', async () => {
     const supabase = makeSupabase()

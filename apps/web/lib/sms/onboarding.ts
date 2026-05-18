@@ -29,7 +29,12 @@ export async function handleSMSOnboarding(
         .eq('id', patient.id)
       if (error) {
         console.error('[sms] Failed to update consent:', error)
-        await sendAndSave(supabase, patient.id, phone, 'Something went wrong. Please try again by replying YES.')
+        await sendAndSave(
+          supabase,
+          patient.id,
+          phone,
+          'Something went wrong. Please try again by replying YES.',
+        )
         return
       }
       await sendAndSave(supabase, patient.id, phone, 'Great! What should we call you?')
@@ -57,10 +62,20 @@ export async function handleSMSOnboarding(
     const { error } = await supabase.from('patients').update({ name }).eq('id', patient.id)
     if (error) {
       console.error('[sms] Failed to update name:', error)
-      await sendAndSave(supabase, patient.id, phone, 'Something went wrong. Please try again with your name.')
+      await sendAndSave(
+        supabase,
+        patient.id,
+        phone,
+        'Something went wrong. Please try again with your name.',
+      )
       return
     }
-    await sendAndSave(supabase, patient.id, phone, 'What brings you to V-Health? (e.g., back pain, shoulder injury)')
+    await sendAndSave(
+      supabase,
+      patient.id,
+      phone,
+      'What brings you to V-Health? (e.g., back pain, shoulder injury)',
+    )
     return
   }
 
@@ -76,7 +91,12 @@ export async function handleSMSOnboarding(
       await sendAndSave(supabase, patient.id, phone, 'Something went wrong. Please try again.')
       return
     }
-    await sendAndSave(supabase, patient.id, phone, 'Preferred language? Reply 1 for English, 2 for 中文')
+    await sendAndSave(
+      supabase,
+      patient.id,
+      phone,
+      'Preferred language? Reply 1 for English, 2 for 中文',
+    )
     return
   }
 
@@ -113,13 +133,8 @@ export async function handleSMSOnboarding(
 }
 
 /** Send an SMS and persist the assistant message for audit trail. */
-async function sendAndSave(
-  supabase: AdminClient,
-  patientId: string,
-  phone: string,
-  body: string,
-) {
-  await sendSMS({ to: phone, body }).catch(err => {
+async function sendAndSave(supabase: AdminClient, patientId: string, phone: string, body: string) {
+  await sendSMS({ to: phone, body }).catch((err) => {
     console.error('[sms] Failed to send onboarding message:', err)
   })
   await supabase.from('messages').insert({

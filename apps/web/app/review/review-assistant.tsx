@@ -76,24 +76,16 @@ export function ReviewAssistant({ isProd }: Props) {
               rows={3}
               disabled={isLoading}
             />
-            <Button
-              onClick={handleGenerate}
-              disabled={isLoading}
-              className="w-full"
-            >
+            <Button onClick={handleGenerate} disabled={isLoading} className="w-full">
               {isLoading ? 'Generating…' : 'Generate Review'}
             </Button>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
+            {error && <p className="text-sm text-destructive">{error}</p>}
           </CardContent>
         </Card>
       ) : (
         <Card>
           <CardContent className="space-y-4">
-            <div className="rounded-md bg-muted px-3 py-3 text-sm whitespace-pre-wrap">
-              {draft}
-            </div>
+            <div className="rounded-md bg-muted px-3 py-3 text-sm whitespace-pre-wrap">{draft}</div>
             <div className="flex flex-col gap-2">
               <Button onClick={handleCopy} variant="outline" className="w-full">
                 {copied ? 'Copied!' : 'Copy Review'}

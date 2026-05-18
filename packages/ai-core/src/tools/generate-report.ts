@@ -55,15 +55,26 @@ async function signReportToken(reportId: string, patientId: string): Promise<str
 // ---------------------------------------------------------------------------
 
 const reportOutputSchema = z.object({
-  summary: z.string().describe('2-3 sentence narrative summary of the patient\'s recovery progress'),
+  summary: z.string().describe("2-3 sentence narrative summary of the patient's recovery progress"),
   metricsSummary: z.object({
-    avgPain: z.number().nullable().describe('Average pain level for the week (1-10 scale), null if no data'),
-    avgDiscomfort: z.number().nullable().describe('Average discomfort for the week (0-3 scale), null if no data'),
-    avgSittingTolerance: z.number().nullable().describe('Average sitting tolerance in minutes, null if no data'),
+    avgPain: z
+      .number()
+      .nullable()
+      .describe('Average pain level for the week (1-10 scale), null if no data'),
+    avgDiscomfort: z
+      .number()
+      .nullable()
+      .describe('Average discomfort for the week (0-3 scale), null if no data'),
+    avgSittingTolerance: z
+      .number()
+      .nullable()
+      .describe('Average sitting tolerance in minutes, null if no data'),
     exerciseDays: z.number().int().describe('Number of days exercises were completed'),
     totalDays: z.literal(7).describe('Always 7 — the full week window'),
     painTrend: z.enum(['improving', 'stable', 'worsening']).describe('Week-over-week pain trend'),
-    discomfortTrend: z.enum(['improving', 'stable', 'worsening']).describe('Week-over-week discomfort trend'),
+    discomfortTrend: z
+      .enum(['improving', 'stable', 'worsening'])
+      .describe('Week-over-week discomfort trend'),
   }),
   insights: z.array(z.string()).describe('List of notable patterns or observations for the week'),
 })
@@ -126,11 +137,7 @@ export async function generateWeeklyReport(
       .lt('created_at', weekEnd.toISOString())
       .order('created_at', { ascending: true }),
 
-    supabase
-      .from('patients')
-      .select('name, language, profile')
-      .eq('id', patientId)
-      .single(),
+    supabase.from('patients').select('name, language, profile').eq('id', patientId).single(),
   ])
 
   if (metricsResult.error) {
@@ -145,7 +152,10 @@ export async function generateWeeklyReport(
   const metrics = (metricsResult.data ?? []) as QueriedMetric[]
   const prevMetrics = (prevMetricsResult.data ?? []) as QueriedMetric[]
   const patient = patientResult.data as Pick<PatientRow, 'name' | 'language' | 'profile'>
-  const messages = (messagesResult.data ?? []) as Pick<MessageRow, 'role' | 'content' | 'created_at'>[]
+  const messages = (messagesResult.data ?? []) as Pick<
+    MessageRow,
+    'role' | 'content' | 'created_at'
+  >[]
 
   // -------------------------------------------------------------------------
   // 2. Skip if zero data points
@@ -180,9 +190,15 @@ export async function generateWeeklyReport(
   const statsLines: string[] = [
     `Week: ${weekLabel}`,
     `Data points: ${metrics.length} (${limitedData ? 'LIMITED DATA — fewer than 3 days' : 'sufficient'})`,
-    avgPain != null ? `Avg pain: ${round1(avgPain)}/10 (trend vs last week: ${painTrend})` : 'Avg pain: no data',
-    avgDiscomfort != null ? `Avg discomfort: ${round1(avgDiscomfort)}/3 (trend vs last week: ${discomfortTrend})` : 'Avg discomfort: no data',
-    avgSittingTolerance != null ? `Avg sitting tolerance: ${Math.round(avgSittingTolerance)} min` : 'Avg sitting tolerance: no data',
+    avgPain != null
+      ? `Avg pain: ${round1(avgPain)}/10 (trend vs last week: ${painTrend})`
+      : 'Avg pain: no data',
+    avgDiscomfort != null
+      ? `Avg discomfort: ${round1(avgDiscomfort)}/3 (trend vs last week: ${discomfortTrend})`
+      : 'Avg discomfort: no data',
+    avgSittingTolerance != null
+      ? `Avg sitting tolerance: ${Math.round(avgSittingTolerance)} min`
+      : 'Avg sitting tolerance: no data',
     `Exercise adherence: ${exerciseDays}/7 days`,
   ]
 
@@ -245,7 +261,8 @@ export async function generateWeeklyReport(
   result.metricsSummary.discomfortTrend = discomfortTrend
   result.metricsSummary.avgPain = avgPain != null ? round1(avgPain) : null
   result.metricsSummary.avgDiscomfort = avgDiscomfort != null ? round1(avgDiscomfort) : null
-  result.metricsSummary.avgSittingTolerance = avgSittingTolerance != null ? Math.round(avgSittingTolerance) : null
+  result.metricsSummary.avgSittingTolerance =
+    avgSittingTolerance != null ? Math.round(avgSittingTolerance) : null
   result.metricsSummary.exerciseDays = exerciseDays
 
   // -------------------------------------------------------------------------

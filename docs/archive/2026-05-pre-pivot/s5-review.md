@@ -19,6 +19,7 @@ boundaries, and a rate-limit check that can be trivially bypassed**. These must
 be resolved before production use.
 
 **Total issues: 16**
+
 - 🔴 Critical: 3
 - 🟠 High: 5
 - 🟡 Medium: 5
@@ -30,6 +31,7 @@ be resolved before production use.
 
 **Severity:** 🔴 Critical
 **Files:**
+
 - `apps/web/app/api/admin/patients/route.ts`
 - `apps/web/app/api/admin/patients/[id]/route.ts`
 - `apps/web/app/api/admin/patients/[id]/toggle-active/route.ts`
@@ -46,6 +48,7 @@ Compare with `api/admin/sms-usage/route.ts` which correctly uses
 `verifyBearerToken()`. The new S5 routes do not.
 
 Any unauthenticated caller can:
+
 - Create patients with arbitrary data (`POST /api/admin/patients`)
 - Edit any patient (`PATCH /api/admin/patients/:id`)
 - Toggle any patient's active status
@@ -53,6 +56,7 @@ Any unauthenticated caller can:
 - Read all conversation history for any patient
 
 **Action:**
+
 1. Add a shared `requireAdminAuth()` helper or middleware that validates the
    Supabase session and checks the user has an admin role.
 2. Apply it as the first guard in every `api/admin/*` route handler.
@@ -61,6 +65,7 @@ Any unauthenticated caller can:
 4. Return 401 if unauthenticated, 403 if authenticated but not admin.
 
 **Acceptance:**
+
 - Unauthenticated requests to all admin API routes return 401.
 - Authenticated non-admin users return 403.
 - Authenticated admin users can proceed normally.
@@ -72,6 +77,7 @@ Any unauthenticated caller can:
 
 **Severity:** 🔴 Critical
 **Files:**
+
 - `apps/web/app/(clinic)/dashboard/patients/[id]/conversation-log.tsx` — **not imported in `[id]/page.tsx`**
 - `apps/web/app/(clinic)/dashboard/patients/[id]/weekly-reports.tsx` — **not imported in `[id]/page.tsx`**
 - `apps/web/app/(clinic)/dashboard/patients/[id]/send-checkin-button.tsx` — **not imported in `[id]/page.tsx`**
@@ -88,6 +94,7 @@ Patient dialog, Conversation Log, Weekly Reports, Send Check-in button, and
 Toggle Active button are unreachable in the live app.
 
 **Action:**
+
 1. In `[id]/page.tsx`:
    - Import and render `<ConversationLog patientId={patient.id} />`
    - Import and render `<WeeklyReports patientId={patient.id} />`
@@ -100,6 +107,7 @@ Toggle Active button are unreachable in the live app.
    page into Profile / Metrics / Conversations / Reports tabs.
 
 **Acceptance:**
+
 - All six components are visible and functional in the running app.
 - Navigating to `/dashboard/patients/[id]` shows conversation log, reports,
   send check-in, toggle active, and edit buttons.
@@ -131,6 +139,7 @@ admin-initiated check-ins. Two issues:
    changes.
 
 **Action:**
+
 1. Add `metadata: { admin_initiated: true }` (or a dedicated column) when
    inserting the check-in message.
 2. Update the rate limit query to filter on `metadata->>'admin_initiated' = 'true'`
@@ -138,6 +147,7 @@ admin-initiated check-ins. Two issues:
 3. Use UTC-based date for the rate limit window: `todayStart.setUTCHours(0, 0, 0, 0)`.
 
 **Acceptance:**
+
 - Admin can send check-in even if AI already responded via SMS today.
 - Admin cannot send more than 1 check-in per patient per day.
 - Rate limit query specifically targets admin-initiated messages.
@@ -152,6 +162,7 @@ admin-initiated check-ins. Two issues:
 
 **Problem:**
 `getPatients()` runs 3 sequential queries:
+
 1. `SELECT * FROM patients`
 2. `SELECT * FROM messages WHERE patient_id IN (...)`
 3. `SELECT * FROM metrics WHERE patient_id IN (...)`
@@ -167,6 +178,7 @@ The initial `avgPain7dMap` loop on line 78 computes nothing useful (it sets
 the value to the first pain_level and then the `else` branch is empty).
 
 **Action:**
+
 1. Wrap the three queries in `Promise.all()` to parallelize.
 2. Use Supabase aggregate views or DB functions to compute per-patient
    aggregates server-side rather than fetching all rows.
@@ -176,6 +188,7 @@ the value to the first pain_level and then the `else` branch is empty).
    since it's completely overwritten by the `painSums` loop below it.
 
 **Acceptance:**
+
 - Patient list query completes in < 500ms with 30 patients.
 - No full-table scans on messages or metrics.
 - Dead code removed.
@@ -186,6 +199,7 @@ the value to the first pain_level and then the `else` branch is empty).
 
 **Severity:** 🟠 High
 **Files:**
+
 - `apps/web/app/(clinic)/dashboard/patients/page.tsx` — `getWeekStart()` (local time)
 - `apps/web/app/(clinic)/dashboard/patients/overview-cards.tsx` — `getMondayOf()` (UTC)
 - `apps/web/app/(clinic)/dashboard/patients/[id]/metric-overview-cards.tsx` — `getWeekStart()` (local time)
@@ -193,6 +207,7 @@ the value to the first pain_level and then the `else` branch is empty).
 
 **Problem:**
 Four separate implementations of "get start of week." Worse, they disagree:
+
 - `page.tsx` and `metric-overview-cards.tsx` use **local time** (`getDay()`, `setHours()`)
 - `overview-cards.tsx` uses **UTC** (`getUTCDay()`, `setUTCHours()`)
 - `weekly-report/route.ts` uses **UTC** with a different algorithm `(dayOfWeek + 6) % 7`
@@ -203,11 +218,13 @@ week-boundary mismatches between the dashboard overview cards and the patient
 detail metric cards.
 
 **Action:**
+
 1. Create a single shared utility `lib/utils/date.ts` with `getWeekStartUTC()`.
 2. Replace all 4 implementations with the shared one.
 3. Ensure all date arithmetic uses UTC methods consistently.
 
 **Acceptance:**
+
 - Single source of truth for week-start calculation.
 - All dashboard components agree on which week it is.
 - Works correctly in both UTC and non-UTC environments.
@@ -218,6 +235,7 @@ detail metric cards.
 
 **Severity:** 🟠 High
 **Files:**
+
 - `apps/web/app/(clinic)/dashboard/patients/loading.tsx` — **missing**
 - `apps/web/app/(clinic)/dashboard/patients/error.tsx` — **missing**
 - `apps/web/app/(clinic)/dashboard/patients/[id]/loading.tsx` — **missing**
@@ -233,6 +251,7 @@ Neither `loading.tsx` (for streaming/suspense fallback) nor `error.tsx` (for
 error boundaries) exist anywhere in the dashboard route tree.
 
 **Action:**
+
 1. Add `loading.tsx` at `dashboard/patients/` and `dashboard/patients/[id]/`
    with skeleton components (card outlines, pulsing bars).
 2. Add `error.tsx` at `dashboard/patients/` and `dashboard/patients/[id]/`
@@ -241,6 +260,7 @@ error boundaries) exist anywhere in the dashboard route tree.
    patient list renders immediately while cards load.
 
 **Acceptance:**
+
 - Loading skeleton visible during page load.
 - Error state shows friendly message with retry button.
 - Patient list is not blocked by overview cards loading.
@@ -251,6 +271,7 @@ error boundaries) exist anywhere in the dashboard route tree.
 
 **Severity:** 🟠 High
 **Files:**
+
 - `.env.example`
 - `apps/web/sentry.client.config.ts`
 
@@ -270,6 +291,7 @@ Next.js will not inject it into the client bundle, making client-side error
 tracking non-functional.
 
 **Action:**
+
 1. Add `SENTRY_DSN`, `SENTRY_AUTH_TOKEN`, `SENTRY_ORG`, `SENTRY_PROJECT` to
    `.env.example` with placeholder values.
 2. Rename to `NEXT_PUBLIC_SENTRY_DSN` for client-side usage (or use Sentry's
@@ -282,6 +304,7 @@ tracking non-functional.
 4. Document required Sentry env vars in README.
 
 **Acceptance:**
+
 - `.env.example` contains all Sentry env vars.
 - Client-side Sentry actually captures errors in production.
 - No Sentry bundle loaded when DSN is not configured (dev environment).
@@ -292,6 +315,7 @@ tracking non-functional.
 
 **Severity:** 🟡 Medium
 **Files:**
+
 - `apps/web/app/api/admin/patients/[id]/route.ts`
 - `apps/web/app/api/admin/patients/[id]/toggle-active/route.ts`
 - `apps/web/app/api/admin/patients/[id]/send-checkin/route.ts`
@@ -305,6 +329,7 @@ parameterizes queries), but it will produce unhelpful 500 errors from Supabase
 trying to match a non-UUID string against a UUID column.
 
 **Action:**
+
 1. Add a UUID format validation at the top of each handler:
    ```ts
    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
@@ -313,6 +338,7 @@ trying to match a non-UUID string against a UUID column.
 2. Or create a shared `validateUUID()` utility in `lib/utils/`.
 
 **Acceptance:**
+
 - Non-UUID `[id]` values return 400 with a clear error.
 - No 500 errors from invalid ID formats.
 
@@ -322,6 +348,7 @@ trying to match a non-UUID string against a UUID column.
 
 **Severity:** 🟡 Medium
 **Files:**
+
 - `apps/web/app/api/admin/patients/route.ts` — uses `Response.json()`
 - `apps/web/app/api/admin/patients/[id]/route.ts` — uses `Response.json()`
 - `apps/web/app/api/admin/patients/[id]/send-checkin/route.ts` — uses `NextResponse.json()` + imports `NextRequest`
@@ -336,6 +363,7 @@ expose raw Supabase error messages to clients (`error.message`), which may
 leak internal schema details.
 
 **Action:**
+
 1. Standardize on `Response.json()` (Web standard, no import needed) across
    all admin routes. Remove `NextRequest`/`NextResponse` imports where
    `Request` and `Response` suffice.
@@ -343,6 +371,7 @@ leak internal schema details.
    messages and log the actual error server-side.
 
 **Acceptance:**
+
 - All admin routes use consistent Response API.
 - No Supabase error messages leaked to clients.
 
@@ -355,6 +384,7 @@ leak internal schema details.
 
 **Problem:**
 `getPatientDetail()` queries all metrics for a patient with no `.limit()`:
+
 ```ts
 const { data: metrics } = await supabase
   .from('metrics')
@@ -371,6 +401,7 @@ The `MetricsTable` already implements client-side pagination (showing 20 at a
 time), but all 180+ rows are still shipped in the initial HTML payload.
 
 **Action:**
+
 1. For `MetricOverviewCards`: only fetch this-week metrics (add date filter).
 2. For `TrendChart`: default to 30 days, only fetch that range initially.
 3. For `MetricsTable`: implement server-side pagination — fetch first 20 rows,
@@ -379,6 +410,7 @@ time), but all 180+ rows are still shipped in the initial HTML payload.
    with very active patients.
 
 **Acceptance:**
+
 - Initial page load fetches ≤ 50 metric rows.
 - Table "load more" fetches additional pages from the server.
 - Page load time remains < 2s with 200+ metrics.
@@ -389,6 +421,7 @@ time), but all 180+ rows are still shipped in the initial HTML payload.
 
 **Severity:** 🟡 Medium
 **Files:**
+
 - `apps/web/app/(clinic)/dashboard/patients/page.tsx`
 - `apps/web/app/(clinic)/dashboard/patients/overview-cards.tsx`
 
@@ -402,12 +435,14 @@ This means the patient list page makes **8 Supabase queries** total (3 from
 `getPatients` + 5 from `OverviewCards`) when it could share the data.
 
 **Action:**
+
 1. Consolidate: fetch the aggregate data once in the parent page and pass it
    to both `PatientList` and `OverviewCards` as props.
 2. Or: make `OverviewCards` accept pre-computed stats from the parent's
    already-fetched patient data.
 
 **Acceptance:**
+
 - Patient list page makes ≤ 5 total database queries.
 - Overview cards and patient list render from the same data source.
 
@@ -420,12 +455,14 @@ This means the patient list page makes **8 Supabase queries** total (3 from
 
 **Problem:**
 The `buildPhone()` function hardcodes `+1` (North America):
+
 ```ts
 function buildPhone(local: string) {
   const digits = local.replace(/\D/g, '')
   return `+1${digits}`
 }
 ```
+
 The helper text says "North American numbers only (+1)." For a health app that
 serves Chinese-speaking patients, this is a significant limitation. A patient
 in China (+86), Hong Kong (+852), or other regions cannot be added.
@@ -435,11 +472,13 @@ Also: no validation that the resulting E.164 number has the correct digit count
 E.164 regex on the backend but is not a valid phone number.
 
 **Action:**
+
 1. Add a country code selector (at least +1 and +86 for MVP).
 2. Validate digit count matches the selected country code (10 for +1, 11 for +86).
 3. Or: accept full E.164 input and validate format client-side.
 
 **Acceptance:**
+
 - Admin can add patients with non-US phone numbers.
 - Invalid digit counts are rejected before submission.
 
@@ -461,6 +500,7 @@ The message API endpoint (`/api/admin/patients/[id]/messages/route.ts`) also
 returns `media_urls` as stored — it does not regenerate signed URLs.
 
 **Action:**
+
 1. In the messages API route, detect Supabase Storage URLs and regenerate
    signed URLs before returning them.
 2. Or: store public URLs / permanent paths instead of signed URLs in the
@@ -469,6 +509,7 @@ returns `media_urls` as stored — it does not regenerate signed URLs.
    expire.
 
 **Acceptance:**
+
 - MMS images display correctly even if the message is > 1 hour old.
 - Broken image fallback is shown if URL generation fails.
 
@@ -489,10 +530,12 @@ For the patient detail page, the chart is below the fold and not needed for
 first contentful paint.
 
 **Action:**
+
 1. Lazy-load `TrendChart` with `dynamic(() => import('./trend-chart'), { ssr: false })`.
 2. Show a loading skeleton placeholder while the chart loads.
 
 **Acceptance:**
+
 - Recharts bundle only loads when the chart is in viewport or after page load.
 - Page LCP is not affected by chart bundle size.
 
@@ -515,10 +558,12 @@ is available in all modern browsers, or a library like `date-fns/formatDistanceT
 could provide a more robust and localized solution.
 
 **Action:**
+
 1. Add a guard: `if (diff < 0) return 'Just now'`.
 2. Consider using `Intl.RelativeTimeFormat` for localization support.
 
 **Acceptance:**
+
 - No NaN or negative time values displayed.
 - Works for both EN and CN locales.
 
@@ -528,6 +573,7 @@ could provide a more robust and localized solution.
 
 **Severity:** 🟢 Low
 **Files:**
+
 - `apps/web/app/(clinic)/dashboard/patients/patient-list.tsx`
 - `apps/web/app/(clinic)/dashboard/patients/[id]/trend-chart.tsx`
 - `apps/web/app/(clinic)/dashboard/patients/[id]/metrics-table.tsx`
@@ -544,12 +590,14 @@ interactive elements." Several elements fall short:
 5. No `aria-label` on sort buttons or range buttons.
 
 **Action:**
+
 1. Use `size="default"` or add `min-h-[44px] min-w-[44px]` to all interactive
    elements on mobile breakpoints.
 2. Add `aria-label` to icon-only or abbreviated buttons.
 3. Test at 375px viewport width for compliance.
 
 **Acceptance:**
+
 - All touch targets ≥ 44px at 375px viewport.
 - Screen reader announces button purposes correctly.
 
@@ -557,29 +605,29 @@ interactive elements." Several elements fall short:
 
 ## Appendix: Files Audited
 
-| File | Ticket | Type |
-|------|--------|------|
-| `patients/page.tsx` | S501, S505, S506, S509 | Server component |
-| `patients/patient-list.tsx` | S501, S505, S506 | Client component |
-| `patients/overview-cards.tsx` | S509 | Server component |
-| `patients/[id]/page.tsx` | S502 | Server component |
-| `patients/[id]/trend-chart.tsx` | S502 | Client component |
-| `patients/[id]/metric-overview-cards.tsx` | S502 | Client component |
-| `patients/[id]/metrics-table.tsx` | S502 | Client component |
-| `patients/[id]/conversation-log.tsx` | S503 | Client component |
-| `patients/[id]/weekly-reports.tsx` | S504 | Server component |
-| `patients/[id]/send-checkin-button.tsx` | S508 | Client component |
-| `patients/[id]/toggle-active-button.tsx` | S507 | Client component |
-| `patients/add-patient-dialog.tsx` | S507 | Client component |
-| `patients/edit-patient-dialog.tsx` | S507 | Client component |
-| `api/admin/patients/route.ts` | S507 | API route |
-| `api/admin/patients/[id]/route.ts` | S507 | API route |
-| `api/admin/patients/[id]/toggle-active/route.ts` | S507 | API route |
-| `api/admin/patients/[id]/send-checkin/route.ts` | S508 | API route |
-| `api/admin/patients/[id]/messages/route.ts` | S503 | API route |
-| `dashboard-shell.tsx` | S511 | Client component |
-| `sentry.client.config.ts` | S510 | Config |
-| `sentry.server.config.ts` | S510 | Config |
-| `sentry.edge.config.ts` | S510 | Config |
-| `instrumentation.ts` | S510 | Config |
-| `next.config.ts` | S510 | Config |
+| File                                             | Ticket                 | Type             |
+| ------------------------------------------------ | ---------------------- | ---------------- |
+| `patients/page.tsx`                              | S501, S505, S506, S509 | Server component |
+| `patients/patient-list.tsx`                      | S501, S505, S506       | Client component |
+| `patients/overview-cards.tsx`                    | S509                   | Server component |
+| `patients/[id]/page.tsx`                         | S502                   | Server component |
+| `patients/[id]/trend-chart.tsx`                  | S502                   | Client component |
+| `patients/[id]/metric-overview-cards.tsx`        | S502                   | Client component |
+| `patients/[id]/metrics-table.tsx`                | S502                   | Client component |
+| `patients/[id]/conversation-log.tsx`             | S503                   | Client component |
+| `patients/[id]/weekly-reports.tsx`               | S504                   | Server component |
+| `patients/[id]/send-checkin-button.tsx`          | S508                   | Client component |
+| `patients/[id]/toggle-active-button.tsx`         | S507                   | Client component |
+| `patients/add-patient-dialog.tsx`                | S507                   | Client component |
+| `patients/edit-patient-dialog.tsx`               | S507                   | Client component |
+| `api/admin/patients/route.ts`                    | S507                   | API route        |
+| `api/admin/patients/[id]/route.ts`               | S507                   | API route        |
+| `api/admin/patients/[id]/toggle-active/route.ts` | S507                   | API route        |
+| `api/admin/patients/[id]/send-checkin/route.ts`  | S508                   | API route        |
+| `api/admin/patients/[id]/messages/route.ts`      | S503                   | API route        |
+| `dashboard-shell.tsx`                            | S511                   | Client component |
+| `sentry.client.config.ts`                        | S510                   | Config           |
+| `sentry.server.config.ts`                        | S510                   | Config           |
+| `sentry.edge.config.ts`                          | S510                   | Config           |
+| `instrumentation.ts`                             | S510                   | Config           |
+| `next.config.ts`                                 | S510                   | Config           |

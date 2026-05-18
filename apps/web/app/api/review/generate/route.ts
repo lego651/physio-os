@@ -24,9 +24,10 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const patientInput = body.input.trim()
-  const prompt = patientInput.length > 0
-    ? `A patient at V-Health Rehab Clinic in Calgary says: "${patientInput}".`
-    : `A patient recently visited V-Health Rehab Clinic in Calgary.`
+  const prompt =
+    patientInput.length > 0
+      ? `A patient at V-Health Rehab Clinic in Calgary says: "${patientInput}".`
+      : `A patient recently visited V-Health Rehab Clinic in Calgary.`
 
   try {
     const { text } = await generateText({

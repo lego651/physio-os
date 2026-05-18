@@ -39,7 +39,9 @@ describe('validateTwilioSignature', () => {
 
   it('rejects when URL differs', () => {
     const sig = sign(WEBHOOK_URL, params)
-    expect(validateTwilioSignature(AUTH_TOKEN, sig, 'https://other.com/api/sms', params)).toBe(false)
+    expect(validateTwilioSignature(AUTH_TOKEN, sig, 'https://other.com/api/sms', params)).toBe(
+      false,
+    )
   })
 
   it('rejects when params are tampered', () => {

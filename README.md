@@ -16,15 +16,15 @@ Phase 1 is **multi-tenant from day 1** because the north star is to productize t
 
 ## Docs (current, all else archived)
 
-| Doc | Purpose |
-|-----|---------|
-| [Motivation](docs/motivation.md) | North star — why we're doing this, stop conditions |
-| [Pain Points](docs/pain-points.md) | V-Health needs analysis + owner persona |
-| [Roadmap](docs/roadmap.md) | Phase 1 lock, S1/S3–S7 deferred backlog |
-| [S2 Backlog](docs/s2-backlog.md) | Active TODOs: Phase 1 finish, Stage 2 prereqs, Phase 2+ improvements |
-| [S2 Operator Runbook](docs/operations/s2-review-engine.md) | Stage 0 smoke, env vars, rollout stages, troubleshooting |
-| [S2 Spec](docs/superpowers/specs/2026-05-16-s2-review-engine-design.md) | Authoritative spec for the review engine |
-| [S2 Plan](docs/superpowers/plans/2026-05-16-s2-review-engine.md) | Implementation plan (22 tasks, TDD) |
+| Doc                                                                     | Purpose                                                              |
+| ----------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| [Motivation](docs/motivation.md)                                        | North star — why we're doing this, stop conditions                   |
+| [Pain Points](docs/pain-points.md)                                      | V-Health needs analysis + owner persona                              |
+| [Roadmap](docs/roadmap.md)                                              | Phase 1 lock, S1/S3–S7 deferred backlog                              |
+| [S2 Backlog](docs/s2-backlog.md)                                        | Active TODOs: Phase 1 finish, Stage 2 prereqs, Phase 2+ improvements |
+| [S2 Operator Runbook](docs/operations/s2-review-engine.md)              | Stage 0 smoke, env vars, rollout stages, troubleshooting             |
+| [S2 Spec](docs/superpowers/specs/2026-05-16-s2-review-engine-design.md) | Authoritative spec for the review engine                             |
+| [S2 Plan](docs/superpowers/plans/2026-05-16-s2-review-engine.md)        | Implementation plan (22 tasks, TDD)                                  |
 
 Pre-pivot Sprint 1–7 artifacts and Widget V1 work live in `docs/archive/2026-05-pre-pivot/`.
 
@@ -32,16 +32,16 @@ Pre-pivot Sprint 1–7 artifacts and Widget V1 work live in `docs/archive/2026-0
 
 ## Tech stack
 
-| Layer | Technology |
-|-------|-----------|
-| Monorepo | Turborepo + pnpm |
-| Frontend | Next.js (App Router) + shadcn/ui + Tailwind |
-| Database | Supabase (Postgres, Auth, RLS) |
-| AI | Claude Haiku 4.5 via Vercel AI SDK |
-| Email | Resend (transactional + webhook for delivered/opened) |
-| SMS | Twilio REST |
-| Hosting | Vercel (`physio-os-web` project) |
-| Observability | Sentry + Vercel Analytics |
+| Layer         | Technology                                            |
+| ------------- | ----------------------------------------------------- |
+| Monorepo      | Turborepo + pnpm                                      |
+| Frontend      | Next.js (App Router) + shadcn/ui + Tailwind           |
+| Database      | Supabase (Postgres, Auth, RLS)                        |
+| AI            | Claude Haiku 4.5 via Vercel AI SDK                    |
+| Email         | Resend (transactional + webhook for delivered/opened) |
+| SMS           | Twilio REST                                           |
+| Hosting       | Vercel (`physio-os-web` project)                      |
+| Observability | Sentry + Vercel Analytics                             |
 
 ---
 

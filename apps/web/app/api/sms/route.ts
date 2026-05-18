@@ -91,16 +91,18 @@ export async function POST(req: Request) {
   if (patient?.opted_out) return new Response('OK', { status: 200 })
 
   // Return 200 immediately — process async
-  waitUntil(processMessageAsync({
-    supabase,
-    patient,
-    normalizedPhone,
-    body,
-    messageSid,
-    numMedia,
-    params,
-    isNewPatient: !patient,
-  }))
+  waitUntil(
+    processMessageAsync({
+      supabase,
+      patient,
+      normalizedPhone,
+      body,
+      messageSid,
+      numMedia,
+      params,
+      isNewPatient: !patient,
+    }),
+  )
 
   return new Response('OK', { status: 200 })
 }

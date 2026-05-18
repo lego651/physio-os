@@ -14,7 +14,10 @@ export interface RecordOptOutInput extends IsOptedOutInput {
   source: OptOutSource
 }
 
-export async function isOptedOut(supabase: SupabaseClient, input: IsOptedOutInput): Promise<boolean> {
+export async function isOptedOut(
+  supabase: SupabaseClient,
+  input: IsOptedOutInput,
+): Promise<boolean> {
   const { data } = await supabase
     .from('review_opt_outs')
     .select('id')
@@ -25,11 +28,17 @@ export async function isOptedOut(supabase: SupabaseClient, input: IsOptedOutInpu
   return !!data
 }
 
-export async function recordOptOut(supabase: SupabaseClient, input: RecordOptOutInput): Promise<void> {
-  await supabase.from('review_opt_outs').upsert({
-    clinic_id: input.clinicId,
-    contact: input.contact,
-    contact_type: input.contactType,
-    source: input.source,
-  }, { onConflict: 'clinic_id,contact,contact_type' })
+export async function recordOptOut(
+  supabase: SupabaseClient,
+  input: RecordOptOutInput,
+): Promise<void> {
+  await supabase.from('review_opt_outs').upsert(
+    {
+      clinic_id: input.clinicId,
+      contact: input.contact,
+      contact_type: input.contactType,
+      source: input.source,
+    },
+    { onConflict: 'clinic_id,contact,contact_type' },
+  )
 }

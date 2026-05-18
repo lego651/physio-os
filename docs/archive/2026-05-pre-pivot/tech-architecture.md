@@ -7,16 +7,16 @@
 
 ## Stack
 
-| Layer | Technology | Why |
-|-------|-----------|-----|
-| Monorepo | Turborepo + pnpm | Proven in drop-note; fast builds; shared packages |
-| Frontend | Next.js (App Router) + shadcn/ui + Tailwind | Rapid UI development; cal.com-style clean aesthetic |
-| Backend | Next.js API routes + Supabase | Minimal infra; Supabase handles auth, DB, storage, realtime |
-| Database | Supabase (PostgreSQL) | Auth, RLS, realtime subscriptions, edge functions |
-| AI | Claude API (Anthropic) via Vercel AI SDK | Best bilingual quality; structured output; streaming |
-| SMS | Twilio (SMS + MMS) | Reliable; good Canadian number support; webhook-based |
-| Hosting | Vercel | Zero-config deploys; edge functions; preview URLs |
-| Monitoring | Vercel Analytics + Sentry | Error tracking; performance monitoring |
+| Layer      | Technology                                  | Why                                                         |
+| ---------- | ------------------------------------------- | ----------------------------------------------------------- |
+| Monorepo   | Turborepo + pnpm                            | Proven in drop-note; fast builds; shared packages           |
+| Frontend   | Next.js (App Router) + shadcn/ui + Tailwind | Rapid UI development; cal.com-style clean aesthetic         |
+| Backend    | Next.js API routes + Supabase               | Minimal infra; Supabase handles auth, DB, storage, realtime |
+| Database   | Supabase (PostgreSQL)                       | Auth, RLS, realtime subscriptions, edge functions           |
+| AI         | Claude API (Anthropic) via Vercel AI SDK    | Best bilingual quality; structured output; streaming        |
+| SMS        | Twilio (SMS + MMS)                          | Reliable; good Canadian number support; webhook-based       |
+| Hosting    | Vercel                                      | Zero-config deploys; edge functions; preview URLs           |
+| Monitoring | Vercel Analytics + Sentry                   | Error tracking; performance monitoring                      |
 
 ---
 
@@ -239,6 +239,7 @@ The system prompt enforces:
 ### AI Safety Testing
 
 Before launch, build an adversarial test suite:
+
 - Prompt injection attempts ("ignore your instructions and...")
 - Off-topic requests ("what's the stock market doing?")
 - Medical advice fishing ("should I take ibuprofen?")
@@ -251,18 +252,21 @@ Before launch, build an adversarial test suite:
 ## SMS Architecture (Twilio)
 
 ### Setup
+
 - One Twilio phone number per clinic (Canadian number for V-Health)
 - Webhook URL: `https://vhealth.ai/api/sms`
 - Twilio posts inbound SMS/MMS to webhook
 - App processes and responds via Twilio API
 
 ### Message Handling
+
 - Inbound: Parse body text + media URLs (MMS images)
 - Images: Store in Supabase Storage, reference in message record
 - Outbound: Respect SMS segment limits; for long responses, send multiple segments or include web link
 - Weekly reports: Send short SMS + link to `https://vhealth.ai/report/{token}`
 
 ### Cost Management
+
 - Track message count per clinic per month
 - Alert if approaching budget threshold
 - Weekly reports via link (not full content in SMS) to minimize segments
@@ -280,11 +284,11 @@ Before launch, build an adversarial test suite:
 
 ## Cron Jobs (Vercel Cron)
 
-| Job | Schedule | What It Does |
-|-----|----------|-------------|
-| Inactivity check | Daily 10am | Find patients with no messages in 3+ days; send nudge |
-| Weekly report | Sunday 9am | Generate and send weekly progress reports |
-| Exercise reminder | Per patient schedule | Remind based on patient's daily routine |
+| Job                  | Schedule               | What It Does                                                         |
+| -------------------- | ---------------------- | -------------------------------------------------------------------- |
+| Inactivity check     | Daily 10am             | Find patients with no messages in 3+ days; send nudge                |
+| Weekly report        | Sunday 9am             | Generate and send weekly progress reports                            |
+| Exercise reminder    | Per patient schedule   | Remind based on patient's daily routine                              |
 | Pre-appointment prep | Day before appointment | Generate summary for practitioner (V2, requires booking integration) |
 
 ---
@@ -316,13 +320,13 @@ SENTRY_DSN=
 
 ## Key Technical Decisions
 
-| Decision | Choice | Rationale |
-|----------|--------|-----------|
-| Claude only (V1) | Yes | Best bilingual quality; simplify prompt engineering; add fallback in V2 |
-| Supabase over raw Postgres | Yes | Auth, RLS, realtime, storage built in; fast to ship |
-| Structured DB over md files | Yes | Md files don't scale; need queries for dashboards and reports; AI gets context via tool calls loading relevant DB rows |
-| Vercel AI SDK over LangChain | Yes | Simpler; native Vercel integration; streaming; tool calling built in; LangChain is unnecessary abstraction for V1 |
-| SMS over Telegram | SMS | More accessible; no app install; patients already know SMS |
-| Web chat alongside SMS | Yes | Rich UI for patients who want it; links from SMS reports open here |
-| Monorepo over separate repos | Yes | Shared AI core, shared types; single deploy pipeline |
-| White-label via clinic slug | Yes | One codebase serves multiple clinics; domain mapping per clinic |
+| Decision                     | Choice | Rationale                                                                                                              |
+| ---------------------------- | ------ | ---------------------------------------------------------------------------------------------------------------------- |
+| Claude only (V1)             | Yes    | Best bilingual quality; simplify prompt engineering; add fallback in V2                                                |
+| Supabase over raw Postgres   | Yes    | Auth, RLS, realtime, storage built in; fast to ship                                                                    |
+| Structured DB over md files  | Yes    | Md files don't scale; need queries for dashboards and reports; AI gets context via tool calls loading relevant DB rows |
+| Vercel AI SDK over LangChain | Yes    | Simpler; native Vercel integration; streaming; tool calling built in; LangChain is unnecessary abstraction for V1      |
+| SMS over Telegram            | SMS    | More accessible; no app install; patients already know SMS                                                             |
+| Web chat alongside SMS       | Yes    | Rich UI for patients who want it; links from SMS reports open here                                                     |
+| Monorepo over separate repos | Yes    | Shared AI core, shared types; single deploy pipeline                                                                   |
+| White-label via clinic slug  | Yes    | One codebase serves multiple clinics; domain mapping per clinic                                                        |

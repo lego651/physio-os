@@ -7,6 +7,7 @@
 ---
 
 ### S301 — Twilio account setup and local dev configuration
+
 **Type:** setup
 **Points:** 2
 **Depends on:** none
@@ -14,6 +15,7 @@
 **Goal:** Twilio account ready with a Canadian phone number and local development webhook via ngrok.
 
 **Scope:**
+
 - Create Twilio account (or use existing)
 - Purchase Canadian phone number with SMS + MMS capability
 - Configure webhook URL for inbound SMS: `POST https://{ngrok-url}/api/sms` (local dev)
@@ -27,6 +29,7 @@
 - Test: send SMS to the Twilio number → see POST request in ngrok inspector
 
 **Acceptance criteria:**
+
 1. Canadian phone number purchased and active
 2. Sending SMS to the number triggers a POST to the ngrok URL
 3. ngrok inspector shows the Twilio webhook payload
@@ -34,12 +37,14 @@
 5. Setup documented in `docs/twilio-setup.md`
 
 **Out of scope:**
+
 - Processing the webhook (S302)
 - Production Twilio config (S6)
 
 ---
 
 ### S302 — `/api/sms` webhook: receive, validate, identify patient
+
 **Type:** backend
 **Points:** 5
 **Depends on:** S301, S201, S203
@@ -47,6 +52,7 @@
 **Goal:** API route that receives Twilio webhooks, validates them, identifies the patient, and processes asynchronously.
 
 **Scope:**
+
 - Create `apps/web/app/api/sms/route.ts`:
   - POST handler receives Twilio webhook (form-urlencoded)
   - **Step 1: Validate** — verify Twilio request signature using `TWILIO_AUTH_TOKEN` + request URL + body params. Reject invalid with 403.
@@ -64,6 +70,7 @@
 - Phone normalization utility: strip spaces, add +1 for Canadian numbers, validate E.164
 
 **Edge cases:**
+
 - Twilio sends duplicate webhooks → idempotency on `MessageSid` prevents double processing
 - Invalid Twilio signature → 403, no processing
 - Patient sends SMS before web onboarding → patient record may exist without `auth_user_id` (that's fine)
@@ -72,6 +79,7 @@
 - Twilio sends `NumMedia: 0` when no attachments
 
 **Acceptance criteria:**
+
 1. Valid Twilio webhook → 200 response within 2 seconds
 2. Invalid signature → 403
 3. Duplicate `MessageSid` → 200 with no reprocessing
@@ -83,6 +91,7 @@
 9. Rate limit: 11th message from same phone in 1 hour → 200 returned, no processing
 
 **Out of scope:**
+
 - Sending the actual reply (S303)
 - MMS processing (S305)
 - STOP/START handling (S309)
@@ -90,6 +99,7 @@
 ---
 
 ### S303 — Async SMS reply via Twilio REST API
+
 **Type:** backend
 **Points:** 5
 **Depends on:** S302, S201
@@ -97,6 +107,7 @@
 **Goal:** After AI processes the message, send the reply back to the patient via Twilio.
 
 **Scope:**
+
 - Create `apps/web/lib/sms/send.ts`:
   - `sendSMS(to: string, body: string, mediaUrls?: string[])` function
   - Uses Twilio REST API (not TwiML response) — because webhook already returned 200
@@ -110,6 +121,7 @@
 - Error handling: if Twilio send fails, retry once after 2s. If still fails, log error (Sentry in S5).
 
 **Edge cases:**
+
 - Response exactly 160 chars → send as single segment (no truncation)
 - Response 161-320 chars → send as-is (2 segments, within budget)
 - Response > 320 chars → truncate + web link
@@ -118,6 +130,7 @@
 - Twilio API failure → patient gets no reply. Must log this clearly for debugging.
 
 **Acceptance criteria:**
+
 1. AI response under 280 chars → sent as-is via Twilio
 2. AI response over 320 chars → truncated + web link appended
 3. Truncation does not cut mid-word
@@ -127,6 +140,7 @@
 7. End-to-end: patient sends SMS → receives reply within 15 seconds (typical)
 
 **Out of scope:**
+
 - Sending MMS responses (not needed for V1 — only receiving MMS)
 - Batch messaging
 - Scheduled messages (S4 — cron)
@@ -134,6 +148,7 @@
 ---
 
 ### S304 — SMS onboarding for unknown phone numbers
+
 **Type:** fullstack
 **Points:** 5
 **Depends on:** S302, S303
@@ -141,6 +156,7 @@
 **Goal:** When an unknown phone number texts in, guide them through a minimal onboarding via SMS.
 
 **Scope:**
+
 - Detect unknown phone in S302 → trigger onboarding flow
 - SMS onboarding is a stateful multi-step conversation:
   1. **Consent:** "Welcome to V-Health Recovery Coach! By continuing, you agree to our privacy policy: {url}/privacy. Reply YES to continue or STOP to opt out."
@@ -157,6 +173,7 @@
 - If patient replies with something unexpected → repeat the current step question
 
 **Edge cases:**
+
 - Patient replies NO or anything other than YES to consent → "No problem. Reply YES when you're ready to start."
 - Patient replies STOP → mark `opted_out = true`, cease communication
 - Patient abandons mid-onboarding → state preserved, resume on next message
@@ -164,6 +181,7 @@
 - Very long name or condition text → accept and truncate at 200 chars
 
 **Acceptance criteria:**
+
 1. Unknown phone number → consent message sent
 2. YES → name question sent; consent_at recorded
 3. Name provided → condition question sent; name saved
@@ -175,12 +193,14 @@
 9. Existing patient with partial profile → fills gaps only
 
 **Out of scope:**
+
 - Web onboarding (S206 — separate implementation)
 - Detailed profile fields (daily routine, goals — V2)
 
 ---
 
 ### S305 — MMS image handling: receive, store, pass to Claude vision
+
 **Type:** backend
 **Points:** 3
 **Depends on:** S302
@@ -188,6 +208,7 @@
 **Goal:** When patients send images via MMS, store them and include them in the AI conversation.
 
 **Scope:**
+
 - In S302's async processing, after detecting `NumMedia > 0`:
   1. For each media URL (`MediaUrl0`, `MediaUrl1`, ...):
      - Download image from Twilio's temporary URL (authenticated with Twilio credentials)
@@ -201,6 +222,7 @@
 - Signed URLs: 24-hour expiry for dashboard viewing (S5)
 
 **Edge cases:**
+
 - Twilio media URLs expire after a few hours → must download promptly
 - Large images: Twilio limits to 5MB per MMS. Reject and notify if somehow larger.
 - Non-image media (video, audio) → reject silently, process text body only
@@ -208,6 +230,7 @@
 - Download failure from Twilio → log error, process text body without images
 
 **Acceptance criteria:**
+
 1. Patient sends image via MMS → image downloaded and stored in Supabase Storage
 2. Image URL saved in `messages.media_urls`
 3. Claude receives image and references it in response
@@ -217,6 +240,7 @@
 7. Storage path follows `{patient_id}/{date}/{filename}` pattern
 
 **Out of scope:**
+
 - Sending images back to patient (not needed for V1)
 - Image moderation/filtering (V2)
 - Web chat image upload (V2)
@@ -224,6 +248,7 @@
 ---
 
 ### S306 — `log_metrics` AI tool: extract and store metrics
+
 **Type:** AI/backend
 **Points:** 5
 **Depends on:** S201, S104, S110
@@ -231,11 +256,13 @@
 **Goal:** Claude calls this tool to extract structured metrics from patient conversations and write to the database.
 
 **Scope:**
+
 - Define tool in `packages/ai-core/src/tools/log-metrics.ts`:
   ```typescript
   // Vercel AI SDK tool definition
   tool({
-    description: 'Record patient health metrics from the conversation. Call this whenever the patient reports pain, discomfort, sitting tolerance, or exercise completion.',
+    description:
+      'Record patient health metrics from the conversation. Call this whenever the patient reports pain, discomfort, sitting tolerance, or exercise completion.',
     parameters: z.object({
       painLevel: z.number().min(1).max(10).optional().describe('Pain level 1-10'),
       discomfort: z.number().min(0).max(3).optional().describe('Discomfort level 0-3'),
@@ -246,7 +273,7 @@
     execute: async (params, { patientId, supabase }) => {
       // Write to metrics table
       // Return confirmation string
-    }
+    },
   })
   ```
 - Tool execution:
@@ -257,6 +284,7 @@
 - Tool is registered in `createConversation()` (S201) and available for both web and SMS channels
 
 **Edge cases:**
+
 - Patient mentions two different pain levels in one message ("was 4 this morning, now it's 2") → Claude should call tool twice or use the current value. System prompt should guide: "Record the most recent/current metric value."
 - Patient says "I feel about the same" → Claude should NOT call tool (no specific number). Should ask follow-up.
 - Patient mentions exercise but not by name ("I did my stretches") → record as `exercisesDone: ['stretches']`
@@ -264,6 +292,7 @@
 - Multiple metrics in one message ("discomfort 2, pain 3, sat for 40 minutes") → single tool call with all values
 
 **Acceptance criteria:**
+
 1. Claude correctly calls `log_metrics` when patient reports a specific number
 2. Metrics saved to DB with correct values and `source_message_id`
 3. Claude does NOT call tool for ambiguous inputs (asks follow-up instead)
@@ -275,12 +304,14 @@
 9. Integration test: send message with metrics → verify DB row created
 
 **Out of scope:**
+
 - Historical data correction ("actually yesterday was pain 3 not 4") → V2
 - Exercise library reference (V2 — for now, free text exercise names)
 
 ---
 
 ### S307 — `get_history` AI tool: retrieve recent metrics for trend context
+
 **Type:** AI/backend
 **Points:** 2
 **Depends on:** S201, S104
@@ -288,10 +319,12 @@
 **Goal:** Claude can query the patient's recent metrics to reference trends in conversation.
 
 **Scope:**
+
 - Define tool in `packages/ai-core/src/tools/get-history.ts`:
   ```typescript
   tool({
-    description: 'Get the patient recent health metrics to provide trend context. Call this when the patient asks how they are doing, or when you want to reference their progress.',
+    description:
+      'Get the patient recent health metrics to provide trend context. Call this when the patient asks how they are doing, or when you want to reference their progress.',
     parameters: z.object({
       days: z.number().min(1).max(30).default(7).describe('Number of days of history to retrieve'),
     }),
@@ -299,7 +332,7 @@
       // Query metrics table for last N days
       // Calculate averages
       // Return formatted summary
-    }
+    },
   })
   ```
 - Tool returns formatted summary:
@@ -314,11 +347,13 @@
 - Calculate simple averages, min/max, and week-over-week trend direction
 
 **Edge cases:**
+
 - New patient with no metrics → "No metrics recorded yet. Let's start tracking today!"
 - Only 2 days of data → show what exists, don't calculate trends
 - Missing fields (some days have pain but not discomfort) → calculate avg only from non-null values
 
 **Acceptance criteria:**
+
 1. Tool returns formatted metric summary for last N days
 2. Averages calculated correctly from non-null values only
 3. New patient → appropriate empty message
@@ -326,12 +361,14 @@
 5. Claude uses the data naturally in conversation
 
 **Out of scope:**
+
 - Charts or visualizations (that's the web report — S4)
 - Cross-patient comparisons
 
 ---
 
 ### S308 — Unified message storage: web + SMS share history
+
 **Type:** backend
 **Points:** 2
 **Depends on:** S204, S302
@@ -339,6 +376,7 @@
 **Goal:** Both web chat and SMS messages stored in the same table and visible from either channel.
 
 **Scope:**
+
 - Verify: S204 (web) and S302 (SMS) both write to `messages` table with `channel` field
 - Web chat `useChat` hook: on page load, fetch ALL messages for patient (not filtered by channel)
 - Context builder (S203): loads messages regardless of channel
@@ -346,11 +384,13 @@
 - Web messages: no special badge
 
 **Edge cases:**
+
 - Patient sends SMS then opens web → sees SMS conversation in web chat
 - Patient sends web message then SMS → AI has full context from both channels
 - Timestamps from different channels may be slightly misaligned → sort by `created_at`
 
 **Acceptance criteria:**
+
 1. SMS message appears in web chat message list
 2. Web message included in SMS AI context
 3. Messages sorted by `created_at` regardless of channel
@@ -358,11 +398,13 @@
 5. No duplicate messages across channels
 
 **Out of scope:**
+
 - Real-time sync (patient sees new SMS in web without refresh) — V2 with Supabase Realtime
 
 ---
 
 ### S309 — SMS opt-in/opt-out: STOP/START/HELP compliance
+
 **Type:** backend
 **Points:** 1
 **Depends on:** S302
@@ -370,6 +412,7 @@
 **Goal:** Handle carrier-required keywords for CASL and Twilio compliance.
 
 **Scope:**
+
 - In S302 webhook handler, before any other processing, check message body:
   - `STOP` (case-insensitive, exact match or contains) → set `patients.opted_out = true`, respond: "You've been unsubscribed from V-Health Recovery Coach. Reply START to re-subscribe."
   - `START` → set `patients.opted_out = false`, respond: "Welcome back! How are you feeling today?"
@@ -378,6 +421,7 @@
 - All outbound SMS: check `opted_out` flag before sending. Never send to opted-out patients.
 
 **Acceptance criteria:**
+
 1. STOP → patient marked opted_out, confirmation sent, no further messages
 2. START → patient reactivated, welcome message sent
 3. HELP → info message with unsubscribe instructions
@@ -385,11 +429,13 @@
 5. Keywords work case-insensitively ("stop", "Stop", "STOP")
 
 **Out of scope:**
+
 - CASL express consent documentation (legal in S6)
 
 ---
 
 ### S310 — Twilio message SID idempotency
+
 **Type:** backend
 **Points:** 1
 **Depends on:** S302
@@ -397,6 +443,7 @@
 **Goal:** Prevent duplicate message processing when Twilio retries webhook delivery.
 
 **Scope:**
+
 - In S302, after signature validation and before processing:
   - Check `messages` table: `SELECT id FROM messages WHERE twilio_sid = $1`
   - If found: return 200 immediately (already processed)
@@ -405,6 +452,7 @@
 - Insert user message with `twilio_sid` as early as possible in the processing flow
 
 **Acceptance criteria:**
+
 1. First request with MessageSid X → processed normally
 2. Second request with same MessageSid X → 200 returned, no reprocessing
 3. DB constraint prevents duplicate inserts
@@ -412,6 +460,7 @@
 ---
 
 ### S311 — Unit tests: Twilio, SMS formatting, tools, idempotency
+
 **Type:** testing
 **Points:** 2
 **Depends on:** S301-S310
@@ -419,6 +468,7 @@
 **Goal:** Automated tests for Sprint 3 core logic.
 
 **Scope:**
+
 - Twilio signature validation: valid sig → pass, invalid → reject
 - Phone number normalization: various formats → E.164
 - SMS response formatting: under limit → as-is, over limit → truncated + link
@@ -429,6 +479,7 @@
 - Opt-out keyword detection: STOP, START, HELP variants
 
 **Acceptance criteria:**
+
 1. `pnpm test` passes all Sprint 3 tests
 2. 25+ test cases
 3. All SMS formatting edge cases covered

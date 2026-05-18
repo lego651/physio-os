@@ -4,7 +4,13 @@ import { MessageSquare, Minus, TrendingDown, TrendingUp, UserCheck, Users } from
 import type { OverviewStats } from './page'
 
 export function OverviewCards({ stats }: { stats: OverviewStats }) {
-  const { totalPatients, activeThisWeek, messagesThisWeek, avgDiscomfortThisWeek, avgDiscomfortLastWeek } = stats
+  const {
+    totalPatients,
+    activeThisWeek,
+    messagesThisWeek,
+    avgDiscomfortThisWeek,
+    avgDiscomfortLastWeek,
+  } = stats
 
   type Trend = 'improving' | 'worsening' | 'neutral'
   let trend: Trend = 'neutral'
@@ -24,11 +30,7 @@ export function OverviewCards({ stats }: { stats: OverviewStats }) {
         : 'text-muted-foreground'
 
   const trendLabel =
-    trend === 'improving'
-      ? 'Improving'
-      : trend === 'worsening'
-        ? 'Worsening'
-        : 'No change'
+    trend === 'improving' ? 'Improving' : trend === 'worsening' ? 'Worsening' : 'No change'
 
   return (
     <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">

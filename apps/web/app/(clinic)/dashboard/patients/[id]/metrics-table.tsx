@@ -79,7 +79,10 @@ export function MetricsTable({ metrics }: { metrics: MetricRow[] }) {
                   <TableCell className="font-mono text-sm">
                     {m.sitting_tolerance_min ?? '—'}
                   </TableCell>
-                  <TableCell className="max-w-[200px] truncate text-xs" title={m.exercises_done?.join(', ')}>
+                  <TableCell
+                    className="max-w-[200px] truncate text-xs"
+                    title={m.exercises_done?.join(', ')}
+                  >
                     {m.exercises_done && m.exercises_done.length > 0
                       ? m.exercises_done.join(', ')
                       : '—'}

@@ -55,7 +55,9 @@ async function getPatientDetail(id: string) {
 
   const { data: metrics } = await supabase
     .from('metrics')
-    .select('id, recorded_at, pain_level, discomfort, sitting_tolerance_min, exercises_done, exercise_count, notes')
+    .select(
+      'id, recorded_at, pain_level, discomfort, sitting_tolerance_min, exercises_done, exercise_count, notes',
+    )
     .eq('patient_id', id)
     .order('recorded_at', { ascending: false })
     .limit(200)
@@ -66,11 +68,7 @@ async function getPatientDetail(id: string) {
   }
 }
 
-export default async function PatientDetailPage({
-  params,
-}: {
-  params: Promise<{ id: string }>
-}) {
+export default async function PatientDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const data = await getPatientDetail(id)
   if (!data) notFound()
@@ -102,13 +100,15 @@ export default async function PatientDetailPage({
               {patient.language === 'zh' ? 'CN' : 'EN'}
             </Badge>
             {patient.active ? (
-              <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">Active</Badge>
+              <Badge className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                Active
+              </Badge>
             ) : (
-              <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">Inactive</Badge>
+              <Badge className="bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                Inactive
+              </Badge>
             )}
-            {patient.opted_out && (
-              <Badge variant="destructive">Opted out</Badge>
-            )}
+            {patient.opted_out && <Badge variant="destructive">Opted out</Badge>}
           </CardTitle>
         </CardHeader>
         <CardContent>

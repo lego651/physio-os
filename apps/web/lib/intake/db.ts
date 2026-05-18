@@ -18,13 +18,13 @@ export async function saveIntakeRecord(input: SaveIntakeRecordInput): Promise<In
   const { data, error } = await supabase
     .from('intake_records')
     .insert({
-      clinic_id:      input.clinic_id ?? 'vhealth',
-      patient_name:   input.patient_name,
-      date_of_visit:  input.date_of_visit,
+      clinic_id: input.clinic_id ?? 'vhealth',
+      patient_name: input.patient_name,
+      date_of_visit: input.date_of_visit,
       therapist_name: input.therapist_name,
       treatment_area: input.treatment_area,
-      session_notes:  input.session_notes,
-      source:         input.source,
+      session_notes: input.session_notes,
+      source: input.source,
       raw_transcript: input.raw_transcript ?? null,
     })
     .select()
