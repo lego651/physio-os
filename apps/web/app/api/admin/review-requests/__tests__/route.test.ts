@@ -8,23 +8,45 @@ vi.mock('@/lib/review/engine', () => ({
     async create() {
       return { id: 'req-1', token: 'tok-1' }
     }
+    async resend(id: string) {
+      return { id, token: 'tok-resend' }
+    }
   },
 }))
+
+// Dedupe mock: controlled by `mockDedupeResult` so individual tests can inject
+// a "found" row to trigger the 409 branch.
+let mockDedupeResult: { id: string; status: string } | null = null
+
 vi.mock('@/lib/supabase/admin', () => ({
-  createAdminClient: () => ({
-    from() {
-      return {
-        select() {
-          return this
-        },
-        order() {
-          return this
-        },
-        limit: async () => ({ data: [], error: null }),
-        in: async () => ({ data: [], error: null }),
+  createAdminClient: () => {
+    // Build a fluent builder that resolves at .maybeSingle() for the dedupe
+    // query, and falls through for the GET list query.
+    const chain: Record<string, unknown> = {}
+    const fluent = (): typeof chain => {
+      chain.select = () => fluent()
+      chain.eq = () => fluent()
+      chain.in = () => fluent()
+      chain.or = () => fluent()
+      chain.limit = () => fluent()
+      chain.maybeSingle = async () => ({ data: mockDedupeResult, error: null })
+      chain.order = () => fluent()
+      // GET list query resolves at limit() when called as a terminal
+      const innerLimit = chain.limit
+      chain.limit = (n: number) => {
+        if (n === 1) return fluent() // dedupe path — continues to maybeSingle
+        // list query terminal
+        return Promise.resolve({ data: [], error: null })
       }
-    },
-  }),
+      void innerLimit // suppress unused warning
+      return chain
+    }
+    return {
+      from() {
+        return fluent()
+      },
+    }
+  },
 }))
 vi.mock('@/lib/review/adapters/email', () => ({ EmailAdapter: class {} }))
 vi.mock('@/lib/review/adapters/sms', () => ({ SmsAdapter: class {} }))
@@ -50,8 +72,18 @@ function makeReq(body: unknown): Request {
   })
 }
 
+const BASE_CREATE = {
+  clinicId: '11111111-2222-4333-8444-555555555555',
+  patientName: 'Alice',
+  channel: 'email',
+  patientEmail: 'a@b.com',
+  serviceType: 'massage',
+  consentConfirmed: true,
+}
+
 describe('POST /api/admin/review-requests', () => {
   beforeEach(() => {
+    mockDedupeResult = null
     vi.mocked(requireAdminAuth).mockResolvedValue({ user: { id: 'u1', email: 'a@b' } } as Awaited<
       ReturnType<typeof requireAdminAuth>
     >)
@@ -75,33 +107,52 @@ describe('POST /api/admin/review-requests', () => {
     expect(res.status).toBe(400)
   })
 
-  it('400 when consentConfirmed is missing or false', async () => {
-    const res = await POST(
-      makeReq({
-        clinicId: '11111111-2222-4333-8444-555555555555',
-        patientName: 'A',
-        channel: 'email',
-        patientEmail: 'a@b.com',
-        serviceType: 'm',
-        consentConfirmed: false,
-      }),
-    )
+  it('400 when consentConfirmed is false', async () => {
+    const res = await POST(makeReq({ ...BASE_CREATE, consentConfirmed: false }))
     expect(res.status).toBe(400)
   })
 
-  it('200 with id + token on success', async () => {
-    const res = await POST(
-      makeReq({
-        clinicId: '11111111-2222-4333-8444-555555555555',
-        patientName: 'Alice',
-        channel: 'email',
-        patientEmail: 'a@b.com',
-        serviceType: 'massage',
-        consentConfirmed: true,
-      }),
-    )
+  it('200 with id + token on success (no duplicate)', async () => {
+    const res = await POST(makeReq(BASE_CREATE))
     expect(res.status).toBe(200)
     const json = await res.json()
     expect(json).toEqual({ id: 'req-1', token: 'tok-1' })
+  })
+
+  it('409 when a non-failed row already exists for same patient (dedupe guard)', async () => {
+    mockDedupeResult = { id: 'existing-uuid', status: 'sent' }
+    const res = await POST(makeReq(BASE_CREATE))
+    expect(res.status).toBe(409)
+    const json = await res.json()
+    expect(json.error).toBe('duplicate')
+    expect(json.existingId).toBe('existing-uuid')
+    expect(json.existingStatus).toBe('sent')
+  })
+
+  it('409 also fires when existing row is still queued', async () => {
+    mockDedupeResult = { id: 'queued-uuid', status: 'queued' }
+    const res = await POST(makeReq(BASE_CREATE))
+    expect(res.status).toBe(409)
+    const json = await res.json()
+    expect(json.existingId).toBe('queued-uuid')
+  })
+
+  it('200 when existing row is failed (failed rows do not block a new send)', async () => {
+    // The dedupe query filters status IN ('queued','sent'), so failed rows
+    // return null from maybeSingle — no 409 should fire.
+    mockDedupeResult = null // simulate: failed row filtered out by query
+    const res = await POST(makeReq(BASE_CREATE))
+    expect(res.status).toBe(200)
+  })
+
+  it('200 on resend path (id present) — dedupe guard is skipped', async () => {
+    // Even if mockDedupeResult is set, the resend branch exits before dedupe.
+    mockDedupeResult = { id: 'should-not-matter', status: 'sent' }
+    const existingId = '22222222-3333-4444-8555-666666666666'
+    const res = await POST(makeReq({ id: existingId, consentConfirmed: true }))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.id).toBe(existingId)
+    expect(json.token).toBe('tok-resend')
   })
 })
