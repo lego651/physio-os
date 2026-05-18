@@ -1,7 +1,8 @@
 'use client'
 // apps/web/app/(clinic)/dashboard/review-requests/AdminReviewRequestsClient.tsx
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -126,6 +127,11 @@ export default function AdminReviewRequestsClient({ clinics, therapists, optOuts
   })
   const [addingRow, setAddingRow] = useState(false)
 
+  const searchParams = useSearchParams()
+  const highlightId = searchParams.get('highlight')
+  const [highlightActive, setHighlightActive] = useState<string | null>(null)
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({})
+
   const clinicTherapists = therapists.filter((t) => t.clinic_id === clinicId)
 
   const loadRows = useCallback(async () => {
@@ -139,6 +145,18 @@ export default function AdminReviewRequestsClient({ clinics, therapists, optOuts
   useEffect(() => {
     void loadRows()
   }, [loadRows])
+
+  // D18-8: when arriving with ?highlight=<id>, scroll to the row and flash
+  // it for ~3s. Wait for rows to load before attempting to scroll.
+  useEffect(() => {
+    if (!highlightId || rows.length === 0) return
+    const node = rowRefs.current[highlightId]
+    if (!node) return
+    node.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightActive(highlightId)
+    const t = setTimeout(() => setHighlightActive(null), 3000)
+    return () => clearTimeout(t)
+  }, [highlightId, rows])
 
   function toggleConsent(id: string) {
     setConsentMap((prev) => ({ ...prev, [id]: !prev[id] }))
@@ -468,6 +486,7 @@ export default function AdminReviewRequestsClient({ clinics, therapists, optOuts
                 />
               </th>
               <th className="px-3 py-3 text-left font-semibold">Patient</th>
+              <th className="px-3 py-3 text-left font-semibold">Service</th>
               <th className="px-3 py-3 text-left font-semibold">Phone</th>
               <th className="px-3 py-3 text-left font-semibold">Email</th>
               <th className="px-3 py-3 text-left font-semibold">Channel</th>
@@ -479,7 +498,7 @@ export default function AdminReviewRequestsClient({ clinics, therapists, optOuts
           <tbody>
             {rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">
                   No review requests yet. Use &quot;+ Add row&quot; to create one.
                 </td>
               </tr>
@@ -493,7 +512,16 @@ export default function AdminReviewRequestsClient({ clinics, therapists, optOuts
               return (
                 <tr
                   key={r.id}
-                  className={`border-t transition-colors ${optedOut ? 'opacity-40' : 'hover:bg-muted/20'}`}
+                  ref={(el) => {
+                    rowRefs.current[r.id] = el
+                  }}
+                  className={`border-t transition-colors ${
+                    optedOut ? 'opacity-40' : 'hover:bg-muted/20'
+                  } ${
+                    highlightActive === r.id
+                      ? 'bg-yellow-100 ring-2 ring-yellow-400 dark:bg-yellow-900/40'
+                      : ''
+                  }`}
                 >
                   <td className="px-3 py-3">
                     {!optedOut && ch !== 'missing' && (
@@ -508,6 +536,11 @@ export default function AdminReviewRequestsClient({ clinics, therapists, optOuts
                   <td className="px-3 py-3 font-medium">
                     {r.patient_name}
                     {optedOut && <span className="ml-2 text-xs text-destructive">(opted out)</span>}
+                  </td>
+                  <td className="px-3 py-3">
+                    <Badge variant="secondary" className="capitalize">
+                      {r.service_type || 'other'}
+                    </Badge>
                   </td>
                   <td className="px-3 py-3">
                     <Input
