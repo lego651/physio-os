@@ -13,7 +13,9 @@ function makeSupabase() {
       // Use a closure-based filter so eq() can accumulate without `this` spread.
       const filter: Record<string, string> = {}
       const builder = {
-        select() { return builder },
+        select() {
+          return builder
+        },
         eq(col: string, val: string) {
           filter[col] = val
           return builder
@@ -32,8 +34,8 @@ function makeSupabase() {
       }
       return builder
     },
-  // Narrow cast — mock only implements the subset of SupabaseClient used by logFunnelEvent.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // Narrow cast — mock only implements the subset of SupabaseClient used by logFunnelEvent.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any
 }
 

@@ -48,8 +48,7 @@ export async function POST(req: Request) {
   const eventType = TRACKED_EVENTS[payloadType]
   if (!eventType) return Response.json({ ok: true, ignored: true })
 
-  const providerMessageId =
-    typeof payloadData.email_id === 'string' ? payloadData.email_id : null
+  const providerMessageId = typeof payloadData.email_id === 'string' ? payloadData.email_id : null
   if (!providerMessageId) return Response.json({ ok: true, missing: 'email_id' })
 
   // createAdminClient returns an untyped Supabase client (no generated schema yet).

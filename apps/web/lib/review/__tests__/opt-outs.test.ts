@@ -39,8 +39,8 @@ function makeSupabase() {
       }
       return builder
     },
-  // Narrow cast — mock only implements the subset of SupabaseClient used by isOptedOut/recordOptOut.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // Narrow cast — mock only implements the subset of SupabaseClient used by isOptedOut/recordOptOut.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } as any
 }
 

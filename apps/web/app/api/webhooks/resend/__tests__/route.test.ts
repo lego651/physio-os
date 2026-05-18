@@ -27,9 +27,15 @@ vi.mock('@/lib/supabase/admin', () => ({
       }
       if (table === 'review_requests') {
         return {
-          select() { return this },
-          eq() { return this },
-          async maybeSingle() { return { data: null, error: null } },
+          select() {
+            return this
+          },
+          eq() {
+            return this
+          },
+          async maybeSingle() {
+            return { data: null, error: null }
+          },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any
       }

@@ -6,8 +6,12 @@ vi.mock('@/lib/supabase/admin', () => ({
     from(table: string) {
       if (table === 'review_requests') {
         return {
-          select() { return this },
-          eq() { return this },
+          select() {
+            return this
+          },
+          eq() {
+            return this
+          },
           async single() {
             return {
               data: { id: 'r1', patient_email: 'a@b.com', patient_phone: null, clinic_id: 'c1' },

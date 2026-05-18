@@ -52,9 +52,9 @@ function makeReq(body: unknown): Request {
 
 describe('POST /api/admin/review-requests', () => {
   beforeEach(() => {
-    vi.mocked(requireAdminAuth).mockResolvedValue(
-      { user: { id: 'u1', email: 'a@b' } } as Awaited<ReturnType<typeof requireAdminAuth>>,
-    )
+    vi.mocked(requireAdminAuth).mockResolvedValue({ user: { id: 'u1', email: 'a@b' } } as Awaited<
+      ReturnType<typeof requireAdminAuth>
+    >)
   })
 
   it('401 when not authenticated', async () => {
