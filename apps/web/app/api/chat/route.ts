@@ -223,6 +223,9 @@ export async function POST(req: Request) {
     if (savedUserMsg?.id) {
       void supabase
         .from('messages')
+        // TODO(migration-011): is_emergency col not yet in prod — apply migration 011 to enable
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-ignore
         .update({ is_emergency: true })
         .eq('id', savedUserMsg.id)
         .then(({ error }) => {
@@ -234,6 +237,9 @@ export async function POST(req: Request) {
     }
 
     // Save assistant emergency response
+    // TODO(migration-011): is_emergency col not yet in prod — apply migration 011 to enable
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
     const { error: insertError } = await supabase.from('messages').insert({
       patient_id: patient.id,
       role: 'assistant',

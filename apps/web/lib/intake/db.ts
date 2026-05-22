@@ -68,8 +68,7 @@ export interface CreateReviewRequestForIntakeInput {
 export async function createReviewRequestForIntake(
   input: CreateReviewRequestForIntakeInput,
 ): Promise<string> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const supabase = createAdminClient() as any
+  const supabase = createAdminClient()
 
   const slug = input.clinic_slug ?? VHEALTH_SLUG
   const { data: clinic, error: clinicErr } = await supabase

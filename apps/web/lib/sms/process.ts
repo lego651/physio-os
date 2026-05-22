@@ -222,6 +222,9 @@ export async function processMessageAsync(ctx: ProcessMessageParams) {
         const patientIdForLog = patient.id
         void supabase
           .from('messages')
+          // TODO(migration-011): is_emergency col not yet in prod — apply migration 011 to enable
+          // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+          // @ts-ignore
           .update({ is_emergency: true })
           .eq('id', savedMsgId)
           .then(({ error }) => {
