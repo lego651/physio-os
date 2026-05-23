@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Mic, Pencil } from 'lucide-react'
 import type { SessionType } from '@physio-os/shared'
 import { formatTreatmentBubble } from './treatment-bubble'
 
@@ -85,6 +86,16 @@ const STEP_QUESTIONS: Partial<Record<Step, string>> = {
   STEP_4_NOTES: 'Any session notes?',
 }
 
+// stepKey → upload stepParam number
+const STEPKEY_TO_PARAM: Record<keyof VoiceIntakeResult, string> = {
+  patient_name: '1',
+  treatment_area: '2',
+  session_type: '2', // session_type is extracted in the same upload as treatment_area
+  therapist_name: '3',
+  session_notes: '4',
+  date_of_visit: '1', // fallback, not re-recordable
+}
+
 // K1: Minimum recording duration to prevent submitting near-silence to Whisper.
 // Below this threshold Whisper reliably hallucinates YouTube outro phrases.
 const MIN_RECORDING_MS = 700
@@ -102,6 +113,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [editingStep, setEditingStep] = useState<keyof VoiceIntakeResult | null>(null)
   const [editValue, setEditValue] = useState('')
+  const [rerecordingStep, setRerecordingStep] = useState<keyof VoiceIntakeResult | null>(null)
 
   const router = useRouter()
 
@@ -110,6 +122,8 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
   const streamRef = useRef<MediaStream | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
   const recordingStartRef = useRef<number | null>(null)
+  // Ref so that onstop closure can read the current rerecordingStep value.
+  const rerecordingStepRef = useRef<keyof VoiceIntakeResult | null>(null)
 
   // Load therapists on mount
   useEffect(() => {
@@ -172,9 +186,17 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         // K1: reject recordings shorter than MIN_RECORDING_MS — don't waste Whisper quota
         if (durationMs < MIN_RECORDING_MS) {
           setError('Recording too short — please record again.')
+          setRerecordingStep(null)
+          rerecordingStepRef.current = null
           return
         }
-        await processAudio(blob)
+        // Use rerecordingStepRef (not state) because onstop is a closure from startRecording time
+        const rerecordTarget = rerecordingStepRef.current
+        if (rerecordTarget) {
+          await processAudio(blob, { rerecord: rerecordTarget })
+        } else {
+          await processAudio(blob)
+        }
       }
       recorder.start()
       recordingStartRef.current = Date.now()
@@ -182,6 +204,8 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       setRecording(true)
     } catch (_err) {
       setError('Could not access microphone. Check permissions.')
+      setRerecordingStep(null)
+      rerecordingStepRef.current = null
     }
   }
 
@@ -191,7 +215,17 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     setRecording(false)
   }
 
-  async function processAudio(blob: Blob) {
+  function startRerecord(stepKey: keyof VoiceIntakeResult) {
+    // Q5: close any open edit mode first
+    setEditingStep(null)
+    // Mark which step we are re-recording (both state for UI + ref for onstop closure)
+    setRerecordingStep(stepKey)
+    rerecordingStepRef.current = stepKey
+    // Reuse existing recording machinery
+    startRecording()
+  }
+
+  async function processAudio(blob: Blob, opts?: { rerecord: keyof VoiceIntakeResult }) {
     setProcessing(true)
     setError(null)
     try {
@@ -199,19 +233,25 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       const formData = new FormData()
       formData.append('audio', blob, `recording.${ext}`)
 
-      // Map current step to upload param
-      const stepParam =
-        step === 'STEP_1_NAME'
-          ? '1'
-          : step === 'STEP_2_TREATMENT'
-            ? '2'
-            : step === 'STEP_3_THERAPIST'
-              ? '3'
-              : '4'
+      let stepParam: string
+      if (opts?.rerecord) {
+        // Rerecord: derive stepParam from the stepKey being re-recorded
+        stepParam = STEPKEY_TO_PARAM[opts.rerecord]
+      } else {
+        // Sequential flow: derive stepParam from current step state
+        stepParam =
+          step === 'STEP_1_NAME'
+            ? '1'
+            : step === 'STEP_2_TREATMENT'
+              ? '2'
+              : step === 'STEP_3_THERAPIST'
+                ? '3'
+                : '4'
+      }
       formData.append('step', stepParam)
 
       // step=3: also send the therapist list so the route can run the matcher
-      if (step === 'STEP_3_THERAPIST') {
+      if (stepParam === '3') {
         formData.append('therapists', JSON.stringify(therapists))
       }
 
@@ -243,34 +283,70 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         therapist_name?: string
       }
 
-      if (step === 'STEP_1_NAME') {
-        // Bug L: route now returns cleaned name in `field`, raw Whisper in `transcript`
-        const name = data.field?.trim() ?? data.transcript?.trim() ?? ''
-        setResult((prev) => ({ ...prev, patient_name: name }))
-        pushBubble({ role: 'user', text: name, stepKey: 'patient_name', editable: true })
-        advanceStep('STEP_2_TREATMENT')
-      } else if (step === 'STEP_2_TREATMENT') {
-        const area = data.treatment_area?.trim() ?? ''
-        const sessionType: SessionType = data.session_type ?? 'other'
-        const rawTranscript = data.transcript?.trim() ?? ''
-        setResult((prev) => ({ ...prev, treatment_area: area, session_type: sessionType }))
-        const bubbleText = formatTreatmentBubble(area, sessionType, rawTranscript)
-        pushBubble({ role: 'user', text: bubbleText, stepKey: 'treatment_area', editable: true })
-        advanceStep('STEP_3_THERAPIST')
-      } else if (step === 'STEP_3_THERAPIST') {
-        const matched = therapists.find((t) => t.id === data.therapist_id)
-        const name = matched?.name ?? data.therapist_name ?? ''
-        setResult((prev) => ({ ...prev, therapist_name: name }))
-        pushBubble({ role: 'user', text: name, stepKey: 'therapist_name', editable: true })
-        advanceStep('STEP_4_NOTES')
-      } else if (step === 'STEP_4_NOTES') {
-        const notes = data.field?.trim() ?? ''
-        setResult((prev) => ({ ...prev, session_notes: notes }))
-        pushBubble({ role: 'user', text: notes, stepKey: 'session_notes', editable: true })
-        advanceStep('CONFIRM')
+      if (opts?.rerecord) {
+        // ── Rerecord path: replace bubble in-place, do NOT advance step ──────
+        const rerecordKey = opts.rerecord
+        let newText = ''
+
+        if (rerecordKey === 'patient_name') {
+          newText = data.field?.trim() ?? data.transcript?.trim() ?? ''
+          setResult((prev) => ({ ...prev, patient_name: newText }))
+        } else if (rerecordKey === 'treatment_area') {
+          const area = data.treatment_area?.trim() ?? ''
+          const sessionType: SessionType = data.session_type ?? 'other'
+          const rawTranscript = data.transcript?.trim() ?? ''
+          newText = formatTreatmentBubble(area, sessionType, rawTranscript)
+          setResult((prev) => ({ ...prev, treatment_area: area, session_type: sessionType }))
+        } else if (rerecordKey === 'therapist_name') {
+          const matched = therapists.find((t) => t.id === data.therapist_id)
+          newText = matched?.name ?? data.therapist_name ?? ''
+          setResult((prev) => ({ ...prev, therapist_name: newText }))
+        } else if (rerecordKey === 'session_notes') {
+          newText = data.field?.trim() ?? ''
+          setResult((prev) => ({ ...prev, session_notes: newText }))
+        }
+
+        // Replace bubble text in-place (preserve position)
+        setBubbles((prev) =>
+          prev.map((b) => (b.stepKey === rerecordKey ? { ...b, text: newText } : b)),
+        )
+        setRerecordingStep(null)
+        rerecordingStepRef.current = null
+      } else {
+        // ── Sequential flow: push bubble + advance ─────────────────────────
+        if (step === 'STEP_1_NAME') {
+          // Bug L: route now returns cleaned name in `field`, raw Whisper in `transcript`
+          const name = data.field?.trim() ?? data.transcript?.trim() ?? ''
+          setResult((prev) => ({ ...prev, patient_name: name }))
+          pushBubble({ role: 'user', text: name, stepKey: 'patient_name', editable: true })
+          advanceStep('STEP_2_TREATMENT')
+        } else if (step === 'STEP_2_TREATMENT') {
+          const area = data.treatment_area?.trim() ?? ''
+          const sessionType: SessionType = data.session_type ?? 'other'
+          const rawTranscript = data.transcript?.trim() ?? ''
+          setResult((prev) => ({ ...prev, treatment_area: area, session_type: sessionType }))
+          const bubbleText = formatTreatmentBubble(area, sessionType, rawTranscript)
+          pushBubble({ role: 'user', text: bubbleText, stepKey: 'treatment_area', editable: true })
+          advanceStep('STEP_3_THERAPIST')
+        } else if (step === 'STEP_3_THERAPIST') {
+          const matched = therapists.find((t) => t.id === data.therapist_id)
+          const name = matched?.name ?? data.therapist_name ?? ''
+          setResult((prev) => ({ ...prev, therapist_name: name }))
+          pushBubble({ role: 'user', text: name, stepKey: 'therapist_name', editable: true })
+          advanceStep('STEP_4_NOTES')
+        } else if (step === 'STEP_4_NOTES') {
+          const notes = data.field?.trim() ?? ''
+          setResult((prev) => ({ ...prev, session_notes: notes }))
+          pushBubble({ role: 'user', text: notes, stepKey: 'session_notes', editable: true })
+          advanceStep('CONFIRM')
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Upload failed')
+      if (opts?.rerecord) {
+        setRerecordingStep(null)
+        rerecordingStepRef.current = null
+      }
     } finally {
       setProcessing(false)
     }
@@ -331,6 +407,9 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       setSaving(false)
     }
   }
+
+  // Derived: any concurrent operation active (blocks new recordings)
+  const busy = recording || processing || !!rerecordingStep
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -421,19 +500,32 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                     </div>
                   ) : (
                     <>
+                      {/* Q1/Q2: action icons LEFT of bubble. Order: mic → pencil → bubble */}
+                      {b.editable && b.stepKey && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            type="button"
+                            aria-label="Re-record this answer"
+                            disabled={busy}
+                            onClick={() => startRerecord(b.stepKey!)}
+                            className={`text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed ${rerecordingStep === b.stepKey ? 'animate-pulse' : ''}`}
+                          >
+                            <Mic size={14} />
+                          </button>
+                          <button
+                            type="button"
+                            aria-label="Edit answer"
+                            disabled={!!rerecordingStep}
+                            onClick={() => startEdit(b.stepKey!)}
+                            className="text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            <Pencil size={14} />
+                          </button>
+                        </div>
+                      )}
                       <div className="rounded-2xl rounded-tr-none bg-primary px-4 py-2 text-sm text-primary-foreground">
                         {b.text}
                       </div>
-                      {b.editable && b.stepKey && (
-                        <button
-                          type="button"
-                          aria-label="Edit answer"
-                          onClick={() => startEdit(b.stepKey!)}
-                          className="text-muted-foreground hover:text-foreground"
-                        >
-                          &#9998;
-                        </button>
-                      )}
                     </>
                   )}
                 </div>
