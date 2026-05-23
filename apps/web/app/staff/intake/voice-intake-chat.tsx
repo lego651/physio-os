@@ -91,6 +91,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
   const [bubbles, setBubbles] = useState<Bubble[]>([])
   const [result, setResult] = useState<Partial<VoiceIntakeResult>>({})
   const [therapists, setTherapists] = useState<Therapist[]>([])
+  const [matchedTherapistId, setMatchedTherapistId] = useState<string | null>(null)
   const [recording, setRecording] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -133,6 +134,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     setBubbles([])
     setResult({})
     setError(null)
+    setMatchedTherapistId(null)
     setStep('STEP_1_NAME')
     setBubbles([{ role: 'ai', text: STEP_QUESTIONS['STEP_1_NAME']! }])
   }
@@ -184,8 +186,20 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       formData.append('audio', blob, `recording.${ext}`)
 
       // Map current step to upload param
-      const stepParam = step === 'STEP_1_NAME' ? '1' : step === 'STEP_2_TREATMENT' ? '2' : '4'
+      const stepParam =
+        step === 'STEP_1_NAME'
+          ? '1'
+          : step === 'STEP_2_TREATMENT'
+            ? '2'
+            : step === 'STEP_3_THERAPIST'
+              ? '3'
+              : '4'
       formData.append('step', stepParam)
+
+      // step=3: also send the therapist list so the route can run the matcher
+      if (step === 'STEP_3_THERAPIST') {
+        formData.append('therapists', JSON.stringify(therapists))
+      }
 
       const res = await fetch('/api/intake/upload', { method: 'POST', body: formData })
       if (!res.ok) {
@@ -197,6 +211,8 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         field?: string
         treatment_area?: string
         session_type?: SessionType
+        therapist_id?: string
+        therapist_name?: string
       }
 
       if (step === 'STEP_1_NAME') {
@@ -212,6 +228,12 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         const bubbleText = formatTreatmentBubble(area, sessionType, rawTranscript)
         pushBubble({ role: 'user', text: bubbleText, stepKey: 'treatment_area', editable: true })
         advanceStep('STEP_3_THERAPIST')
+      } else if (step === 'STEP_3_THERAPIST') {
+        // Pre-fill the dropdown — no bubble yet (Jason: "只 pre-fill dropdown，不弹 bubble")
+        setMatchedTherapistId(data.therapist_id ?? null)
+        if (data.therapist_name) {
+          setResult((prev) => ({ ...prev, therapist_name: data.therapist_name }))
+        }
       } else if (step === 'STEP_4_NOTES') {
         const notes = data.field?.trim() ?? ''
         setResult((prev) => ({ ...prev, session_notes: notes }))
@@ -319,16 +341,47 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                 <div className="flex max-w-[80%] items-center gap-2">
                   {editingStep === b.stepKey ? (
                     <div className="flex items-center gap-1">
-                      <Input
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
-                        className="h-8 text-sm"
-                        autoFocus
-                      />
-                      <Button size="sm" onClick={saveEdit} className="h-8 px-2">
-                        OK
-                      </Button>
+                      {b.stepKey === 'therapist_name' ? (
+                        <Select
+                          value={editValue}
+                          onValueChange={(value) => {
+                            if (value) {
+                              setEditValue(value)
+                              setResult((prev) => ({ ...prev, therapist_name: value }))
+                              setBubbles((prev) =>
+                                prev.map((bub) =>
+                                  bub.stepKey === 'therapist_name' ? { ...bub, text: value } : bub,
+                                ),
+                              )
+                              setEditingStep(null)
+                            }
+                          }}
+                        >
+                          <SelectTrigger className="h-8 text-sm">
+                            <SelectValue placeholder="Select therapist..." />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {therapists.map((t) => (
+                              <SelectItem key={t.id} value={t.name}>
+                                {t.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      ) : (
+                        <>
+                          <Input
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && saveEdit()}
+                            className="h-8 text-sm"
+                            autoFocus
+                          />
+                          <Button size="sm" onClick={saveEdit} className="h-8 px-2">
+                            OK
+                          </Button>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -360,10 +413,23 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
           </div>
         )}
 
-        {/* Step 3: therapist picker */}
+        {/* Step 3: therapist picker — mic UI + controlled dropdown + confirm */}
         {step === 'STEP_3_THERAPIST' && (
-          <div className="mt-2">
+          <div className="mt-2 flex flex-col gap-2">
+            <p className="text-xs text-muted-foreground">
+              Please speak in English for best accuracy.
+            </p>
+            {!recording ? (
+              <Button onClick={startRecording} disabled={processing} className="h-12">
+                {processing ? 'Matching therapist...' : 'Tap to record'}
+              </Button>
+            ) : (
+              <Button onClick={stopRecording} variant="destructive" className="h-12">
+                Stop recording
+              </Button>
+            )}
             <Select
+              value={matchedTherapistId != null ? (therapists.find((t) => t.id === matchedTherapistId)?.name ?? '') : ''}
               onValueChange={(value) => {
                 if (value) handleTherapistSelect(String(value))
               }}
@@ -379,6 +445,17 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                 ))}
               </SelectContent>
             </Select>
+            {matchedTherapistId != null && (
+              <Button
+                onClick={() => {
+                  const name = therapists.find((t) => t.id === matchedTherapistId)?.name ?? ''
+                  if (name) handleTherapistSelect(name)
+                }}
+                className="h-11"
+              >
+                Confirm therapist
+              </Button>
+            )}
           </div>
         )}
 

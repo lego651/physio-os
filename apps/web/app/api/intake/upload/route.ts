@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { transcribeAudio, EmptyTranscriptError } from '../../../../lib/intake/whisper'
 import { extractIntakeFields, extractSingleField, extractTreatmentStep } from '../../../../lib/intake/extract'
+import { matchTherapist, type TherapistInput } from '../../../../lib/intake/match-therapist'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -41,6 +42,36 @@ export async function POST(request: Request): Promise<NextResponse> {
       const { treatment_area, session_type } = await extractTreatmentStep(transcript)
       console.log('[api/intake/upload] step=2 extracted', { session_type })
       return NextResponse.json({ transcript, treatment_area, session_type })
+    }
+
+    // step=3: therapist match — Whisper + LLM fuzzy match
+    // Client sends the therapists JSON array alongside the audio.
+    if (step === '3') {
+      const therapistsRaw = formData.get('therapists')?.toString() ?? '[]'
+      let therapists: TherapistInput[] = []
+      try {
+        therapists = JSON.parse(therapistsRaw) as TherapistInput[]
+      } catch {
+        console.warn('[api/intake/upload] step=3 invalid therapists JSON')
+      }
+
+      if (therapists.length === 0) {
+        console.warn('[api/intake/upload] step=3 no therapists provided')
+        return NextResponse.json(
+          { error: 'No therapists configured for this clinic' },
+          { status: 422 },
+        )
+      }
+
+      const therapistId = await matchTherapist(transcript, therapists)
+      if (therapistId === null) {
+        console.warn('[api/intake/upload] step=3 matcher returned null', { transcript })
+        return NextResponse.json({ error: 'Could not match therapist from recording' }, { status: 422 })
+      }
+
+      const matched = therapists.find((t) => t.id === therapistId)!
+      console.log('[api/intake/upload] step=3 matched', { therapistId, name: matched.name })
+      return NextResponse.json({ therapist_id: therapistId, therapist_name: matched.name, transcript })
     }
 
     // step=4: session_notes — single-field extract
