@@ -13,11 +13,11 @@ beforeEach(() => {
 })
 
 describe('transcribeAudio — D16-8 provider options', () => {
-  it('does NOT pass language to providerOptions', async () => {
+  it('passes language: "en" to providerOptions for staff-side English accuracy', async () => {
     const { transcribeAudio } = await import('../whisper')
     await transcribeAudio(Buffer.from(new Uint8Array(10)), 'test.webm')
     const call = mockTranscribe.mock.calls[0][0]
-    expect(call.providerOptions?.openai?.language).toBeUndefined()
+    expect(call.providerOptions?.openai?.language).toBe('en')
   })
 
   it('passes a prompt containing physiotherapy terms including "RMT"', async () => {

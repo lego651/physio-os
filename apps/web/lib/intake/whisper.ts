@@ -33,10 +33,16 @@ export async function transcribeAudio(audioBuffer: Buffer, filename: string): Pr
     audio: audioBuffer,
     providerOptions: {
       openai: {
+        // language: 'en' locks Whisper-1 to English decoding.
+        // Without this, auto-detection misreads short English names (e.g. "Jason" → "Jai Shen.")
+        // Staff-side voice intake is English-only (D16-8 updated 2026-05-22).
+        language: 'en',
         prompt:
-          'Physiotherapy session note. Terms may include: RMT, OMT, TCM, acupuncture, ' +
-          'massage therapy, osteopathic, cervical, lumbar, rotator cuff, fascia, ' +
-          'trigger point, IASTM, cupping.',
+          'Physiotherapy session note in English. ' +
+          'Patient names and therapist names are English or common Canadian names. ' +
+          'Terms may include: RMT, OMT, TCM, acupuncture, acupuncture needles, cupping, ' +
+          'massage therapy, deep tissue, Swedish, osteopathic, physiotherapy, rehabilitation, ' +
+          'cervical, lumbar, rotator cuff, fascia, trigger point, IASTM, chiropractic, adjustment.',
       },
     },
   })

@@ -131,13 +131,25 @@ The therapist just dictated what treatment they did. Extract two fields:
 
 1. treatment_area: The body area treated. Short phrase, e.g. "lower back", "right shoulder", "knee". If unclear, "unspecified".
 
-2. session_type: One of: 'massage', 'physio', 'acupuncture', 'chiropractor', 'other'.
+2. session_type: One of exactly: 'massage', 'physio', 'acupuncture', 'chiropractor', 'other'.
    Classification rules:
-   - 'massage'      → massage, RMT, deep tissue, Swedish, relaxation
-   - 'physio'       → physio, physiotherapy, rehabilitation, stretching, mobility, strengthening, exercise
-   - 'acupuncture'  → acupuncture, TCM, needles, cupping
-   - 'chiropractor' → chiro, chiropractic, adjustment, manipulation
-   - Ambiguous or unrecognized → 'other'
+   - 'massage'      → massage, RMT, deep tissue, Swedish, relaxation, soft tissue
+   - 'physio'       → physio, physiotherapy, rehabilitation, stretching, mobility, strengthening, exercise, IMS
+   - 'acupuncture'  → acupuncture, acupuncture needles, TCM, traditional Chinese medicine, needles, cupping, dry needling
+   - 'chiropractor' → chiro, chiropractic, adjustment, manipulation, spinal adjustment
+   - Ambiguous or unrecognized service → 'other' (only if nothing above applies)
+
+   IMPORTANT: Never default to 'other' if the transcript contains a recognizable service name.
+   Whisper transcription may contain minor spelling variations — use best judgment:
+   e.g. "accupuncture", "acupunture", "aculpuncture" → all map to 'acupuncture'.
+
+Few-shot examples:
+- "acupuncture on the lower back" → treatment_area: "lower back", session_type: "acupuncture"
+- "deep tissue massage right shoulder" → treatment_area: "right shoulder", session_type: "massage"
+- "physiotherapy knee rehab" → treatment_area: "knee", session_type: "physio"
+- "chiropractic adjustment cervical spine" → treatment_area: "cervical spine", session_type: "chiropractor"
+- "cupping therapy upper back" → treatment_area: "upper back", session_type: "acupuncture"
+- "RMT lower back" → treatment_area: "lower back", session_type: "massage"
 
 Rule: Output all fields in English, even if the transcript is in another language. Translate naturally; do not transliterate.
 
