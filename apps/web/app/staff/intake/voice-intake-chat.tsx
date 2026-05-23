@@ -84,6 +84,10 @@ const STEP_QUESTIONS: Partial<Record<Step, string>> = {
   STEP_4_NOTES: 'Any session notes?',
 }
 
+// K1: Minimum recording duration to prevent submitting near-silence to Whisper.
+// Below this threshold Whisper reliably hallucinates YouTube outro phrases.
+const MIN_RECORDING_MS = 700
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
@@ -105,6 +109,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
   const chunksRef = useRef<BlobPart[]>([])
   const streamRef = useRef<MediaStream | null>(null)
   const bottomRef = useRef<HTMLDivElement | null>(null)
+  const recordingStartRef = useRef<number | null>(null)
 
   // Load therapists on mount
   useEffect(() => {
@@ -157,13 +162,23 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         if (e.data?.size > 0) chunksRef.current.push(e.data)
       }
       recorder.onstop = async () => {
+        const durationMs = recordingStartRef.current !== null
+          ? Date.now() - recordingStartRef.current
+          : MIN_RECORDING_MS
+        recordingStartRef.current = null
         const blob = new Blob(chunksRef.current, { type: mimeType || 'audio/webm' })
         chunksRef.current = []
         streamRef.current?.getTracks().forEach((t) => t.stop())
         streamRef.current = null
+        // K1: reject recordings shorter than MIN_RECORDING_MS — don't waste Whisper quota
+        if (durationMs < MIN_RECORDING_MS) {
+          setError('Recording too short — please record again.')
+          return
+        }
         await processAudio(blob)
       }
       recorder.start()
+      recordingStartRef.current = Date.now()
       recorderRef.current = recorder
       setRecording(true)
     } catch (_err) {
@@ -204,6 +219,16 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       const res = await fetch('/api/intake/upload', { method: 'POST', body: formData })
       if (!res.ok) {
         const d = (await res.json().catch(() => null)) as { error?: string } | null
+        // K4: hallucination/too_short errors must NOT push a bubble or advance the step.
+        // Show a clear retry message instead.
+        if (d?.error === 'hallucination_detected') {
+          setError('Audio unclear — please record again.')
+          return
+        }
+        if (d?.error === 'too_short') {
+          setError('Audio too short or silent — please record again.')
+          return
+        }
         throw new Error(d?.error ?? `Upload failed (${res.status})`)
       }
       const data = (await res.json()) as {

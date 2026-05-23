@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { transcribeAudio, EmptyTranscriptError } from '../../../../lib/intake/whisper'
 import { extractIntakeFields, extractSingleField, extractTreatmentStep } from '../../../../lib/intake/extract'
 import { matchTherapist, type TherapistInput } from '../../../../lib/intake/match-therapist'
+import { isHallucination, isTooShort } from '../../../../lib/intake/whisper-hallucinations'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -28,6 +29,18 @@ export async function POST(request: Request): Promise<NextResponse> {
   try {
     const audioBuffer = Buffer.from(await audioField.arrayBuffer())
     const transcript = await transcribeAudio(audioBuffer, audioField.name || 'recording.webm')
+
+    // K3: reject transcripts that are too short (Whisper returning "." or " " on silence)
+    if (isTooShort(transcript)) {
+      console.warn('[api/intake/upload] K3 too_short guard fired', { transcript, step })
+      return NextResponse.json({ error: 'too_short' }, { status: 422 })
+    }
+
+    // K2: reject known Whisper hallucination phrases (YouTube outro etc.)
+    if (isHallucination(transcript)) {
+      console.warn('[api/intake/upload] K2 hallucination guard fired', { transcript, step })
+      return NextResponse.json({ error: 'hallucination_detected' }, { status: 422 })
+    }
 
     // step=1: patient_name — Whisper only, return transcript as-is
     if (step === '1') {

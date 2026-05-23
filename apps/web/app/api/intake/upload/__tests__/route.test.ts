@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock the helper modules — paths must match the relative imports used by ../route.ts
 // (vitest at the repo root has no `@/` alias configured, so relative paths are required)
@@ -104,5 +104,127 @@ describe('POST /api/intake/upload — step param', () => {
     expect(body.field).toBeUndefined()
     expect(body.transcript).toBeDefined()
     expect(extractTreatmentStep).toHaveBeenCalledWith(expect.any(String))
+  })
+})
+
+// ─── K2 + K3: Hallucination guard — server-side ───────────────────────────────
+
+describe('POST /api/intake/upload — K2: hallucination_detected guard', () => {
+  beforeEach(async () => {
+    const { transcribeAudio } = await import('../../../../../lib/intake/whisper')
+    vi.mocked(transcribeAudio).mockClear()
+  })
+
+  it('returns 422 with error=hallucination_detected when Whisper returns "Thank you for watching!"', async () => {
+    const { transcribeAudio } = await import('../../../../../lib/intake/whisper')
+    vi.mocked(transcribeAudio).mockResolvedValueOnce('Thank you for watching!')
+    const { POST } = await import('../route')
+    const formData = new FormData()
+    const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
+    formData.append('audio', blob, 'recording.webm')
+    formData.append('step', '1')
+    const req = new Request('http://localhost/api/intake/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.error).toBe('hallucination_detected')
+  })
+
+  it('applies K2 guard to step=2 as well (all steps protected)', async () => {
+    const { transcribeAudio } = await import('../../../../../lib/intake/whisper')
+    vi.mocked(transcribeAudio).mockResolvedValueOnce('Thanks for watching')
+    const { POST } = await import('../route')
+    const formData = new FormData()
+    const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
+    formData.append('audio', blob, 'recording.webm')
+    formData.append('step', '2')
+    const req = new Request('http://localhost/api/intake/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.error).toBe('hallucination_detected')
+  })
+
+  it('does NOT block legitimate transcript "Cathy Liu" (no false positive)', async () => {
+    const { transcribeAudio } = await import('../../../../../lib/intake/whisper')
+    vi.mocked(transcribeAudio).mockResolvedValueOnce('Cathy Liu')
+    const { POST } = await import('../route')
+    const formData = new FormData()
+    const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
+    formData.append('audio', blob, 'recording.webm')
+    formData.append('step', '1')
+    const req = new Request('http://localhost/api/intake/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.transcript).toBe('Cathy Liu')
+  })
+})
+
+describe('POST /api/intake/upload — K3: too_short guard', () => {
+  beforeEach(async () => {
+    const { transcribeAudio } = await import('../../../../../lib/intake/whisper')
+    vi.mocked(transcribeAudio).mockClear()
+  })
+
+  it('returns 422 with error=too_short when Whisper returns a single period "."', async () => {
+    const { transcribeAudio } = await import('../../../../../lib/intake/whisper')
+    vi.mocked(transcribeAudio).mockResolvedValueOnce('.')
+    const { POST } = await import('../route')
+    const formData = new FormData()
+    const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
+    formData.append('audio', blob, 'recording.webm')
+    formData.append('step', '1')
+    const req = new Request('http://localhost/api/intake/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.error).toBe('too_short')
+  })
+
+  it('returns 422 with error=too_short when Whisper returns a single space', async () => {
+    const { transcribeAudio } = await import('../../../../../lib/intake/whisper')
+    vi.mocked(transcribeAudio).mockResolvedValueOnce(' ')
+    const { POST } = await import('../route')
+    const formData = new FormData()
+    const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
+    formData.append('audio', blob, 'recording.webm')
+    formData.append('step', '1')
+    const req = new Request('http://localhost/api/intake/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.error).toBe('too_short')
+  })
+
+  it('does NOT block "OK" (2 chars — at the acceptance threshold)', async () => {
+    const { transcribeAudio } = await import('../../../../../lib/intake/whisper')
+    vi.mocked(transcribeAudio).mockResolvedValueOnce('OK')
+    const { POST } = await import('../route')
+    const formData = new FormData()
+    const blob = new Blob([new Uint8Array(100)], { type: 'audio/webm' })
+    formData.append('audio', blob, 'recording.webm')
+    formData.append('step', '1')
+    const req = new Request('http://localhost/api/intake/upload', {
+      method: 'POST',
+      body: formData,
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
   })
 })
