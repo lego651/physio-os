@@ -3,6 +3,7 @@ import { transcribeAudio, EmptyTranscriptError } from '../../../../lib/intake/wh
 import { extractIntakeFields, extractSingleField, extractTreatmentStep } from '../../../../lib/intake/extract'
 import { matchTherapist, type TherapistInput } from '../../../../lib/intake/match-therapist'
 import { isHallucination, isTooShort } from '../../../../lib/intake/whisper-hallucinations'
+import { cleanPatientName } from '../../../../lib/intake/clean-patient-name'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -42,12 +43,14 @@ export async function POST(request: Request): Promise<NextResponse> {
       return NextResponse.json({ error: 'hallucination_detected' }, { status: 422 })
     }
 
-    // step=1: patient_name — Whisper only, return transcript as-is
+    // step=1: patient_name — Whisper transcript cleaned by Claude Haiku (Bug L)
     if (step === '1') {
       console.log('[api/intake/upload] step=1 name-only transcription', {
         chars: transcript.length,
       })
-      return NextResponse.json({ transcript })
+      const { name: cleanedName, raw } = await cleanPatientName(transcript)
+      console.log('[api/intake/upload] step=1 name cleaned', { raw, cleanedName })
+      return NextResponse.json({ field: cleanedName, transcript: raw })
     }
 
     // step=2: treatment_area + session_type — single Claude call (D18-1)

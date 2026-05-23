@@ -241,7 +241,8 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       }
 
       if (step === 'STEP_1_NAME') {
-        const name = data.transcript?.trim() ?? ''
+        // Bug L: route now returns cleaned name in `field`, raw Whisper in `transcript`
+        const name = data.field?.trim() ?? data.transcript?.trim() ?? ''
         setResult((prev) => ({ ...prev, patient_name: name }))
         pushBubble({ role: 'user', text: name, stepKey: 'patient_name', editable: true })
         advanceStep('STEP_2_TREATMENT')
