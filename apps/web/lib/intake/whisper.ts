@@ -37,13 +37,16 @@ export async function transcribeAudio(audioBuffer: Buffer, filename: string): Pr
         // Without this, auto-detection misreads short English names (e.g. "Jason" → "Jai Shen.")
         // Staff-side voice intake is English-only (D16-8 updated 2026-05-22).
         language: 'en',
+        // Whisper prompt is treated as a preceding transcript, not metadata.
+        // Only include medical domain vocabulary — terms that cannot plausibly
+        // appear as patient names. Example names and demographic hints MUST NOT
+        // be included: Whisper reproduces them verbatim when audio is short or
+        // ambiguous (Bug G root cause, 2026-05-23).
         prompt:
           'Physiotherapy session note in English. ' +
-          'Patient names and therapist names are English or common Canadian names. ' +
           'Terms may include: RMT, OMT, TCM, acupuncture, acupuncture needles, cupping, ' +
           'massage therapy, deep tissue, Swedish, osteopathic, physiotherapy, rehabilitation, ' +
-          'cervical, lumbar, rotator cuff, fascia, trigger point, IASTM, chiropractic, adjustment. ' +
-          'Patient names and therapist names may be Chinese-Canadian, e.g., Cathy Liu, Wei Zhang, Emily Chen, David Wang, Kevin Lin. Transcribe proper nouns carefully.',
+          'cervical, lumbar, rotator cuff, fascia, trigger point, IASTM, chiropractic, adjustment.',
       },
     },
   })

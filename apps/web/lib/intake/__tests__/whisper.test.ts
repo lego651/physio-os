@@ -28,11 +28,21 @@ describe('transcribeAudio — D16-8 provider options', () => {
     expect(call.providerOptions.openai.prompt).toContain('RMT')
   })
 
-  it('prompt includes Chinese-Canadian name hint to prevent Whisper misreading (e.g. "Cathy Liu" → "开肺瘤")', async () => {
+  // Bug G: prompt must NOT contain example names or "Chinese-Canadian" language hint.
+  // When audio is short/ambiguous, Whisper treats the prompt as a preceding transcript
+  // and can output prompt text verbatim instead of decoding the audio.
+  it('prompt does NOT contain "Chinese-Canadian" (prevents prompt leaking as transcription)', async () => {
     const { transcribeAudio } = await import('../whisper')
     await transcribeAudio(Buffer.from(new Uint8Array(10)), 'test.webm')
     const call = mockTranscribe.mock.calls[0][0]
-    expect(call.providerOptions.openai.prompt).toContain('Chinese-Canadian')
+    const prompt: string = call.providerOptions?.openai?.prompt ?? ''
+    expect(prompt).not.toContain('Chinese-Canadian')
+    expect(prompt).not.toContain('e.g.,')
+    expect(prompt).not.toContain('Cathy')
+    expect(prompt).not.toContain('Wei Zhang')
+    expect(prompt).not.toContain('Emily Chen')
+    expect(prompt).not.toContain('David Wang')
+    expect(prompt).not.toContain('Kevin Lin')
   })
 
   it('throws EmptyTranscriptError on empty buffer', async () => {

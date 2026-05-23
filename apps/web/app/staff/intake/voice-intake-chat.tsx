@@ -13,6 +13,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { SessionType } from '@physio-os/shared'
+import { formatTreatmentBubble } from './treatment-bubble'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -206,8 +207,10 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       } else if (step === 'STEP_2_TREATMENT') {
         const area = data.treatment_area?.trim() ?? ''
         const sessionType: SessionType = data.session_type ?? 'other'
+        const rawTranscript = data.transcript?.trim() ?? ''
         setResult((prev) => ({ ...prev, treatment_area: area, session_type: sessionType }))
-        pushBubble({ role: 'user', text: area, stepKey: 'treatment_area', editable: true })
+        const bubbleText = formatTreatmentBubble(area, sessionType, rawTranscript)
+        pushBubble({ role: 'user', text: bubbleText, stepKey: 'treatment_area', editable: true })
         advanceStep('STEP_3_THERAPIST')
       } else if (step === 'STEP_4_NOTES') {
         const notes = data.field?.trim() ?? ''
