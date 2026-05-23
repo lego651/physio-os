@@ -500,32 +500,32 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                     </div>
                   ) : (
                     <>
-                      {/* Q1/Q2: action icons LEFT of bubble. Order: mic → pencil → bubble */}
+                      {/* Q1/Q2: pencil LEFT of bubble, mic RIGHT of bubble. Order: pencil → bubble → mic */}
                       {b.editable && b.stepKey && (
-                        <div className="flex items-center gap-1">
-                          <button
-                            type="button"
-                            aria-label="Re-record this answer"
-                            disabled={busy}
-                            onClick={() => startRerecord(b.stepKey!)}
-                            className={`text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed ${rerecordingStep === b.stepKey ? 'animate-pulse' : ''}`}
-                          >
-                            <Mic size={14} />
-                          </button>
-                          <button
-                            type="button"
-                            aria-label="Edit answer"
-                            disabled={!!rerecordingStep}
-                            onClick={() => startEdit(b.stepKey!)}
-                            className="text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
-                          >
-                            <Pencil size={14} />
-                          </button>
-                        </div>
+                        <button
+                          type="button"
+                          aria-label="Edit answer"
+                          disabled={!!rerecordingStep}
+                          onClick={() => startEdit(b.stepKey!)}
+                          className="text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          <Pencil size={14} />
+                        </button>
                       )}
                       <div className="rounded-2xl rounded-tr-none bg-primary px-4 py-2 text-sm text-primary-foreground">
                         {b.text}
                       </div>
+                      {b.editable && b.stepKey && (
+                        <button
+                          type="button"
+                          aria-label="Re-record this answer"
+                          disabled={busy}
+                          onClick={() => startRerecord(b.stepKey!)}
+                          className={`text-muted-foreground hover:text-foreground disabled:opacity-40 disabled:cursor-not-allowed ${rerecordingStep === b.stepKey ? 'animate-pulse' : ''}`}
+                        >
+                          <Mic size={14} />
+                        </button>
+                      )}
                     </>
                   )}
                 </div>

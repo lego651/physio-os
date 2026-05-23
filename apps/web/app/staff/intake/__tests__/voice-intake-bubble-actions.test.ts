@@ -47,9 +47,9 @@ describe('voice-intake-chat — Q1: pencil icon is to the left of the bubble con
   })
 })
 
-// ── Q2: mic icon exists and is to the LEFT of pencil icon ────────────────────
+// ── Q2: mic icon exists and is to the RIGHT of bubble (pencil is left, mic is right) ──────
 
-describe('voice-intake-chat — Q2: mic icon present and left of pencil', () => {
+describe('voice-intake-chat — Q2: mic icon present and right of bubble', () => {
   it('imports Mic from lucide-react', () => {
     expect(SRC).toMatch(/Mic.*lucide-react|lucide-react.*Mic/)
   })
@@ -58,13 +58,13 @@ describe('voice-intake-chat — Q2: mic icon present and left of pencil', () => 
     expect(SRC).toMatch(/aria-label=["']Re-record this answer["']/)
   })
 
-  it('mic icon appears before pencil icon in DOM source order', () => {
-    // DOM order: mic → pencil → bubble
-    const micIdx = SRC.indexOf('Re-record this answer')
+  it('pencil icon appears before mic icon in DOM source order (pencil left, mic right)', () => {
+    // DOM order: pencil → bubble → mic
     const pencilIdx = SRC.indexOf('Edit answer')
-    expect(micIdx).toBeGreaterThan(-1)
+    const micIdx = SRC.indexOf('Re-record this answer')
     expect(pencilIdx).toBeGreaterThan(-1)
-    expect(micIdx).toBeLessThan(pencilIdx)
+    expect(micIdx).toBeGreaterThan(-1)
+    expect(pencilIdx).toBeLessThan(micIdx)
   })
 })
 
