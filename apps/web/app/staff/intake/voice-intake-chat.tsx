@@ -95,7 +95,6 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
   const [bubbles, setBubbles] = useState<Bubble[]>([])
   const [result, setResult] = useState<Partial<VoiceIntakeResult>>({})
   const [therapists, setTherapists] = useState<Therapist[]>([])
-  const [matchedTherapistId, setMatchedTherapistId] = useState<string | null>(null)
   const [recording, setRecording] = useState(false)
   const [processing, setProcessing] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -139,7 +138,6 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     setBubbles([])
     setResult({})
     setError(null)
-    setMatchedTherapistId(null)
     setStep('STEP_1_NAME')
     setBubbles([{ role: 'ai', text: STEP_QUESTIONS['STEP_1_NAME']! }])
   }
@@ -259,11 +257,11 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         pushBubble({ role: 'user', text: bubbleText, stepKey: 'treatment_area', editable: true })
         advanceStep('STEP_3_THERAPIST')
       } else if (step === 'STEP_3_THERAPIST') {
-        // Pre-fill the dropdown — no bubble yet (Jason: "只 pre-fill dropdown，不弹 bubble")
-        setMatchedTherapistId(data.therapist_id ?? null)
-        if (data.therapist_name) {
-          setResult((prev) => ({ ...prev, therapist_name: data.therapist_name }))
-        }
+        const matched = therapists.find((t) => t.id === data.therapist_id)
+        const name = matched?.name ?? data.therapist_name ?? ''
+        setResult((prev) => ({ ...prev, therapist_name: name }))
+        pushBubble({ role: 'user', text: name, stepKey: 'therapist_name', editable: true })
+        advanceStep('STEP_4_NOTES')
       } else if (step === 'STEP_4_NOTES') {
         const notes = data.field?.trim() ?? ''
         setResult((prev) => ({ ...prev, session_notes: notes }))
@@ -284,12 +282,6 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     } else if (STEP_QUESTIONS[next]) {
       pushBubble({ role: 'ai', text: STEP_QUESTIONS[next]! })
     }
-  }
-
-  function handleTherapistSelect(name: string) {
-    setResult((prev) => ({ ...prev, therapist_name: name }))
-    pushBubble({ role: 'user', text: name, stepKey: 'therapist_name', editable: true })
-    advanceStep('STEP_4_NOTES')
   }
 
   function startEdit(stepKey: keyof VoiceIntakeResult) {
@@ -443,54 +435,8 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
           </div>
         )}
 
-        {/* Step 3: therapist picker — mic UI + controlled dropdown + confirm */}
-        {step === 'STEP_3_THERAPIST' && (
-          <div className="mt-2 flex flex-col gap-2">
-            <p className="text-xs text-muted-foreground">
-              Please speak in English for best accuracy.
-            </p>
-            {!recording ? (
-              <Button onClick={startRecording} disabled={processing} className="h-12">
-                {processing ? 'Matching therapist...' : 'Tap to record'}
-              </Button>
-            ) : (
-              <Button onClick={stopRecording} variant="destructive" className="h-12">
-                Stop recording
-              </Button>
-            )}
-            <Select
-              value={matchedTherapistId != null ? (therapists.find((t) => t.id === matchedTherapistId)?.name ?? '') : ''}
-              onValueChange={(value) => {
-                if (value) handleTherapistSelect(String(value))
-              }}
-            >
-              <SelectTrigger className="h-12 w-full">
-                <SelectValue placeholder="Select therapist..." />
-              </SelectTrigger>
-              <SelectContent>
-                {therapists.map((t) => (
-                  <SelectItem key={t.id} value={t.name}>
-                    {t.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {matchedTherapistId != null && (
-              <Button
-                onClick={() => {
-                  const name = therapists.find((t) => t.id === matchedTherapistId)?.name ?? ''
-                  if (name) handleTherapistSelect(name)
-                }}
-                className="h-11"
-              >
-                Confirm therapist
-              </Button>
-            )}
-          </div>
-        )}
-
-        {/* Voice steps: 1, 2, 4 */}
-        {(step === 'STEP_1_NAME' || step === 'STEP_2_TREATMENT' || step === 'STEP_4_NOTES') && (
+        {/* Voice steps: 1, 2, 3, 4 */}
+        {(step === 'STEP_1_NAME' || step === 'STEP_2_TREATMENT' || step === 'STEP_3_THERAPIST' || step === 'STEP_4_NOTES') && (
           <div className="mt-2 flex flex-col gap-2">
             <p className="text-xs text-muted-foreground">
               Please speak in English for best accuracy.
