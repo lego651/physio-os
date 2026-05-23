@@ -229,6 +229,10 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
           setError('Audio too short or silent — please record again.')
           return
         }
+        if (d?.error === 'non_english_transcript') {
+          setError('Please speak in English. Audio was not understood as English.')
+          return
+        }
         throw new Error(d?.error ?? `Upload failed (${res.status})`)
       }
       const data = (await res.json()) as {

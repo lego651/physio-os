@@ -3,6 +3,7 @@ import { transcribeAudio, EmptyTranscriptError } from '../../../../lib/intake/wh
 import { extractIntakeFields, extractSingleField, extractTreatmentStep } from '../../../../lib/intake/extract'
 import { matchTherapist, type TherapistInput } from '../../../../lib/intake/match-therapist'
 import { isHallucination, isTooShort } from '../../../../lib/intake/whisper-hallucinations'
+import { isNonEnglishScript } from '../../../../lib/intake/whisper-language-guard'
 import { cleanPatientName } from '../../../../lib/intake/clean-patient-name'
 
 export const runtime = 'nodejs'
@@ -41,6 +42,14 @@ export async function POST(request: Request): Promise<NextResponse> {
     if (isHallucination(transcript)) {
       console.warn('[api/intake/upload] K2 hallucination guard fired', { transcript, step })
       return NextResponse.json({ error: 'hallucination_detected' }, { status: 422 })
+    }
+
+    // M1: reject non-English-script transcripts (CJK, Cyrillic, Arabic, etc.)
+    // language='en' in whisper.ts is a hint, not a hard constraint — short audio
+    // can still produce non-Latin output. Catch it before any Claude processing.
+    if (isNonEnglishScript(transcript)) {
+      console.warn('[api/intake/upload] M1 non_english_script guard fired', { transcript, step })
+      return NextResponse.json({ error: 'non_english_transcript', raw: transcript }, { status: 422 })
     }
 
     // step=1: patient_name — Whisper transcript cleaned by Claude Haiku (Bug L)

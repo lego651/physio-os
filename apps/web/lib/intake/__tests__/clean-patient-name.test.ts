@@ -1,22 +1,28 @@
 /**
- * Unit tests for cleanPatientName (Bug L)
- * RED phase: clean-patient-name.ts does not yet exist — all tests must fail.
+ * Unit tests for cleanPatientName (Bug L + Bug M)
  *
- * Failure modes tested (per brief):
+ * Failure modes tested:
  *   1. "Chai Siu Liu"          → "Cathy Liu"        (core phonetic fix)
  *   2. "John Smith"            → "John Smith"       (no regression on clean input)
  *   3. "Wai Chung Wong"        → "Wai Chung Wong"   (legit Chinese-English name, don't touch)
  *   4. ""                      → fast-path skip, no LLM call
  *   5. "X" (< 2 chars)         → fast-path skip, no LLM call
  *   6. Claude throws           → fallback to raw transcript, no crash
- *   7. Hallucination already blocked upstream → tested by route layer, not here
+ *   7. "开肺瘤"                 → verbatim fallback (M3 defense-in-depth, after M1 guard)
  *   8. Long name unchanged     → "Mary Catherine Elizabeth Jones" not compressed
+ *
+ * Implementation note:
+ *   cleanPatientName uses generateText + Output.object (structured output).
+ *   The SDK returns { output: { name: string } }. Mocks reflect this shape.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 // Mock AI SDK before importing so no real API call is made.
 vi.mock('ai', () => ({
   generateText: vi.fn(),
+  Output: {
+    object: vi.fn(() => 'mock-output-object'),
+  },
 }))
 
 vi.mock('@ai-sdk/anthropic', () => ({
@@ -30,9 +36,10 @@ const mockGenerateText = vi.mocked(generateText)
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
+/** Mock generateText to return structured output { output: { name } } */
 function mockClaude(returnedName: string) {
   mockGenerateText.mockResolvedValueOnce({
-    text: returnedName,
+    output: { name: returnedName },
   } as Awaited<ReturnType<typeof generateText>>)
 }
 
@@ -139,6 +146,21 @@ describe('cleanPatientName — failure mode 6: LLM failure fallback', () => {
   })
 })
 
+// ── Failure mode 7: non-Latin script — verbatim fallback (M3 defense-in-depth)
+
+describe('cleanPatientName — failure mode 7: non-Latin input verbatim (M3)', () => {
+  beforeEach(() => mockGenerateText.mockClear())
+
+  it('returns "开肺瘤" verbatim when Claude returns it unchanged (defense-in-depth)', async () => {
+    // The M1 ASCII guard in route.ts catches this upstream.
+    // If it somehow reaches cleanPatientName, Claude must return verbatim per M3 prompt.
+    mockClaude('开肺瘤')
+    const result = await cleanPatientName('开肺瘤')
+    expect(result.name).toBe('开肺瘤')
+    expect(result.raw).toBe('开肺瘤')
+  })
+})
+
 // ── Failure mode 8: long name — not compressed ───────────────────────────────
 
 describe('cleanPatientName — failure mode 8: long name not compressed', () => {
@@ -172,7 +194,6 @@ describe('cleanPatientName — L10: pipeline assertion (Whisper output → clean
   beforeEach(() => mockGenerateText.mockClear())
 
   it('"Chai Siu Liu" in → "Cathy Liu" out (full pipeline mock)', async () => {
-    // Simulate: Whisper outputs "Chai Siu Liu", Claude corrects to "Cathy Liu"
     mockClaude('Cathy Liu')
     const { name, raw } = await cleanPatientName('Chai Siu Liu')
     expect(name).toBe('Cathy Liu')    // cleaned name goes to bubble
