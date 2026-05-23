@@ -28,6 +28,13 @@ describe('transcribeAudio — D16-8 provider options', () => {
     expect(call.providerOptions.openai.prompt).toContain('RMT')
   })
 
+  it('prompt includes Chinese-Canadian name hint to prevent Whisper misreading (e.g. "Cathy Liu" → "开肺瘤")', async () => {
+    const { transcribeAudio } = await import('../whisper')
+    await transcribeAudio(Buffer.from(new Uint8Array(10)), 'test.webm')
+    const call = mockTranscribe.mock.calls[0][0]
+    expect(call.providerOptions.openai.prompt).toContain('Chinese-Canadian')
+  })
+
   it('throws EmptyTranscriptError on empty buffer', async () => {
     const { transcribeAudio, EmptyTranscriptError } = await import('../whisper')
     await expect(transcribeAudio(Buffer.alloc(0), 'empty.webm')).rejects.toBeInstanceOf(
