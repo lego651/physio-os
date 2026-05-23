@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Card, CardContent } from '@/components/ui/card'
 import {
   Select,
@@ -390,6 +391,19 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                             ))}
                           </SelectContent>
                         </Select>
+                      ) : b.stepKey === 'session_notes' ? (
+                        <>
+                          <Textarea
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            className="min-h-[120px] resize-y text-sm"
+                            rows={5}
+                            autoFocus
+                          />
+                          <Button size="sm" onClick={saveEdit} className="h-8 px-2">
+                            OK
+                          </Button>
+                        </>
                       ) : (
                         <>
                           <Input
