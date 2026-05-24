@@ -39,6 +39,8 @@ jobs:
           SMOKE_TEST_RECIPIENT_PHONE: ${{ secrets.SMOKE_TEST_RECIPIENT_PHONE }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
           ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          SMOKE_TEST_FROM_EMAIL: ${{ secrets.SMOKE_TEST_FROM_EMAIL }}
           DEPLOY_URL: >-
             ${{
               github.event.deployment_status.target_url ||
