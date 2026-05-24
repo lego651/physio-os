@@ -337,6 +337,10 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
           setError('Please speak in English. Audio was not understood as English.')
           return
         }
+        if (d?.error === 'Could not match therapist from recording') {
+          setError("Didn't catch that — which therapist? Please say again.")
+          return
+        }
         throw new Error(d?.error ?? `Upload failed (${res.status})`)
       }
       const data = (await res.json()) as {
@@ -363,6 +367,14 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
           newText = formatTreatmentBubble(area, sessionType, rawTranscript)
           setResult((prev) => ({ ...prev, treatment_area: area, session_type: sessionType }))
         } else if (rerecordKey === 'therapist_name') {
+          // If server returned no match (therapist_id absent), do not update
+          // the bubble or result — the old value stays and the user should retry.
+          if (!data.therapist_id) {
+            setError("Didn't catch that — which therapist? Please say again.")
+            setRerecordingStep(null)
+            rerecordingStepRef.current = null
+            return
+          }
           const matched = therapists.find((t) => t.id === data.therapist_id)
           newText = matched?.name ?? data.therapist_name ?? ''
           setResult((prev) => ({ ...prev, therapist_name: newText }))
