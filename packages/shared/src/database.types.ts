@@ -289,6 +289,7 @@ export type Database = {
           created_at: string
           date_of_visit: string
           id: string
+          patient_id: string | null
           patient_name: string
           raw_transcript: string | null
           session_notes: string
@@ -303,6 +304,7 @@ export type Database = {
           created_at?: string
           date_of_visit: string
           id?: string
+          patient_id?: string | null
           patient_name: string
           raw_transcript?: string | null
           session_notes: string
@@ -317,6 +319,7 @@ export type Database = {
           created_at?: string
           date_of_visit?: string
           id?: string
+          patient_id?: string | null
           patient_name?: string
           raw_transcript?: string | null
           session_notes?: string
@@ -326,7 +329,15 @@ export type Database = {
           treatment_area?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "intake_records_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       patients: {
         Row: {
@@ -448,6 +459,7 @@ export type Database = {
           intake_record_id: string | null
           metadata: Json | null
           patient_email: string | null
+          patient_id: string | null
           patient_name: string
           patient_phone: string | null
           service_type: string | null
@@ -468,6 +480,7 @@ export type Database = {
           intake_record_id?: string | null
           metadata?: Json | null
           patient_email?: string | null
+          patient_id?: string | null
           patient_name: string
           patient_phone?: string | null
           service_type?: string | null
@@ -488,6 +501,7 @@ export type Database = {
           intake_record_id?: string | null
           metadata?: Json | null
           patient_email?: string | null
+          patient_id?: string | null
           patient_name?: string
           patient_phone?: string | null
           service_type?: string | null
@@ -510,6 +524,13 @@ export type Database = {
             columns: ["intake_record_id"]
             isOneToOne: false
             referencedRelation: "intake_records"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "review_requests_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "patients"
             referencedColumns: ["id"]
           },
         ]
