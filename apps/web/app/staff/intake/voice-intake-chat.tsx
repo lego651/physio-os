@@ -125,14 +125,15 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
   const [editValue, setEditValue] = useState('')
   const [rerecordingStep, setRerecordingStep] = useState<keyof VoiceIntakeResult | null>(null)
 
-  // ── S1.7-4 (revised): patient picker state ───────────────────────────────────
+  // ── Patient picker state ─────────────────────────────────────────────────────
   const [candidates, setCandidates] = useState<PatientCandidate[]>([])
   const [matchLoading, setMatchLoading] = useState(false)
   const [matchDone, setMatchDone] = useState(false)
-  // null = nothing selected, string = existing patient UUID
-  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
-  // Shown only when candidates.length === 0: operator can save intake without linking a patient
-  const [saveWithoutPatient, setSaveWithoutPatient] = useState(false)
+  // Three-state selection:
+  //   null      → nothing selected yet (Save disabled)
+  //   'unlinked' → "None of these / Save without patient" chosen (Save enabled, patient_id=null)
+  //   string    → an existing patient UUID chosen (Save enabled, patient_id=uuid)
+  const [selectedPatientId, setSelectedPatientId] = useState<'unlinked' | string | null>(null)
 
   const router = useRouter()
 
@@ -208,7 +209,6 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     setMatchLoading(false)
     setMatchDone(false)
     setSelectedPatientId(null)
-    setSaveWithoutPatient(false)
   }
 
   async function startRecording() {
@@ -438,9 +438,11 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       date_of_visit: todayDate(),
     }
     // Resolve the patient_id to send:
-    //   - existing candidate selected → use that candidate's id
-    //   - saveWithoutPatient → null (intake_records.patient_id = NULL)
-    const resolvedPatientId: string | null = selectedPatientId
+    //   - 'unlinked' → null (intake_records.patient_id = NULL, new/unlinked patient)
+    //   - string UUID → use that candidate's id
+    //   - null → should not reach here (Save button disabled until selection made)
+    const resolvedPatientId: string | null =
+      selectedPatientId === 'unlinked' ? null : selectedPatientId
 
     setSaving(true)
     setError(null)
@@ -657,8 +659,16 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
               {matchLoading && (
                 <p className="text-xs text-muted-foreground">Looking up patient...</p>
               )}
-              {!matchLoading && candidates.length > 0 && (
+              {!matchLoading && (
                 <div className="flex flex-col gap-1">
+                  {/* No candidates: surface a warning before the unlinked option */}
+                  {candidates.length === 0 && (
+                    <p className="mb-1 text-xs text-amber-700">
+                      No matching patient found for &ldquo;{result.patient_name}&rdquo;.
+                    </p>
+                  )}
+
+                  {/* Candidate rows */}
                   {candidates.map((c) => (
                     <label key={c.id} className="flex cursor-pointer items-center gap-2">
                       <input
@@ -679,25 +689,22 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                       </span>
                     </label>
                   ))}
-                </div>
-              )}
 
-              {/* Empty candidates: warn operator and offer "Save without patient" */}
-              {!matchLoading && candidates.length === 0 && (
-                <div className="flex flex-col gap-2">
-                  <p className="text-xs text-amber-700">
-                    &ldquo;{result.patient_name}&rdquo; not found in patient directory.
-                    Please ask front desk to add this patient first, or save this intake
-                    without patient linking.
-                  </p>
-                  <label className="flex cursor-pointer items-center gap-2 text-xs">
+                  {/* Always-present unlinked option */}
+                  <label className="flex cursor-pointer items-center gap-2 text-muted-foreground">
                     <input
-                      type="checkbox"
-                      checked={saveWithoutPatient}
-                      onChange={(e) => setSaveWithoutPatient(e.target.checked)}
+                      type="radio"
+                      name="patient-pick"
+                      value="unlinked"
+                      checked={selectedPatientId === 'unlinked'}
+                      onChange={() => setSelectedPatientId('unlinked')}
                       className="accent-primary"
                     />
-                    <span>Save without patient (intake_records.patient_id will be null)</span>
+                    <span className="text-xs">
+                      {candidates.length > 0
+                        ? 'None of these — new patient, save without linking'
+                        : 'Save without patient (new or unlinked visit)'}
+                    </span>
                   </label>
                 </div>
               )}
@@ -710,8 +717,8 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                 disabled={
                   saving ||
                   matchLoading ||
-                  // Must have selected a candidate OR checked "Save without patient"
-                  (selectedPatientId === null && !saveWithoutPatient)
+                  // Any radio selected (uuid or 'unlinked') enables Save
+                  selectedPatientId === null
                 }
                 className="h-11 flex-1"
               >
@@ -728,7 +735,6 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                   setCandidates([])
                   setMatchDone(false)
                   setSelectedPatientId(null)
-                  setSaveWithoutPatient(false)
                 }}
                 className="h-11 flex-1"
               >

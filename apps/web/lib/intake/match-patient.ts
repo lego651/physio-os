@@ -14,8 +14,13 @@ export interface MatchPatientCandidate {
   last_seen_at: string | null
 }
 
-const RankedIdsSchema = z.object({
-  ranked_ids: z.array(z.string()),
+const FilteredMatchesSchema = z.object({
+  matches: z.array(
+    z.object({
+      patient_id: z.string(),
+      reason: z.string(),
+    }),
+  ),
 })
 
 /** Mask phone: last 4 digits only, prefixed with ellipsis. */
@@ -71,14 +76,14 @@ export async function matchPatient(
   const exactMatch = exactIdx >= 0 ? patients[exactIdx]! : null
   const rest = exactMatch ? patients.filter((_, i) => i !== exactIdx) : patients
 
-  // 4. LLM fuzzy-rank the non-exact candidates
-  let rankedRest: PatientRow[] = rest
-  if (rest.length > 1) {
-    rankedRest = await llmRankPatients(name, rest)
+  // 4. LLM filter + rank the non-exact candidates (returns only similar ones)
+  let filteredRest: PatientRow[] = rest
+  if (rest.length >= 1) {
+    filteredRest = await llmFilterAndRankPatients(name, rest)
   }
 
-  // 5. Build final ordered list: exact first, then LLM-ranked rest
-  const ordered = exactMatch ? [exactMatch, ...rankedRest] : rankedRest
+  // 5. Build final ordered list: exact first, then LLM-filtered rest
+  const ordered = exactMatch ? [exactMatch, ...filteredRest] : filteredRest
 
   // 6. Fetch last_seen_at and apply masking, cap at 10
   const top10 = ordered.slice(0, 10)
@@ -116,45 +121,76 @@ async function buildCandidate(
   }
 }
 
-/** Use Claude Haiku to fuzzy-rank a list of patients by name similarity. */
-async function llmRankPatients(inputName: string, candidates: PatientRow[]): Promise<PatientRow[]> {
+/**
+ * Use Claude Haiku to filter AND rank a list of patients by name similarity.
+ *
+ * Unlike the old ranker, this function returns ONLY patients whose names are
+ * phonetically or orthographically similar to the input. Completely dissimilar
+ * patients (different first name, different ethnicity, no acoustic overlap) are
+ * excluded from the result entirely.
+ *
+ * Few-shot examples baked into the prompt (real prod cases):
+ *   "Ethan Liu"  + [Ethan Liu, Jason Gao, Eason Liu, Mary Smith] → [Ethan Liu, Eason Liu]
+ *   "Ethaniel"   + [Ethan Liu, Jason Gao]                        → [Ethan Liu]
+ *   "Ethan Niu"  + [Ethan Liu, Mark Wong]                        → [Ethan Liu]  (Niu ≈ Liu phonetically)
+ *   "John Smith" + [Mary Jones, Bob Wilson]                      → []
+ */
+async function llmFilterAndRankPatients(
+  inputName: string,
+  candidates: PatientRow[],
+): Promise<PatientRow[]> {
   const patientList = candidates
-    .map((p) => `  - id: "${p.id}", name: "${p.name}"`)
+    .map((p) => `  - patient_id: "${p.id}", name: "${p.name}"`)
     .join('\n')
 
   try {
     const { output } = await generateText({
       model: anthropic('claude-haiku-4-5'),
-      output: Output.object({ schema: RankedIdsSchema }),
-      prompt: `You are matching a patient name from a voice intake to the closest patients in a directory.
+      output: Output.object({ schema: FilteredMatchesSchema }),
+      prompt: `You are a patient name matcher for a physiotherapy clinic voice intake system.
 
-Patients:
-${patientList}
+Your job: given a spoken/transcribed patient name and a list of patients in the directory,
+return ONLY the patients whose names could plausibly be the same person as the input.
+
+Rules:
+- Return ONLY patients whose names sound phonetically similar OR are spelling/transcription variants of the input name.
+- DO NOT return patients with clearly different names (e.g. different first name with no acoustic overlap, different ethnic origin with no overlap).
+- If no patient is similar, return an empty matches array.
+- For each match, provide a brief reason (e.g. "phonetic variant", "exact match", "partial name").
+
+Few-shot examples:
+
+Input: "Ethan Liu"
+Candidates: [Ethan Liu, Jason Gao, Eason Liu, Mary Smith]
+→ matches: [{ patient_id: "<ethan-id>", reason: "exact name match" }, { patient_id: "<eason-id>", reason: "Eason is phonetic variant of Ethan; Liu matches Liu" }]
+
+Input: "Ethaniel"
+Candidates: [Ethan Liu, Jason Gao]
+→ matches: [{ patient_id: "<ethan-id>", reason: "Ethaniel is a variant of Ethan" }]
+
+Input: "Ethan Niu"
+Candidates: [Ethan Liu, Mark Wong]
+→ matches: [{ patient_id: "<ethan-id>", reason: "Niu is a common transcription error for Liu (phonetically similar in English)" }]
+
+Input: "John Smith"
+Candidates: [Mary Jones, Bob Wilson]
+→ matches: []
+
+Now match this input:
 
 Input name: "${inputName}"
-
-Rank all patients by how closely their name matches the input name.
-Handle:
-- Phonetic variants (e.g. "Ethan" matches "Ethen")
-- Partial names (e.g. "Jason" matches "Jason Gao")
-- Nicknames and informal name variants
-
-Return ALL patient ids in ranked order (most similar first).`,
+Candidates:
+${patientList}`,
     })
 
-    const parsed = RankedIdsSchema.parse(output)
+    const parsed = FilteredMatchesSchema.parse(output)
     const candidateMap = new Map(candidates.map((p) => [p.id, p]))
-    const ranked = parsed.ranked_ids
-      .filter((id) => candidateMap.has(id))
-      .map((id) => candidateMap.get(id)!)
 
-    // Append any candidates the LLM omitted at the end
-    const ranked_set = new Set(parsed.ranked_ids)
-    const omitted = candidates.filter((p) => !ranked_set.has(p.id))
-
-    return [...ranked, ...omitted]
+    return parsed.matches
+      .filter((m) => candidateMap.has(m.patient_id))
+      .map((m) => candidateMap.get(m.patient_id)!)
   } catch {
-    // LLM failure: return candidates in original order
+    // LLM failure: return candidates in original order (safe fallback)
     return candidates
   }
 }

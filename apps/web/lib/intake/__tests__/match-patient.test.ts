@@ -15,6 +15,15 @@ vi.mock('@ai-sdk/anthropic', () => ({
 
 import { generateText } from 'ai'
 
+// Helper: build the LLM filter response shape { matches: [{patient_id, reason}] }
+function llmMatches(ids: string[]) {
+  return {
+    output: {
+      matches: ids.map((id) => ({ patient_id: id, reason: 'phonetic match' })),
+    },
+  } as never
+}
+
 // Helper to build a minimal mock Supabase client for patients + intake_records
 function makeSupabase(opts: {
   patients?: Array<{ id: string; name: string; phone: string | null; email: string | null }>
@@ -56,7 +65,7 @@ function makeSupabase(opts: {
 
 describe('matchPatient', () => {
   beforeEach(() => {
-    vi.clearAllMocks()
+    vi.resetAllMocks()
   })
 
   it('returns [] when patient list is empty', async () => {
@@ -81,9 +90,8 @@ describe('matchPatient', () => {
   it('puts exact case-insensitive name match first before LLM results', async () => {
     const { matchPatient } = await import('../match-patient')
 
-    vi.mocked(generateText).mockResolvedValueOnce({
-      output: { ranked_ids: ['p2', 'p1'] },
-    } as never)
+    // LLM filter: only returns p2 as similar (p1 was exact-matched, excluded from LLM input)
+    vi.mocked(generateText).mockResolvedValueOnce(llmMatches(['p2']))
 
     const supabase = makeSupabase({
       patients: [
@@ -98,12 +106,11 @@ describe('matchPatient', () => {
     expect(result[0]!.id).toBe('p1')
   })
 
-  it('uses LLM to sort multiple patients when no exact match', async () => {
+  it('uses LLM to filter and rank multiple patients when no exact match', async () => {
     const { matchPatient } = await import('../match-patient')
 
-    vi.mocked(generateText).mockResolvedValueOnce({
-      output: { ranked_ids: ['p2', 'p1'] },
-    } as never)
+    // LLM filters: only p2 is phonetically similar to "Jay"
+    vi.mocked(generateText).mockResolvedValueOnce(llmMatches(['p2']))
 
     const supabase = makeSupabase({
       patients: [
@@ -114,9 +121,96 @@ describe('matchPatient', () => {
     })
     const result = await matchPatient('clinic-uuid', 'Jay', supabase)
     expect(generateText).toHaveBeenCalledOnce()
-    // LLM ranked p2 first
+    // LLM filtered: only p2 returned
+    expect(result).toHaveLength(1)
     expect(result[0]!.id).toBe('p2')
-    expect(result[1]!.id).toBe('p1')
+  })
+
+  // ── NEW: similarity filter tests ──────────────────────────────────────────
+
+  it('does NOT return dissimilar patients — "Ethan Liu" input excludes "Jason Gao"', async () => {
+    const { matchPatient } = await import('../match-patient')
+
+    // LLM filter: only Ethan Liu is similar; Jason Gao is excluded
+    vi.mocked(generateText).mockResolvedValueOnce(llmMatches(['p1']))
+
+    const supabase = makeSupabase({
+      patients: [
+        { id: 'p1', name: 'Ethan Liu', phone: null, email: null },
+        { id: 'p2', name: 'Jason Gao', phone: null, email: null },
+      ],
+      intakeRows: [],
+    })
+    const result = await matchPatient('clinic-uuid', 'Ethan Liu', supabase)
+    expect(result.map((c) => c.id)).toEqual(['p1'])
+    expect(result.find((c) => c.id === 'p2')).toBeUndefined()
+  })
+
+  it('returns phonetically similar patient — "Eason" maps to "Ethan Liu"', async () => {
+    const { matchPatient } = await import('../match-patient')
+
+    vi.mocked(generateText).mockResolvedValueOnce(llmMatches(['p1']))
+
+    const supabase = makeSupabase({
+      patients: [
+        { id: 'p1', name: 'Ethan Liu', phone: null, email: null },
+        { id: 'p2', name: 'Mary Smith', phone: null, email: null },
+      ],
+      intakeRows: [],
+    })
+    const result = await matchPatient('clinic-uuid', 'Eason', supabase)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.id).toBe('p1')
+  })
+
+  it('returns phonetically similar patient — "Ethaniel" maps to "Ethan Liu" (single-patient fast path)', async () => {
+    const { matchPatient } = await import('../match-patient')
+
+    // No mock needed: single patient → fast path, LLM skipped entirely
+    const supabase = makeSupabase({
+      patients: [
+        { id: 'p1', name: 'Ethan Liu', phone: null, email: null },
+      ],
+      intakeRows: [],
+    })
+    const result = await matchPatient('clinic-uuid', 'Ethaniel', supabase)
+    expect(generateText).not.toHaveBeenCalled()
+    expect(result).toHaveLength(1)
+    expect(result[0]!.id).toBe('p1')
+  })
+
+  it('returns [] when LLM finds no phonetically similar patients', async () => {
+    const { matchPatient } = await import('../match-patient')
+
+    // LLM returns empty — no matches
+    vi.mocked(generateText).mockResolvedValueOnce(llmMatches([]))
+
+    const supabase = makeSupabase({
+      patients: [
+        { id: 'p1', name: 'Mary Jones', phone: null, email: null },
+        { id: 'p2', name: 'Bob Wilson', phone: null, email: null },
+      ],
+      intakeRows: [],
+    })
+    const result = await matchPatient('clinic-uuid', 'John Smith', supabase)
+    expect(result).toEqual([])
+  })
+
+  it('returns phonetic variant — "Niu" input matches "Liu" patient (LLM decides)', async () => {
+    const { matchPatient } = await import('../match-patient')
+
+    vi.mocked(generateText).mockResolvedValueOnce(llmMatches(['p1']))
+
+    const supabase = makeSupabase({
+      patients: [
+        { id: 'p1', name: 'Ethan Liu', phone: null, email: null },
+        { id: 'p2', name: 'Mark Wong', phone: null, email: null },
+      ],
+      intakeRows: [],
+    })
+    const result = await matchPatient('clinic-uuid', 'Ethan Niu', supabase)
+    expect(result).toHaveLength(1)
+    expect(result[0]!.id).toBe('p1')
   })
 
   it('masks phone — only last 4 digits with ellipsis prefix', async () => {
@@ -189,9 +283,7 @@ describe('matchPatient', () => {
       email: null,
     }))
 
-    vi.mocked(generateText).mockResolvedValueOnce({
-      output: { ranked_ids: manyPatients.map((p) => p.id) },
-    } as never)
+    vi.mocked(generateText).mockResolvedValueOnce(llmMatches(manyPatients.map((p) => p.id)))
 
     const supabase = makeSupabase({ patients: manyPatients, intakeRows: [] })
     const result = await matchPatient('clinic-uuid', 'Patient', supabase)

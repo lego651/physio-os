@@ -1,7 +1,8 @@
 /**
  * Source-inspection tests for voice-intake-chat.tsx CONFIRM step patient picker
  * S1.7-4 (revised): CONFIRM auto-calls match-patient, shows candidate list
- *   No "+ Create new patient" option. Empty candidates → "Save without patient" checkbox.
+ *   No "+ Create new patient" option.
+ *   Always-present "None of these / Save without patient" radio (three-state selectedPatientId).
  *
  * Pattern: read the source file and assert structural properties, following
  * the existing source-inspection convention in this project.
@@ -91,19 +92,30 @@ describe('voice-intake-confirm — S1.7-4-E (revised): Create new patient option
   })
 })
 
-// ── S1.7-4-F (new): "Save without patient" checkbox on empty candidates ───────
+// ── S1.7-4-F (revised): always-present "None of these / Save without patient" radio ──
 
-describe('voice-intake-confirm — S1.7-4-F: empty candidates shows Save-without-patient checkbox', () => {
-  it('source has saveWithoutPatient state', () => {
-    expect(SRC).toContain('saveWithoutPatient')
+describe('voice-intake-confirm — S1.7-4-F: always-present unlinked radio option', () => {
+  it('source does NOT have saveWithoutPatient state (replaced by three-state selectedPatientId)', () => {
+    expect(SRC).not.toContain('saveWithoutPatient')
   })
 
-  it('source contains "Save without patient" text for the checkbox label', () => {
-    expect(SRC).toContain('Save without patient')
+  it('source contains "Save without patient" or "save without linking" text for the unlinked radio', () => {
+    const hasUnlinkedLabel =
+      SRC.includes('Save without patient') ||
+      SRC.includes('save without linking') ||
+      SRC.includes('None of these')
+    expect(hasUnlinkedLabel).toBe(true)
   })
 
-  it('source contains "not found in patient directory" message for empty candidates', () => {
-    expect(SRC).toContain('not found in patient directory')
+  it('source contains "No matching patient found" or "not found" message for empty candidates', () => {
+    const hasEmptyMsg =
+      SRC.includes('No matching patient found') ||
+      SRC.includes('not found')
+    expect(hasEmptyMsg).toBe(true)
+  })
+
+  it('source uses unlinked sentinel value for "save without patient" selection', () => {
+    expect(SRC).toContain("'unlinked'")
   })
 })
 
@@ -118,8 +130,10 @@ describe('voice-intake-confirm — S1.7-5-C (revised): Confirm & Save is disable
     expect(hasPatientGate).toBe(true)
   })
 
-  it('Save button gate includes saveWithoutPatient', () => {
-    expect(SRC).toContain('saveWithoutPatient')
+  it('Save button gate uses selectedPatientId === null to disable (three-state)', () => {
+    // New UX: any radio selected (uuid or 'unlinked') enables Save — no saveWithoutPatient boolean
+    expect(SRC).toContain('selectedPatientId === null')
+    expect(SRC).not.toContain('saveWithoutPatient')
   })
 })
 
@@ -133,16 +147,16 @@ describe('voice-intake-confirm — patient_id included in confirmIntake save bod
   })
 })
 
-// ── 0 candidates: no auto-select, show checkbox ───────────────────────────────
+// ── 0 candidates: no auto-select, show warning + unlinked radio ───────────────
 
-describe('voice-intake-confirm — 0 candidates shows warning, no auto-select to create-new', () => {
+describe('voice-intake-confirm — 0 candidates shows warning, unlinked radio always present', () => {
   it('source handles empty candidates without setting selectedPatientId to "new"', () => {
     // Old code did: setSelectedPatientId('new') when length === 0
-    // New code must NOT set 'new' — it shows the saveWithoutPatient checkbox instead
+    // New code must NOT set 'new' — unlinked radio is always present regardless
     expect(SRC).not.toContain("setSelectedPatientId('new')")
   })
 
-  it('source checks candidates.length === 0 to show the "save without patient" UI', () => {
+  it('source checks candidates.length === 0 to show the empty-state warning', () => {
     const hasEmptyCheck =
       SRC.includes('candidates.length === 0') ||
       SRC.includes('candidates.length < 1') ||
