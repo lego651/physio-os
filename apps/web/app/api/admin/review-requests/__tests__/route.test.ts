@@ -3,12 +3,17 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 vi.mock('@/lib/auth/require-admin', () => ({
   requireAdminAuth: vi.fn(),
 }))
+// `engineThrows` is flipped per-test to simulate send failure.
+let engineThrows = false
+
 vi.mock('@/lib/review/engine', () => ({
   ReviewRequestEngine: class {
     async create() {
+      if (engineThrows) throw new Error('Send failed: all channels failed')
       return { id: 'req-1', token: 'tok-1' }
     }
     async resend(id: string) {
+      if (engineThrows) throw new Error('Send failed: sms provider_error')
       return { id, token: 'tok-resend' }
     }
   },
@@ -84,6 +89,7 @@ const BASE_CREATE = {
 describe('POST /api/admin/review-requests', () => {
   beforeEach(() => {
     mockDedupeResult = null
+    engineThrows = false
     vi.mocked(requireAdminAuth).mockResolvedValue({ user: { id: 'u1', email: 'a@b' } } as Awaited<
       ReturnType<typeof requireAdminAuth>
     >)
@@ -154,5 +160,35 @@ describe('POST /api/admin/review-requests', () => {
     const json = await res.json()
     expect(json.id).toBe(existingId)
     expect(json.token).toBe('tok-resend')
+  })
+
+  // ── Error propagation (Task A) ─────────────────────────────────────────────
+
+  it('500 when engine.resend() throws (send failure propagates to route)', async () => {
+    engineThrows = true
+    const existingId = '22222222-3333-4444-8555-666666666666'
+    const res = await POST(makeReq({ id: existingId, consentConfirmed: true }))
+    expect(res.status).toBe(500)
+    const json = await res.json()
+    expect(typeof json.error).toBe('string')
+    expect(json.error).toMatch(/Send failed/)
+  })
+
+  it('500 when engine.create() throws (send failure propagates to route)', async () => {
+    engineThrows = true
+    const res = await POST(makeReq(BASE_CREATE))
+    expect(res.status).toBe(500)
+    const json = await res.json()
+    expect(typeof json.error).toBe('string')
+    expect(json.error).toMatch(/Send failed/)
+  })
+
+  it('200 when engine.resend() succeeds (not regressed by error-propagation fix)', async () => {
+    engineThrows = false
+    const existingId = '33333333-4444-5555-8666-777777777777'
+    const res = await POST(makeReq({ id: existingId, consentConfirmed: true }))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.id).toBe(existingId)
   })
 })

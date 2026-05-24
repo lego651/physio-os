@@ -111,6 +111,174 @@ function makeDeps(overrides: Partial<ReviewRequestEngineDeps> = {}) {
   }
 }
 
+// ─── Error-propagation tests (Task A) ────────────────────────────────────────
+//
+// The engine must THROW when all attempted channels fail, so the route layer
+// can return a 5xx and the UI can show a red error toast instead of silently
+// claiming success.
+
+describe('ReviewRequestEngine — error propagation', () => {
+  beforeEach(() => {
+    process.env.REVIEW_TOKEN_SECRET = 'a'.repeat(64)
+  })
+
+  // Helper: build deps where the review_requests table mock supports resend().
+  // The resend path needs: select().single() to return a row, update().eq() to
+  // succeed, insert on review_funnel_events, and adapter.send to throw/succeed.
+  function makeResendDeps(overrides: Partial<ReviewRequestEngineDeps> = {}) {
+    const events: { event_type: string; metadata?: unknown }[] = []
+    const existingRow = {
+      id: 'req-1',
+      clinic_id: 'c1',
+      patient_name: 'Alice',
+      patient_email: 'a@b.com',
+      patient_phone: '+14035550100',
+      therapist_name: null,
+      service_type: 'massage',
+      channel: 'sms',
+      test_mode: false,
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const supabase: any = {
+      from(table: string) {
+        if (table === 'review_requests') {
+          return {
+            select(_cols?: string) {
+              return {
+                eq(_col: string, _val: string) {
+                  return {
+                    single: async () => ({ data: existingRow, error: null }),
+                  }
+                },
+              }
+            },
+            update(_patch: Record<string, unknown>) {
+              return { eq: () => Promise.resolve({ error: null }) }
+            },
+          }
+        }
+        if (table === 'clinics') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const b: any = {
+            select: () => b,
+            eq: () => b,
+            single: async () => ({ data: clinic, error: null }),
+          }
+          return b
+        }
+        if (table === 'review_opt_outs') {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const b: any = {
+            select: () => b,
+            eq: () => b,
+            maybeSingle: async () => ({ data: null, error: null }),
+          }
+          return b
+        }
+        // review_funnel_events
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const b: any = {
+          select: () => b,
+          eq: () => b,
+          insert: async (row: { event_type: string }) => {
+            events.push(row)
+            return { data: row, error: null }
+          },
+        }
+        return b
+      },
+    }
+
+    const email = { send: vi.fn().mockResolvedValue({ providerMessageId: 'em-1' }) }
+    const sms = { send: vi.fn().mockResolvedValue({ providerMessageId: 'sm-1' }) }
+
+    return {
+      deps: {
+        supabase: supabase as ReviewRequestEngineDeps['supabase'],
+        email,
+        sms,
+        config: {
+          tokenSecret: 'a'.repeat(64),
+          baseUrl: 'https://x',
+          testMode: false,
+          testRecipientEmail: 'jason@test',
+          testRecipientPhone: '+14030000001',
+          resendWebhookSecret: '',
+        },
+        ...overrides,
+      } satisfies ReviewRequestEngineDeps,
+      events,
+      email,
+      sms,
+      existingRow,
+    }
+  }
+
+  it('resend() throws when SMS adapter throws', async () => {
+    const { deps, sms } = makeResendDeps()
+    sms.send.mockRejectedValue(new Error('Twilio 500'))
+    const engine = new ReviewRequestEngine(deps)
+    await expect(engine.resend('req-1')).rejects.toThrow(/Send failed/i)
+  })
+
+  it('resend() throws when email adapter throws', async () => {
+    const { deps, email, existingRow } = makeResendDeps()
+    // Override existing row to use email channel
+    Object.assign(existingRow, { channel: 'email' })
+    email.send.mockRejectedValue(new Error('Resend 500'))
+    const engine = new ReviewRequestEngine(deps)
+    await expect(engine.resend('req-1')).rejects.toThrow(/Send failed/i)
+  })
+
+  it('resend() throws with no-contact message when row has no phone and no email', async () => {
+    const { deps, existingRow } = makeResendDeps()
+    Object.assign(existingRow, { patient_phone: null, patient_email: null, channel: 'sms' })
+    const engine = new ReviewRequestEngine(deps)
+    await expect(engine.resend('req-1')).rejects.toThrow(/no contact/i)
+  })
+
+  it('create() throws when SMS adapter throws (single-channel sms)', async () => {
+    const { deps, sms } = makeDeps()
+    sms.send.mockRejectedValue(new Error('Twilio 429'))
+    const engine = new ReviewRequestEngine(deps)
+    await expect(
+      engine.create({
+        clinicId: 'c1',
+        patientName: 'Alice',
+        patientEmail: null,
+        patientPhone: '+14035550100',
+        therapistName: null,
+        serviceType: 'massage',
+        channel: 'sms',
+        consentConfirmed: true,
+      }),
+    ).rejects.toThrow(/Send failed/i)
+  })
+
+  it('create() does NOT throw when one of two "both" channels succeeds', async () => {
+    const { deps, sms } = makeDeps()
+    sms.send.mockRejectedValue(new Error('Twilio down'))
+    // email.send still succeeds (default mock)
+    const engine = new ReviewRequestEngine(deps)
+    // should resolve (anySent=true because email succeeded)
+    await expect(
+      engine.create({
+        clinicId: 'c1',
+        patientName: 'Alice',
+        patientEmail: 'a@b.com',
+        patientPhone: '+14035550100',
+        therapistName: null,
+        serviceType: 'massage',
+        channel: 'both',
+        consentConfirmed: true,
+      }),
+    ).resolves.toBeTruthy()
+  })
+})
+
+// ─── Original tests ───────────────────────────────────────────────────────────
+
 describe('ReviewRequestEngine.create', () => {
   beforeEach(() => {
     process.env.REVIEW_TOKEN_SECRET = 'a'.repeat(64)
