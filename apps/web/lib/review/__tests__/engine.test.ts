@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { ReviewRequestEngine } from '../engine'
 import type { ReviewRequestEngineDeps } from '../engine'
 
@@ -355,5 +355,51 @@ describe('ReviewRequestEngine.create', () => {
         consentConfirmed: false,
       }),
     ).rejects.toThrow(/consent/i)
+  })
+})
+
+describe('ReviewRequestEngine.create — email sender env var', () => {
+  beforeEach(() => {
+    process.env.REVIEW_TOKEN_SECRET = 'a'.repeat(64)
+  })
+
+  afterEach(() => {
+    delete process.env.RESEND_FROM_EMAIL
+  })
+
+  it('uses RESEND_FROM_EMAIL env var as the from address when set', async () => {
+    process.env.RESEND_FROM_EMAIL = 'noreply@myclinic.com'
+    const { deps, email } = makeDeps()
+    const engine = new ReviewRequestEngine(deps)
+    await engine.create({
+      clinicId: 'c1',
+      patientName: 'Alice',
+      patientEmail: 'alice@test.com',
+      patientPhone: null,
+      therapistName: null,
+      serviceType: 'massage',
+      channel: 'email',
+      consentConfirmed: true,
+    })
+    expect(email.send).toHaveBeenCalledOnce()
+    expect(email.send.mock.calls[0][0].from).toContain('noreply@myclinic.com')
+  })
+
+  it('falls back to onboarding@resend.dev when RESEND_FROM_EMAIL is not set', async () => {
+    delete process.env.RESEND_FROM_EMAIL
+    const { deps, email } = makeDeps()
+    const engine = new ReviewRequestEngine(deps)
+    await engine.create({
+      clinicId: 'c1',
+      patientName: 'Alice',
+      patientEmail: 'alice@test.com',
+      patientPhone: null,
+      therapistName: null,
+      serviceType: 'massage',
+      channel: 'email',
+      consentConfirmed: true,
+    })
+    expect(email.send).toHaveBeenCalledOnce()
+    expect(email.send.mock.calls[0][0].from).toContain('onboarding@resend.dev')
   })
 })

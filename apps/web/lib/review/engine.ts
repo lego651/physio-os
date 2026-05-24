@@ -133,7 +133,7 @@ export class ReviewRequestEngine {
         try {
           const result = await this.deps.email.send({
             to: recipient,
-            from: `${senderName} <onboarding@resend.dev>`,
+            from: `${senderName} <${process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'}>`,
             subject: buildReviewEmailSubject({
               clinicName: clinic.name,
               patientName: input.patientName,
@@ -298,7 +298,7 @@ export class ReviewRequestEngine {
           const patientName = existing.patient_name as string
           const result = await this.deps.email.send({
             to: recipient,
-            from: `${senderName} <onboarding@resend.dev>`,
+            from: `${senderName} <${process.env.RESEND_FROM_EMAIL ?? 'onboarding@resend.dev'}>`,
             subject: buildReviewEmailSubject({
               clinicName: clinic.name,
               patientName,
