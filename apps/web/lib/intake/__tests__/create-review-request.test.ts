@@ -102,23 +102,21 @@ describe('createReviewRequestForIntake — S1.7-6 contact auto-fill', () => {
     expect(inserted.patient_id).toBe('patient-uuid')
   })
 
-  it('leaves phone and email NULL when patient_id is not provided (backward-compat)', async () => {
+  it('skips insert and returns null when patient_id is not provided (no contact info)', async () => {
     const { client, getInsert } = makeSupabase({ patientRow: null })
     vi.mocked(createAdminClient).mockReturnValue(client)
 
     const { createReviewRequestForIntake } = await import('../db')
-    await createReviewRequestForIntake({
+    const result = await createReviewRequestForIntake({
       intake_record_id: 'intake-uuid',
       patient_name: 'Walk-In Patient',
       therapist_name: 'David',
       service_type: 'massage',
-      // patient_id intentionally omitted
+      // patient_id intentionally omitted — no contact info available
     })
 
-    const inserted = getInsert() as Record<string, unknown>
-    expect(inserted.patient_phone).toBeNull()
-    expect(inserted.patient_email).toBeNull()
-    expect(inserted.patient_id).toBeUndefined()
+    expect(result).toBeNull()
+    expect(getInsert()).toBeNull()
   })
 
   it('fills phone only, leaves email NULL when patient has phone but no email', async () => {
@@ -169,19 +167,99 @@ describe('createReviewRequestForIntake — S1.7-6 contact auto-fill', () => {
     vi.mocked(createAdminClient).mockReturnValue(client)
 
     const { createReviewRequestForIntake } = await import('../db')
-    // Should NOT throw — intake save must not be blocked by patient lookup failure
-    await expect(
-      createReviewRequestForIntake({
-        intake_record_id: 'intake-uuid',
-        patient_name: 'Ghost Patient',
-        therapist_name: 'David',
-        service_type: 'physio',
-        patient_id: 'non-existent-uuid',
-      }),
-    ).resolves.toBeTypeOf('string')
+    // Should NOT throw — intake save must not be blocked by patient lookup failure.
+    // When lookup fails and no contact is recoverable, returns null (skip insert).
+    const result = await createReviewRequestForIntake({
+      intake_record_id: 'intake-uuid',
+      patient_name: 'Ghost Patient',
+      therapist_name: 'David',
+      service_type: 'physio',
+      patient_id: 'non-existent-uuid',
+    })
+
+    expect(result).toBeNull()
+    expect(getInsert()).toBeNull()
+  })
+})
+
+describe('createReviewRequestForIntake — channel auto-pick (Bug T)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('sets channel=email when patient has both email and phone (email preferred)', async () => {
+    const { client, getInsert } = makeSupabase({
+      patientRow: { phone: '+14031234567', email: 'jason@gmail.com' },
+    })
+    vi.mocked(createAdminClient).mockReturnValue(client)
+
+    const { createReviewRequestForIntake } = await import('../db')
+    await createReviewRequestForIntake({
+      intake_record_id: 'intake-uuid',
+      patient_name: 'Jason Gao',
+      therapist_name: 'David',
+      service_type: 'physio',
+      patient_id: 'patient-uuid',
+    })
 
     const inserted = getInsert() as Record<string, unknown>
-    expect(inserted.patient_phone).toBeNull()
-    expect(inserted.patient_email).toBeNull()
+    expect(inserted.channel).toBe('email')
+  })
+
+  it('sets channel=email when patient has email only (no phone)', async () => {
+    const { client, getInsert } = makeSupabase({
+      patientRow: { phone: null, email: 'email-only@example.com' },
+    })
+    vi.mocked(createAdminClient).mockReturnValue(client)
+
+    const { createReviewRequestForIntake } = await import('../db')
+    await createReviewRequestForIntake({
+      intake_record_id: 'intake-uuid',
+      patient_name: 'Email Only',
+      therapist_name: 'David',
+      service_type: 'physio',
+      patient_id: 'patient-email-only',
+    })
+
+    const inserted = getInsert() as Record<string, unknown>
+    expect(inserted.channel).toBe('email')
+  })
+
+  it('sets channel=sms when patient has phone only (no email) — Ethan Liu case', async () => {
+    const { client, getInsert } = makeSupabase({
+      patientRow: { phone: '+12368682134', email: null },
+    })
+    vi.mocked(createAdminClient).mockReturnValue(client)
+
+    const { createReviewRequestForIntake } = await import('../db')
+    await createReviewRequestForIntake({
+      intake_record_id: 'intake-uuid',
+      patient_name: 'Ethan Liu',
+      therapist_name: 'David',
+      service_type: 'physio',
+      patient_id: 'patient-ethan',
+    })
+
+    const inserted = getInsert() as Record<string, unknown>
+    expect(inserted.channel).toBe('sms')
+  })
+
+  it('skips insert entirely when patient has neither email nor phone', async () => {
+    const { client, getInsert } = makeSupabase({
+      patientRow: { phone: null, email: null },
+    })
+    vi.mocked(createAdminClient).mockReturnValue(client)
+
+    const { createReviewRequestForIntake } = await import('../db')
+    const result = await createReviewRequestForIntake({
+      intake_record_id: 'intake-uuid',
+      patient_name: 'No Contact Patient',
+      therapist_name: 'David',
+      service_type: 'physio',
+      patient_id: 'patient-no-contact',
+    })
+
+    expect(result).toBeNull()
+    expect(getInsert()).toBeNull()
   })
 })

@@ -106,16 +106,21 @@ export interface CreateReviewRequestForIntakeInput {
 
 /**
  * S1.6 (D18-2): on voice-session confirm, create a pending review_requests
- * row keyed to the intake record. Contact info is null — the front desk
- * fills it in and sends. NOT atomic with intake save: if this throws,
- * caller logs a warning but still returns 200 (the intake row is the
- * source of truth, the review row is derivable).
+ * row keyed to the intake record. Channel is auto-picked from patient contact:
+ *   email present → 'email'
+ *   no email but phone present → 'sms'
+ *   neither → skip insert, return null (log warning)
  *
- * Returns the inserted review_requests.id.
+ * NOT atomic with intake save: if this throws, caller logs a warning but
+ * still returns 200 (the intake row is the source of truth, the review row
+ * is derivable).
+ *
+ * Returns the inserted review_requests.id, or null if no contact info is
+ * available (graceful skip — caller should log but not fail).
  */
 export async function createReviewRequestForIntake(
   input: CreateReviewRequestForIntakeInput,
-): Promise<string> {
+): Promise<string | null> {
   const supabase = createAdminClient()
 
   const slug = input.clinic_slug ?? VHEALTH_SLUG
@@ -147,6 +152,21 @@ export async function createReviewRequestForIntake(
     }
   }
 
+  // Bug T: auto-pick channel based on available contact info.
+  // email preferred; fall back to sms; skip entirely if neither.
+  let channel: 'email' | 'sms'
+  if (patientEmail) {
+    channel = 'email'
+  } else if (patientPhone) {
+    channel = 'sms'
+  } else {
+    console.warn('[intake/db] review_request skipped — no contact info', {
+      intake_record_id: input.intake_record_id,
+      patient_id: input.patient_id ?? null,
+    })
+    return null
+  }
+
   const { data, error } = await supabase
     .from('review_requests')
     .insert({
@@ -158,7 +178,7 @@ export async function createReviewRequestForIntake(
       patient_id: input.patient_id,
       therapist_name: input.therapist_name,
       service_type: input.service_type,
-      channel: 'email',
+      channel,
       token_jti: randomUUID(),
       test_mode: false,
       status: 'pending',
@@ -172,6 +192,6 @@ export async function createReviewRequestForIntake(
     throw new Error(`createReviewRequestForIntake: insert failed — ${error?.message ?? 'unknown'}`)
   }
 
-  console.log('[intake/db] review_request auto-created', { id: data.id })
+  console.log('[intake/db] review_request auto-created', { id: data.id, channel })
   return data.id as string
 }
