@@ -15,7 +15,6 @@
     "@ai-sdk/openai": "^3.0.61",
     "@ai-sdk/react": "^3.0.146",
     "@base-ui/react": "^1.3.0",
-    "@physio-os/ai-core": "workspace:*",
     "@physio-os/shared": "workspace:*",
     "@sentry/nextjs": "^10.47.0",
     "@supabase/ssr": "^0.10.0",

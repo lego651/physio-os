@@ -12,8 +12,229 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
+      _legacy_messages: {
+        Row: {
+          channel: string
+          content: string
+          created_at: string
+          id: string
+          media_urls: string[] | null
+          patient_id: string
+          role: string
+          twilio_sid: string | null
+        }
+        Insert: {
+          channel: string
+          content: string
+          created_at?: string
+          id?: string
+          media_urls?: string[] | null
+          patient_id: string
+          role: string
+          twilio_sid?: string | null
+        }
+        Update: {
+          channel?: string
+          content?: string
+          created_at?: string
+          id?: string
+          media_urls?: string[] | null
+          patient_id?: string
+          role?: string
+          twilio_sid?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "_legacy_patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      _legacy_metrics: {
+        Row: {
+          created_at: string
+          discomfort: number | null
+          exercise_count: number | null
+          exercises_done: string[] | null
+          id: string
+          notes: string | null
+          pain_level: number | null
+          patient_id: string
+          recorded_at: string
+          sitting_tolerance_min: number | null
+          source_message_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          discomfort?: number | null
+          exercise_count?: number | null
+          exercises_done?: string[] | null
+          id?: string
+          notes?: string | null
+          pain_level?: number | null
+          patient_id: string
+          recorded_at?: string
+          sitting_tolerance_min?: number | null
+          source_message_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          discomfort?: number | null
+          exercise_count?: number | null
+          exercises_done?: string[] | null
+          id?: string
+          notes?: string | null
+          pain_level?: number | null
+          patient_id?: string
+          recorded_at?: string
+          sitting_tolerance_min?: number | null
+          source_message_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "metrics_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "_legacy_patients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "metrics_source_message_id_fkey"
+            columns: ["source_message_id"]
+            isOneToOne: false
+            referencedRelation: "_legacy_messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      _legacy_patients: {
+        Row: {
+          active: boolean
+          auth_user_id: string | null
+          clinic_id: string
+          consent_at: string | null
+          created_at: string
+          daily_routine: Json | null
+          id: string
+          language: string
+          last_nudged_at: string | null
+          name: string | null
+          opted_out: boolean
+          phone: string
+          practitioner_name: string | null
+          profile: Json | null
+          sharing_enabled: boolean
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          auth_user_id?: string | null
+          clinic_id?: string
+          consent_at?: string | null
+          created_at?: string
+          daily_routine?: Json | null
+          id?: string
+          language?: string
+          last_nudged_at?: string | null
+          name?: string | null
+          opted_out?: boolean
+          phone: string
+          practitioner_name?: string | null
+          profile?: Json | null
+          sharing_enabled?: boolean
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          auth_user_id?: string | null
+          clinic_id?: string
+          consent_at?: string | null
+          created_at?: string
+          daily_routine?: Json | null
+          id?: string
+          language?: string
+          last_nudged_at?: string | null
+          name?: string | null
+          opted_out?: boolean
+          phone?: string
+          practitioner_name?: string | null
+          profile?: Json | null
+          sharing_enabled?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      _legacy_reports: {
+        Row: {
+          created_at: string
+          id: string
+          insights: string[] | null
+          metrics_summary: Json | null
+          patient_id: string
+          summary: string | null
+          token: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          insights?: string[] | null
+          metrics_summary?: Json | null
+          patient_id: string
+          summary?: string | null
+          token: string
+          week_start: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          insights?: string[] | null
+          metrics_summary?: Json | null
+          patient_id?: string
+          summary?: string | null
+          token?: string
+          week_start?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reports_patient_id_fkey"
+            columns: ["patient_id"]
+            isOneToOne: false
+            referencedRelation: "_legacy_patients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clinics: {
         Row: {
           branding: Json
@@ -107,198 +328,43 @@ export type Database = {
         }
         Relationships: []
       }
-      messages: {
-        Row: {
-          channel: string
-          content: string
-          created_at: string
-          id: string
-          media_urls: string[] | null
-          patient_id: string
-          role: string
-          twilio_sid: string | null
-        }
-        Insert: {
-          channel: string
-          content: string
-          created_at?: string
-          id?: string
-          media_urls?: string[] | null
-          patient_id: string
-          role: string
-          twilio_sid?: string | null
-        }
-        Update: {
-          channel?: string
-          content?: string
-          created_at?: string
-          id?: string
-          media_urls?: string[] | null
-          patient_id?: string
-          role?: string
-          twilio_sid?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "messages_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      metrics: {
-        Row: {
-          created_at: string
-          discomfort: number | null
-          exercise_count: number | null
-          exercises_done: string[] | null
-          id: string
-          notes: string | null
-          pain_level: number | null
-          patient_id: string
-          recorded_at: string
-          sitting_tolerance_min: number | null
-          source_message_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          discomfort?: number | null
-          exercise_count?: number | null
-          exercises_done?: string[] | null
-          id?: string
-          notes?: string | null
-          pain_level?: number | null
-          patient_id: string
-          recorded_at?: string
-          sitting_tolerance_min?: number | null
-          source_message_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          discomfort?: number | null
-          exercise_count?: number | null
-          exercises_done?: string[] | null
-          id?: string
-          notes?: string | null
-          pain_level?: number | null
-          patient_id?: string
-          recorded_at?: string
-          sitting_tolerance_min?: number | null
-          source_message_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "metrics_patient_id_fkey"
-            columns: ["patient_id"]
-            isOneToOne: false
-            referencedRelation: "patients"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "metrics_source_message_id_fkey"
-            columns: ["source_message_id"]
-            isOneToOne: false
-            referencedRelation: "messages"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       patients: {
         Row: {
-          active: boolean
-          auth_user_id: string | null
           clinic_id: string
-          consent_at: string | null
           created_at: string
-          daily_routine: Json | null
+          email: string | null
           id: string
-          language: string
-          last_nudged_at: string | null
-          name: string | null
-          opted_out: boolean
-          phone: string
-          practitioner_name: string | null
-          profile: Json | null
-          sharing_enabled: boolean
+          name: string
+          notes: string | null
+          phone: string | null
           updated_at: string
         }
         Insert: {
-          active?: boolean
-          auth_user_id?: string | null
-          clinic_id?: string
-          consent_at?: string | null
+          clinic_id: string
           created_at?: string
-          daily_routine?: Json | null
+          email?: string | null
           id?: string
-          language?: string
-          last_nudged_at?: string | null
-          name?: string | null
-          opted_out?: boolean
-          phone: string
-          practitioner_name?: string | null
-          profile?: Json | null
-          sharing_enabled?: boolean
+          name: string
+          notes?: string | null
+          phone?: string | null
           updated_at?: string
         }
         Update: {
-          active?: boolean
-          auth_user_id?: string | null
           clinic_id?: string
-          consent_at?: string | null
           created_at?: string
-          daily_routine?: Json | null
+          email?: string | null
           id?: string
-          language?: string
-          last_nudged_at?: string | null
-          name?: string | null
-          opted_out?: boolean
-          phone?: string
-          practitioner_name?: string | null
-          profile?: Json | null
-          sharing_enabled?: boolean
+          name?: string
+          notes?: string | null
+          phone?: string | null
           updated_at?: string
-        }
-        Relationships: []
-      }
-      reports: {
-        Row: {
-          created_at: string
-          id: string
-          insights: string[] | null
-          metrics_summary: Json | null
-          patient_id: string
-          summary: string | null
-          token: string
-          week_start: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          insights?: string[] | null
-          metrics_summary?: Json | null
-          patient_id: string
-          summary?: string | null
-          token: string
-          week_start: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          insights?: string[] | null
-          metrics_summary?: Json | null
-          patient_id?: string
-          summary?: string | null
-          token?: string
-          week_start?: string
         }
         Relationships: [
           {
-            foreignKeyName: "reports_patient_id_fkey"
-            columns: ["patient_id"]
+            foreignKeyName: "patients_clinic_id_fkey"
+            columns: ["clinic_id"]
             isOneToOne: false
-            referencedRelation: "patients"
+            referencedRelation: "clinics"
             referencedColumns: ["id"]
           },
         ]
@@ -519,195 +585,6 @@ export type Database = {
           },
         ]
       }
-      widget_conversations: {
-        Row: {
-          clinic_id: string
-          ended_at: string | null
-          id: string
-          lang_detected: string | null
-          offtopic_strikes: number
-          referer: string | null
-          session_id: string
-          started_at: string
-          status: string
-          user_agent: string | null
-          visitor_ip_hash: string
-        }
-        Insert: {
-          clinic_id: string
-          ended_at?: string | null
-          id?: string
-          lang_detected?: string | null
-          offtopic_strikes?: number
-          referer?: string | null
-          session_id: string
-          started_at?: string
-          status?: string
-          user_agent?: string | null
-          visitor_ip_hash: string
-        }
-        Update: {
-          clinic_id?: string
-          ended_at?: string | null
-          id?: string
-          lang_detected?: string | null
-          offtopic_strikes?: number
-          referer?: string | null
-          session_id?: string
-          started_at?: string
-          status?: string
-          user_agent?: string | null
-          visitor_ip_hash?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "widget_conversations_clinic_id_fkey"
-            columns: ["clinic_id"]
-            isOneToOne: false
-            referencedRelation: "clinics"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      widget_leads: {
-        Row: {
-          clinic_id: string
-          consent_given: boolean
-          consent_text: string
-          conversation_id: string
-          created_at: string
-          email: string | null
-          id: string
-          interest: string | null
-          name: string
-          notified_at: string | null
-          phone: string | null
-        }
-        Insert: {
-          clinic_id: string
-          consent_given: boolean
-          consent_text: string
-          conversation_id: string
-          created_at?: string
-          email?: string | null
-          id?: string
-          interest?: string | null
-          name: string
-          notified_at?: string | null
-          phone?: string | null
-        }
-        Update: {
-          clinic_id?: string
-          consent_given?: boolean
-          consent_text?: string
-          conversation_id?: string
-          created_at?: string
-          email?: string | null
-          id?: string
-          interest?: string | null
-          name?: string
-          notified_at?: string | null
-          phone?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "widget_leads_clinic_id_fkey"
-            columns: ["clinic_id"]
-            isOneToOne: false
-            referencedRelation: "clinics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "widget_leads_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "widget_conversations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      widget_messages: {
-        Row: {
-          content: string
-          conversation_id: string
-          created_at: string
-          id: string
-          on_topic: boolean | null
-          role: string
-          tokens_in: number | null
-          tokens_out: number | null
-        }
-        Insert: {
-          content: string
-          conversation_id: string
-          created_at?: string
-          id?: string
-          on_topic?: boolean | null
-          role: string
-          tokens_in?: number | null
-          tokens_out?: number | null
-        }
-        Update: {
-          content?: string
-          conversation_id?: string
-          created_at?: string
-          id?: string
-          on_topic?: boolean | null
-          role?: string
-          tokens_in?: number | null
-          tokens_out?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "widget_messages_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "widget_conversations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      widget_usage: {
-        Row: {
-          clinic_id: string
-          conversations_count: number
-          date: string
-          estimated_cost_usd: number
-          id: string
-          messages_count: number
-          tokens_in: number
-          tokens_out: number
-        }
-        Insert: {
-          clinic_id: string
-          conversations_count?: number
-          date: string
-          estimated_cost_usd?: number
-          id?: string
-          messages_count?: number
-          tokens_in?: number
-          tokens_out?: number
-        }
-        Update: {
-          clinic_id?: string
-          conversations_count?: number
-          date?: string
-          estimated_cost_usd?: number
-          id?: string
-          messages_count?: number
-          tokens_in?: number
-          tokens_out?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "widget_usage_clinic_id_fkey"
-            columns: ["clinic_id"]
-            isOneToOne: false
-            referencedRelation: "clinics"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       [_ in never]: never
@@ -854,6 +731,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
