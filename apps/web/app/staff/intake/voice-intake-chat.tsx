@@ -290,6 +290,17 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     startRecording()
   }
 
+  // STEP_3 fallback: user picks a therapist directly from the list instead of re-recording
+  function handleTherapistFallbackPick(therapistId: string | null) {
+    if (!therapistId) return
+    const matched = therapists.find((t) => t.id === therapistId)
+    if (!matched) return
+    setError(null)
+    setResult((prev) => ({ ...prev, therapist_name: matched.name }))
+    pushBubble({ role: 'user', text: matched.name, stepKey: 'therapist_name', editable: true })
+    advanceStep('STEP_4_NOTES')
+  }
+
   async function processAudio(blob: Blob, opts?: { rerecord: keyof VoiceIntakeResult }) {
     setProcessing(true)
     setError(null)
@@ -627,6 +638,25 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         {error && (
           <div className="mb-3 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
             {error}
+          </div>
+        )}
+
+        {/* STEP_3 fallback picker: shown only when a therapist match error is active */}
+        {error && step === 'STEP_3_THERAPIST' && (
+          <div className="mb-3 mt-2">
+            <p className="mb-1 text-xs text-muted-foreground">or pick from list</p>
+            <Select onValueChange={handleTherapistFallbackPick}>
+              <SelectTrigger className="h-9 text-sm">
+                <SelectValue placeholder="Pick a therapist..." />
+              </SelectTrigger>
+              <SelectContent>
+                {therapists.map((t) => (
+                  <SelectItem key={t.id} value={t.id}>
+                    {t.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
         )}
 
