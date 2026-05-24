@@ -122,3 +122,122 @@ describe('matchTherapist — J2: LLM fuzzy match', () => {
   })
 })
 
+// ── A-cluster: exact matches must resolve correctly ───────────────────────────
+// Regression guard for the "Alex/Alice/Amy/Aurora" cluster bug.
+
+const A_CLUSTER_THERAPISTS = [
+  { id: 'id-alice', name: 'Alice', role: 'therapist' },
+  { id: 'id-alex', name: 'Alex', role: 'therapist' },
+  { id: 'id-amy', name: 'Amy', role: 'therapist' },
+  { id: 'id-aurora', name: 'Aurora', role: 'therapist' },
+  { id: 'id-lizzy', name: 'Dr. Lizzy (Ji) Li', role: 'therapist' },
+  { id: 'id-kyle', name: 'Dr. Kyle Wu', role: 'therapist' },
+]
+
+describe('matchTherapist — A-cluster exact matches', () => {
+  beforeEach(() => mockGenerateText.mockClear())
+
+  it('returns Alex id when LLM unambiguously matches "Alex"', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      output: { therapist_id: 'id-alex' },
+    } as Awaited<ReturnType<typeof generateText>>)
+
+    const result = await matchTherapist('Alex', A_CLUSTER_THERAPISTS)
+    expect(result).toBe('id-alex')
+  })
+
+  it('returns Alice id when LLM unambiguously matches "Alice"', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      output: { therapist_id: 'id-alice' },
+    } as Awaited<ReturnType<typeof generateText>>)
+
+    const result = await matchTherapist('Alice', A_CLUSTER_THERAPISTS)
+    expect(result).toBe('id-alice')
+  })
+
+  it('returns Amy id when LLM unambiguously matches "Amy"', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      output: { therapist_id: 'id-amy' },
+    } as Awaited<ReturnType<typeof generateText>>)
+
+    const result = await matchTherapist('Amy', A_CLUSTER_THERAPISTS)
+    expect(result).toBe('id-amy')
+  })
+
+  it('returns Lizzy id when LLM matches "Lizzy" to Dr. Lizzy (Ji) Li', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      output: { therapist_id: 'id-lizzy' },
+    } as Awaited<ReturnType<typeof generateText>>)
+
+    const result = await matchTherapist('Lizzy', A_CLUSTER_THERAPISTS)
+    expect(result).toBe('id-lizzy')
+  })
+
+  it('returns Dr. Kyle Wu id when LLM matches "Doctor Kyle"', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      output: { therapist_id: 'id-kyle' },
+    } as Awaited<ReturnType<typeof generateText>>)
+
+    const result = await matchTherapist('Doctor Kyle', A_CLUSTER_THERAPISTS)
+    expect(result).toBe('id-kyle')
+  })
+})
+
+// ── Prompt must instruct LLM to return null when uncertain ────────────────────
+// H1 root cause: the prompt said "Pick the closest" with no null escape.
+// These tests verify the prompt text contains the "return null if uncertain"
+// instruction — the contract that prevents forced guessing.
+
+describe('matchTherapist — prompt contains null-if-uncertain instruction', () => {
+  beforeEach(() => mockGenerateText.mockClear())
+
+  it('prompt tells LLM to return null when match is not unambiguous', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      output: { therapist_id: 'id-alex' },
+    } as Awaited<ReturnType<typeof generateText>>)
+
+    await matchTherapist('Alex', A_CLUSTER_THERAPISTS)
+
+    expect(mockGenerateText).toHaveBeenCalledOnce()
+    const callArg = mockGenerateText.mock.calls[0]![0] as { prompt: string }
+    // The prompt MUST contain an explicit null escape instruction.
+    // If this fails, the LLM is forced to guess — which is the root cause of the bug.
+    expect(callArg.prompt).toContain('null')
+    expect(callArg.prompt.toLowerCase()).toContain('unambiguous')
+  })
+})
+
+// ── Schema allows null: LLM output {therapist_id: null} must return null ──────
+// H1 root cause: z.string() (non-nullable) caused Zod.parse to throw on null,
+// which was caught and returned null — but only as a side effect of the throw.
+// After the fix (z.string().nullable()), the schema must explicitly accept null
+// and the function must return null without going through the catch path.
+
+describe('matchTherapist — nullable schema: null output propagates cleanly', () => {
+  beforeEach(() => mockGenerateText.mockClear())
+
+  it('returns null when LLM output is {therapist_id: null} for unknown name "Bob"', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      output: { therapist_id: null },
+    } as Awaited<ReturnType<typeof generateText>>)
+
+    const result = await matchTherapist('Bob', A_CLUSTER_THERAPISTS)
+    expect(result).toBeNull()
+  })
+
+  it('returns null when LLM output is {therapist_id: null} for meaningless syllable "um"', async () => {
+    mockGenerateText.mockResolvedValueOnce({
+      output: { therapist_id: null },
+    } as Awaited<ReturnType<typeof generateText>>)
+
+    const result = await matchTherapist('um', A_CLUSTER_THERAPISTS)
+    expect(result).toBeNull()
+  })
+
+  it('returns null for whitespace-only transcript without calling LLM', async () => {
+    const result = await matchTherapist('   ', A_CLUSTER_THERAPISTS)
+    expect(result).toBeNull()
+    expect(mockGenerateText).not.toHaveBeenCalled()
+  })
+})
+

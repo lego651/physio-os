@@ -9,7 +9,7 @@ export interface TherapistInput {
 }
 
 const MatchSchema = z.object({
-  therapist_id: z.string(),
+  therapist_id: z.string().nullable(),
 })
 
 /**
@@ -39,19 +39,18 @@ export async function matchTherapist(
     const { output } = await generateText({
       model: anthropic('claude-haiku-4-5'),
       output: Output.object({ schema: MatchSchema }),
-      prompt: `You are matching a voice transcript to the closest therapist name.
+      prompt: `You are matching a voice transcript to a therapist name.
 
 Therapists:
 ${therapistList}
 
 Voice transcript: "${transcript}"
 
-Pick the therapist whose name best matches the transcript.
-Handle phonetic variants (e.g. "Cathy" matches "Kathy"), partial first names (e.g. "David" matches "David Wang"),
-and informal titles (e.g. "Doctor Wang" matches a therapist with last name "Wang").
-When multiple therapists are equally likely, return the one listed first.
-
-Return the id of the best-matching therapist.`,
+Rules:
+- Only return an id when the match is unambiguous.
+- Handle phonetic variants (e.g. "Cathy" matches "Kathy"), partial first names (e.g. "David" matches "David Wang"), and informal titles (e.g. "Doctor Wang" matches a therapist with last name "Wang").
+- If the transcript does not clearly match any therapist name, return null for therapist_id. Do not guess. Ambiguous, partial, or unclear audio must return null.
+- If multiple therapists are equally likely, return null — do not pick arbitrarily.`,
     })
 
     const parsed = MatchSchema.parse(output)
