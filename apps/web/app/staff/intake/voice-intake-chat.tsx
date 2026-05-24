@@ -125,21 +125,14 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
   const [editValue, setEditValue] = useState('')
   const [rerecordingStep, setRerecordingStep] = useState<keyof VoiceIntakeResult | null>(null)
 
-  // ── S1.7-4/5: patient picker state ──────────────────────────────────────────
+  // ── S1.7-4 (revised): patient picker state ───────────────────────────────────
   const [candidates, setCandidates] = useState<PatientCandidate[]>([])
   const [matchLoading, setMatchLoading] = useState(false)
   const [matchDone, setMatchDone] = useState(false)
-  // null = nothing selected, string = existing patient id, 'new' = create new
-  const [selectedPatientId, setSelectedPatientId] = useState<string | 'new' | null>(null)
-  const [showNewPatientForm, setShowNewPatientForm] = useState(false)
-  const [newPatientName, setNewPatientName] = useState('')
-  const [newPatientPhone, setNewPatientPhone] = useState('')
-  const [newPatientEmail, setNewPatientEmail] = useState('')
-  // Once created, store the new patient's UUID so confirmIntake can send it
-  const [createdPatientId, setCreatedPatientId] = useState<string | null>(null)
-  const [savingPatient, setSavingPatient] = useState(false)
-  const [patientSaved, setPatientSaved] = useState(false)
-  const [patientSavedName, setPatientSavedName] = useState('')
+  // null = nothing selected, string = existing patient UUID
+  const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
+  // Shown only when candidates.length === 0: operator can save intake without linking a patient
+  const [saveWithoutPatient, setSaveWithoutPatient] = useState(false)
 
   const router = useRouter()
 
@@ -187,21 +180,15 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       .then((d: { candidates: PatientCandidate[] }) => {
         const found = d.candidates ?? []
         setCandidates(found)
-        // Auto-select: 1 exact match → pre-select; 0 candidates → auto create-new
+        // Auto-select when exactly 1 candidate returned
         if (found.length === 1) {
           setSelectedPatientId(found[0]!.id)
-        } else if (found.length === 0) {
-          setSelectedPatientId('new')
-          setShowNewPatientForm(true)
-          setNewPatientName(name)
         }
+        // 0 candidates: show "Save without patient" checkbox — do NOT auto-select anything
       })
       .catch((err: unknown) => {
         console.error('[voice-intake] match-patient failed', err)
-        // On error: default to create-new so intake is never blocked
-        setSelectedPatientId('new')
-        setShowNewPatientForm(true)
-        setNewPatientName(name ?? '')
+        // On error: leave selection at null, operator can proceed with checkbox
       })
       .finally(() => setMatchLoading(false))
   }, [step, matchDone, result.patient_name, clinicId])
@@ -221,14 +208,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     setMatchLoading(false)
     setMatchDone(false)
     setSelectedPatientId(null)
-    setShowNewPatientForm(false)
-    setNewPatientName('')
-    setNewPatientPhone('')
-    setNewPatientEmail('')
-    setCreatedPatientId(null)
-    setSavingPatient(false)
-    setPatientSaved(false)
-    setPatientSavedName('')
+    setSaveWithoutPatient(false)
   }
 
   async function startRecording() {
@@ -448,37 +428,6 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     setEditingStep(null)
   }
 
-  async function saveNewPatient() {
-    setSavingPatient(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/intake/create-patient', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clinic_id: clinicId,
-          name: newPatientName.trim(),
-          phone: newPatientPhone.trim() || null,
-          email: newPatientEmail.trim() || null,
-        }),
-      })
-      if (!res.ok) {
-        const d = (await res.json().catch(() => null)) as { error?: string } | null
-        throw new Error(d?.error ?? `Create patient failed (${res.status})`)
-      }
-      const created = (await res.json()) as { id: string; name: string }
-      setCreatedPatientId(created.id)
-      setPatientSaved(true)
-      setPatientSavedName(created.name)
-      setShowNewPatientForm(false)
-    } catch (err) {
-      // Non-blocking: show error but allow intake to proceed with patient_id = null
-      setError(err instanceof Error ? err.message : 'Failed to save patient — you can still proceed.')
-    } finally {
-      setSavingPatient(false)
-    }
-  }
-
   async function confirmIntake() {
     const full: VoiceIntakeResult = {
       patient_name: result.patient_name ?? '',
@@ -490,12 +439,8 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     }
     // Resolve the patient_id to send:
     //   - existing candidate selected → use that candidate's id
-    //   - new patient was saved → use createdPatientId
-    //   - 'new' selected but not yet saved → null (intake not blocked)
-    const resolvedPatientId: string | null =
-      selectedPatientId && selectedPatientId !== 'new'
-        ? selectedPatientId
-        : createdPatientId
+    //   - saveWithoutPatient → null (intake_records.patient_id = NULL)
+    const resolvedPatientId: string | null = selectedPatientId
 
     setSaving(true)
     setError(null)
@@ -712,7 +657,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
               {matchLoading && (
                 <p className="text-xs text-muted-foreground">Looking up patient...</p>
               )}
-              {!matchLoading && (
+              {!matchLoading && candidates.length > 0 && (
                 <div className="flex flex-col gap-1">
                   {candidates.map((c) => (
                     <label key={c.id} className="flex cursor-pointer items-center gap-2">
@@ -721,10 +666,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                         name="patient-pick"
                         value={c.id}
                         checked={selectedPatientId === c.id}
-                        onChange={() => {
-                          setSelectedPatientId(c.id)
-                          setShowNewPatientForm(false)
-                        }}
+                        onChange={() => setSelectedPatientId(c.id)}
                         className="accent-primary"
                       />
                       <span>
@@ -737,74 +679,27 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                       </span>
                     </label>
                   ))}
+                </div>
+              )}
 
-                  {/* "+ Create new patient" option — always shown */}
-                  <label className="flex cursor-pointer items-center gap-2">
+              {/* Empty candidates: warn operator and offer "Save without patient" */}
+              {!matchLoading && candidates.length === 0 && (
+                <div className="flex flex-col gap-2">
+                  <p className="text-xs text-amber-700">
+                    &ldquo;{result.patient_name}&rdquo; not found in patient directory.
+                    Please ask front desk to add this patient first, or save this intake
+                    without patient linking.
+                  </p>
+                  <label className="flex cursor-pointer items-center gap-2 text-xs">
                     <input
-                      type="radio"
-                      name="patient-pick"
-                      value="new"
-                      checked={selectedPatientId === 'new'}
-                      onChange={() => {
-                        setSelectedPatientId('new')
-                        setShowNewPatientForm(true)
-                        if (!newPatientName) setNewPatientName(result.patient_name ?? '')
-                      }}
+                      type="checkbox"
+                      checked={saveWithoutPatient}
+                      onChange={(e) => setSaveWithoutPatient(e.target.checked)}
                       className="accent-primary"
                     />
-                    <span className="text-primary">+ Create new patient</span>
+                    <span>Save without patient (intake_records.patient_id will be null)</span>
                   </label>
                 </div>
-              )}
-
-              {/* Inline new patient form */}
-              {showNewPatientForm && !patientSaved && (
-                <div className="mt-3 flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium">Name</label>
-                    <Input
-                      value={newPatientName}
-                      onChange={(e) => setNewPatientName(e.target.value)}
-                      className="h-8 text-sm"
-                      placeholder="Patient name"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium">Phone (for SMS review request)</label>
-                    <Input
-                      value={newPatientPhone}
-                      onChange={(e) => setNewPatientPhone(e.target.value)}
-                      className="h-8 text-sm"
-                      placeholder="e.g. 403-555-0123"
-                      type="tel"
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <label className="text-xs font-medium">Email (for email review request)</label>
-                    <Input
-                      value={newPatientEmail}
-                      onChange={(e) => setNewPatientEmail(e.target.value)}
-                      className="h-8 text-sm"
-                      placeholder="e.g. patient@example.com"
-                      type="email"
-                    />
-                  </div>
-                  <Button
-                    size="sm"
-                    onClick={saveNewPatient}
-                    disabled={savingPatient || (!newPatientPhone.trim() && !newPatientEmail.trim())}
-                    className="mt-1 h-8"
-                  >
-                    {savingPatient ? 'Saving patient...' : 'Save patient'}
-                  </Button>
-                </div>
-              )}
-
-              {/* Patient saved confirmation */}
-              {patientSaved && (
-                <p className="mt-2 text-xs text-green-700">
-                  Patient saved — {patientSavedName}
-                </p>
               )}
             </div>
 
@@ -815,8 +710,8 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                 disabled={
                   saving ||
                   matchLoading ||
-                  selectedPatientId === null ||
-                  (selectedPatientId === 'new' && showNewPatientForm && !patientSaved && !createdPatientId)
+                  // Must have selected a candidate OR checked "Save without patient"
+                  (selectedPatientId === null && !saveWithoutPatient)
                 }
                 className="h-11 flex-1"
               >
@@ -833,10 +728,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                   setCandidates([])
                   setMatchDone(false)
                   setSelectedPatientId(null)
-                  setShowNewPatientForm(false)
-                  setCreatedPatientId(null)
-                  setPatientSaved(false)
-                  setPatientSavedName('')
+                  setSaveWithoutPatient(false)
                 }}
                 className="h-11 flex-1"
               >

@@ -25,11 +25,27 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json({ error: 'name is required and must be non-empty' }, { status: 400 })
   }
 
+  const supabase = createAdminClient()
+
+  // clinic_id from the caller is a slug (e.g. 'vhealth'), not a UUID.
+  // patients.clinic_id stores UUID FKs, so we resolve the slug → UUID here.
+  // This matches the pattern used by /api/intake/therapists.
+  const { data: clinic, error: clinicError } = await supabase
+    .from('clinics')
+    .select('id')
+    .eq('slug', clinic_id)
+    .single()
+
+  if (clinicError || !clinic) {
+    console.warn('[api/intake/match-patient] clinic not found', { clinic_id })
+    return NextResponse.json({ error: 'Clinic not found' }, { status: 404 })
+  }
+
   try {
-    const supabase = createAdminClient()
-    const candidates = await matchPatient(clinic_id, name.trim(), supabase)
+    const candidates = await matchPatient(clinic.id, name.trim(), supabase)
     console.log('[api/intake/match-patient] matched', {
-      clinic_id,
+      clinic_slug: clinic_id,
+      clinic_id: clinic.id,
       name,
       count: candidates.length,
     })
