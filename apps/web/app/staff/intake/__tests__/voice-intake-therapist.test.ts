@@ -157,19 +157,19 @@ describe('voice-intake-chat — N2: Confirm therapist button is gone', () => {
 
 describe('voice-intake-chat — N3: STEP_3 default render has no dropdown', () => {
   it('STEP_3_THERAPIST render block does not include a Select component', () => {
-    // The STEP_3_THERAPIST render block (step === STEP_3_THERAPIST conditional)
-    // must NOT contain a Select — dropdown only appears in edit mode (N4).
-    // Strategy: extract the STEP_3 JSX block and verify no Select inside.
-    const step3Block = SRC.match(
-      /\{\/\*[^*]*Step 3[^*]*\*\/\}[\s\S]*?\{step === 'STEP_3_THERAPIST' &&([\s\S]*?)\}\s*\n\s*\{\/\*/,
+    // The voice-steps mic UI block (STEP_1/2/3/4 recorder section containing
+    // "Tap to record") must NOT contain a Select — dropdown only appears in
+    // edit mode (N4) or the error-gated fallback picker (P1).
+    // Strategy: extract the Voice steps block by anchoring on its JSX comment
+    // and the "Tap to record" button text, then assert no <Select inside.
+    const voiceStepsBlock = SRC.match(
+      /\/\* Voice steps[^*]*\*\/([\s\S]*?Tap to record[\s\S]*?)\n\s*\{\/\* Confirm/,
     )
-    // Fallback: look for the block via its condition
-    const condBlock = SRC.match(
-      /step === 'STEP_3_THERAPIST' &&\s*\(([\s\S]*?)\n\s*\)\}/,
-    )
-    const blockContent = step3Block?.[1] ?? condBlock?.[1] ?? ''
-    // The block must not contain <Select (dropdown only in edit mode)
+    const blockContent = voiceStepsBlock?.[1] ?? ''
+    // The mic UI block must not contain <Select
     expect(blockContent).not.toMatch(/<Select/)
+    // Sanity: we did actually extract something meaningful
+    expect(blockContent).toContain('Tap to record')
   })
 })
 
@@ -184,13 +184,112 @@ describe('voice-intake-chat — N4: edit mode for therapist_name shows Select dr
   it('STEP_3 default render block is separate from the edit-mode Select', () => {
     // The Select in the bubble edit inline block (b.stepKey === therapist_name)
     // must be the ONLY Select associated with therapist_name logic.
-    // The STEP_3 active-step render block must be Select-free.
+    // The STEP_3 active-step render block (without error guard) must be Select-free.
+    // The error+STEP_3 fallback picker is intentionally allowed to have a Select
+    // (it is guarded by `error && step === 'STEP_3_THERAPIST'`).
     // Verify: the b.stepKey === therapist_name block contains a Select
     const editSelectMatches = [...SRC.matchAll(/b\.stepKey === 'therapist_name'[\s\S]{0,300}<Select/g)]
-    const therapistSelectMatches = [...SRC.matchAll(/step === 'STEP_3_THERAPIST' &&[\s\S]{0,600}<Select/g)]
+    // Match STEP_3_THERAPIST && <Select only when NOT preceded by `error &&`
+    // (i.e., the plain unguarded STEP_3 render block must stay Select-free)
+    const unguardedStep3SelectMatches = [...SRC.matchAll(
+      /(?<![^\n]*error[^\n]*)\bstep === 'STEP_3_THERAPIST' &&[\s\S]{0,600}<Select/g
+    )]
     // Edit mode has its Select
     expect(editSelectMatches.length).toBeGreaterThanOrEqual(1)
-    // STEP_3 active block has no Select
-    expect(therapistSelectMatches.length).toBe(0)
+    // Unguarded STEP_3 active block has no Select
+    expect(unguardedStep3SelectMatches.length).toBe(0)
+  })
+})
+
+// ── P1: error + STEP_3 → fallback selector renders ───────────────────────────
+
+describe('voice-intake-chat — P1: fallback picker renders when error + STEP_3', () => {
+  it('source contains handleTherapistFallbackPick function', () => {
+    expect(SRC).toContain('handleTherapistFallbackPick')
+  })
+
+  it('fallback picker JSX is gated on both error and STEP_3_THERAPIST', () => {
+    // The conditional that gates the fallback Select must check BOTH error and step.
+    // Accept either order: error && step === ... OR step === ... && error
+    expect(SRC).toMatch(
+      /error\s*&&\s*step\s*===\s*['"]STEP_3_THERAPIST['"]|step\s*===\s*['"]STEP_3_THERAPIST['"]\s*&&\s*error/
+    )
+  })
+
+  it('fallback picker includes a Select component inside its conditional block', () => {
+    // The error+STEP_3 block must contain a <Select
+    const block = SRC.match(
+      /error\s*&&\s*step\s*===\s*['"]STEP_3_THERAPIST['"][\s\S]{0,800}<Select/
+    )
+    expect(block).not.toBeNull()
+  })
+})
+
+// ── P2: non-error / non-STEP_3 → selector does NOT render ────────────────────
+
+describe('voice-intake-chat — P2: fallback picker absent when no error or wrong step', () => {
+  it('fallback picker conditional requires both error and STEP_3 (not step alone)', () => {
+    // The condition must include `error` — bare `step === STEP_3_THERAPIST` alone
+    // must not have an unguarded <Select in its block (N3 still holds).
+    // This test is a logical complement of P1 and the revised N3.
+    // If the source has `error && step === 'STEP_3_THERAPIST'`, the condition
+    // is compound — removing error would suppress the picker. ✓
+    expect(SRC).toMatch(
+      /error\s*&&\s*step\s*===\s*['"]STEP_3_THERAPIST['"]/
+    )
+    // And the plain STEP_3 render section (the mic UI block) must NOT have a Select
+    // (already enforced by N3 — restated here for clarity of P2's intent).
+    const micBlock = SRC.match(
+      /STEP_1_NAME.*STEP_2_TREATMENT.*STEP_3_THERAPIST.*STEP_4_NOTES[\s\S]{0,600}Tap to record/
+    )
+    expect(micBlock).not.toBeNull()
+  })
+})
+
+// ── P3: handleTherapistFallbackPick does the three required things ────────────
+
+describe('voice-intake-chat — P3: handleTherapistFallbackPick implementation', () => {
+  it('function calls setError(null) to clear the error', () => {
+    // Extract the function body
+    const fnBody = SRC.match(
+      /function handleTherapistFallbackPick[\s\S]{0,600}?(?=\n\s*function|\n\s*async function|\n\s*\/\/\s*──)/
+    )
+    expect(fnBody).not.toBeNull()
+    expect(fnBody![0]).toContain('setError(null)')
+  })
+
+  it('function calls setResult to update therapist_name', () => {
+    const fnBody = SRC.match(
+      /function handleTherapistFallbackPick[\s\S]{0,600}?(?=\n\s*function|\n\s*async function|\n\s*\/\/\s*──)/
+    )
+    expect(fnBody).not.toBeNull()
+    expect(fnBody![0]).toContain('therapist_name')
+    expect(fnBody![0]).toContain('setResult')
+  })
+
+  it('function calls advanceStep with STEP_4_NOTES', () => {
+    const fnBody = SRC.match(
+      /function handleTherapistFallbackPick[\s\S]{0,600}?(?=\n\s*function|\n\s*async function|\n\s*\/\/\s*──)/
+    )
+    expect(fnBody).not.toBeNull()
+    expect(fnBody![0]).toContain("advanceStep('STEP_4_NOTES')")
+  })
+})
+
+// ── P4: SelectItem value is therapist id, not name ───────────────────────────
+
+describe('voice-intake-chat — P4: fallback picker SelectItem uses therapist id as value', () => {
+  it('SelectItem inside fallback picker has value={t.id}', () => {
+    // The fallback picker maps therapists to SelectItem elements.
+    // Each item's value must be t.id (not t.name) so handleTherapistFallbackPick
+    // receives an id and can look up the canonical name.
+    const block = SRC.match(
+      /error\s*&&\s*step\s*===\s*['"]STEP_3_THERAPIST['"][\s\S]{0,1000}SelectItem/
+    )
+    expect(block).not.toBeNull()
+    // value should be t.id
+    expect(block![0]).toContain('value={t.id}')
+    // value should NOT be t.name
+    expect(block![0]).not.toContain('value={t.name}')
   })
 })
