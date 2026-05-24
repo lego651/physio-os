@@ -14,9 +14,10 @@ import { createAdminClient } from '@/lib/supabase/admin'
  *   clinics  — returns `{ id: 'clinic-uuid' }` by default
  *   patients — returns the row passed via `patientRow`
  *   review_requests — captures INSERT payload, returns `{ id: 'rr-uuid' }`
+ *   intake_records  — captures INSERT payload, returns `{ id: 'ir-uuid' }`
  */
 function makeSupabase(opts: {
-  patientRow?: { phone: string | null; email: string | null } | null
+  patientRow?: { name?: string; phone: string | null; email: string | null } | null
   patientsError?: string
 }) {
   const { patientRow = null, patientsError } = opts
@@ -261,5 +262,75 @@ describe('createReviewRequestForIntake — channel auto-pick (Bug T)', () => {
 
     expect(result).toBeNull()
     expect(getInsert()).toBeNull()
+  })
+})
+
+// ─── Bug U: canonical patient_name override ───────────────────────────────────
+//
+// Scenario: Whisper mis-transcribes "Ethan Liu" as "Easton Leo".
+// Operator selects correct patient from directory (patient_id present).
+// review_requests row MUST store patients.name ("Ethan Liu"), NOT the
+// transcript name ("Easton Leo").
+
+describe('createReviewRequestForIntake — Bug U: canonical patient_name from patients table', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('uses patients.name instead of input.patient_name when patient_id is provided', async () => {
+    const { client, getInsert } = makeSupabase({
+      patientRow: { name: 'Ethan Liu', phone: '+12368682134', email: null },
+    })
+    vi.mocked(createAdminClient).mockReturnValue(client)
+
+    const { createReviewRequestForIntake } = await import('../db')
+    await createReviewRequestForIntake({
+      intake_record_id: 'intake-uuid',
+      patient_name: 'Easton Leo', // Whisper mis-transcription
+      therapist_name: 'David',
+      service_type: 'physio',
+      patient_id: 'patient-ethan',
+    })
+
+    const inserted = getInsert() as Record<string, unknown>
+    // Must be canonical name from patients table, NOT Whisper transcript
+    expect(inserted.patient_name).toBe('Ethan Liu')
+  })
+
+  it('falls back to input.patient_name when no patient_id is provided (unlinked visit)', async () => {
+    const { client, getInsert } = makeSupabase({ patientRow: null })
+    vi.mocked(createAdminClient).mockReturnValue(client)
+
+    const { createReviewRequestForIntake } = await import('../db')
+    const result = await createReviewRequestForIntake({
+      intake_record_id: 'intake-uuid',
+      patient_name: 'Walk-In Patient',
+      therapist_name: 'David',
+      service_type: 'physio',
+      // patient_id intentionally omitted
+    })
+
+    // No contact info → skips insert → returns null (existing graceful-skip behaviour)
+    expect(result).toBeNull()
+    expect(getInsert()).toBeNull()
+  })
+
+  it('still uses patients.name even when patients row has email but no phone', async () => {
+    const { client, getInsert } = makeSupabase({
+      patientRow: { name: 'Jason Gao', phone: null, email: 'jasonusca@gmail.com' },
+    })
+    vi.mocked(createAdminClient).mockReturnValue(client)
+
+    const { createReviewRequestForIntake } = await import('../db')
+    await createReviewRequestForIntake({
+      intake_record_id: 'intake-uuid',
+      patient_name: 'Jeson Go', // Whisper garbled
+      therapist_name: 'David',
+      service_type: 'physio',
+      patient_id: 'patient-jason',
+    })
+
+    const inserted = getInsert() as Record<string, unknown>
+    expect(inserted.patient_name).toBe('Jason Gao')
   })
 })

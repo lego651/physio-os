@@ -66,11 +66,25 @@ export async function saveIntakeRecord(input: SaveIntakeRecordInput): Promise<In
   })
   const supabase = createAdminClient()
 
+  // Bug U: when patient_id is linked, look up the canonical name from patients table.
+  // This ensures Whisper mis-transcriptions don't pollute intake_records.patient_name.
+  let canonicalPatientName = input.patient_name
+  if (input.patient_id) {
+    const { data: patient } = await supabase
+      .from('patients')
+      .select('name')
+      .eq('id', input.patient_id)
+      .single()
+    if (patient?.name) {
+      canonicalPatientName = patient.name
+    }
+  }
+
   const { data, error } = await supabase
     .from('intake_records')
     .insert({
       clinic_id: input.clinic_id ?? 'vhealth',
-      patient_name: input.patient_name,
+      patient_name: canonicalPatientName,
       date_of_visit: input.date_of_visit,
       therapist_name: input.therapist_name,
       treatment_area: input.treatment_area,
@@ -140,13 +154,15 @@ export async function createReviewRequestForIntake(
   // If the lookup fails (patient deleted, etc.) we fall back gracefully to null.
   let patientPhone: string | null = null
   let patientEmail: string | null = null
+  let patientCanonicalName: string | null = null
   if (input.patient_id) {
     const { data: patient } = await supabase
       .from('patients')
-      .select('phone, email')
+      .select('name, phone, email')
       .eq('id', input.patient_id)
       .single()
     if (patient) {
+      patientCanonicalName = patient.name ?? null
       patientPhone = patient.phone ?? null
       patientEmail = patient.email ?? null
     }
@@ -172,7 +188,7 @@ export async function createReviewRequestForIntake(
     .insert({
       clinic_id: clinic.id,
       intake_record_id: input.intake_record_id,
-      patient_name: input.patient_name,
+      patient_name: patientCanonicalName ?? input.patient_name,
       patient_email: patientEmail,
       patient_phone: patientPhone,
       patient_id: input.patient_id,

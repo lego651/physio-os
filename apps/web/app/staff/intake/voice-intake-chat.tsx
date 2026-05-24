@@ -194,6 +194,17 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       .finally(() => setMatchLoading(false))
   }, [step, matchDone, result.patient_name, clinicId])
 
+  // Bug U: when operator picks a candidate from the directory, immediately update
+  // result.patient_name to the canonical name from the patients table.
+  // This ensures the CONFIRM summary shows the correct name, and the save payload
+  // carries it even though the backend also overrides it (defence in depth).
+  useEffect(() => {
+    if (selectedPatientId === null || selectedPatientId === 'unlinked') return
+    const candidate = candidates.find((c) => c.id === selectedPatientId)
+    if (!candidate) return
+    setResult((prev) => ({ ...prev, patient_name: candidate.name }))
+  }, [selectedPatientId, candidates])
+
   const pushBubble = useCallback((bubble: Bubble) => {
     setBubbles((prev) => [...prev, bubble])
   }, [])
