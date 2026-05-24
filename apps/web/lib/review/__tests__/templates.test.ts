@@ -1,8 +1,21 @@
 import { describe, it, expect } from 'vitest'
-import { buildReviewEmailHtml, buildReviewEmailSubject } from '../templates/email'
+import {
+  buildReviewEmailHtml,
+  buildReviewEmailText,
+  buildReviewEmailSubject,
+} from '../templates/email'
 import { buildReviewSmsBody } from '../templates/sms'
 
-describe('email template', () => {
+const BASE_EMAIL = {
+  clinicName: 'V-Health Rehab Clinic',
+  senderName: 'V-Health',
+  patientName: 'Ethan Liu',
+  gmapLink: 'https://physio-os-web.vercel.app/r/gmap?t=abc-123',
+  aiLink: 'https://physio-os-web.vercel.app/r/ai?t=abc-123',
+  unsubscribeLink: 'https://physio-os-web.vercel.app/api/review-requests/unsubscribe?token=abc',
+}
+
+describe('email template — Variant C', () => {
   it('subject includes clinic name', () => {
     const subj = buildReviewEmailSubject({
       clinicName: 'V-Health Rehab Clinic',
@@ -11,18 +24,81 @@ describe('email template', () => {
     expect(subj).toMatch(/V-Health Rehab Clinic/)
   })
 
-  it('html includes patient name, sender name, short link, and unsubscribe link', () => {
-    const html = buildReviewEmailHtml({
+  it('subject uses share-your-experience format', () => {
+    const subj = buildReviewEmailSubject({
       clinicName: 'V-Health Rehab Clinic',
-      senderName: 'V-Health',
       patientName: 'Alice',
-      shortLink: 'https://x/review/abc',
-      unsubscribeLink: 'https://x/api/review/unsubscribe?token=abc',
     })
-    expect(html).toContain('Alice')
+    expect(subj).toMatch(/share your experience/i)
+  })
+
+  it('html contains firstName substitution (first word of patientName)', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    expect(html).toContain('Hi Ethan')
+    expect(html).not.toContain('Hi Ethan Liu')
+  })
+
+  it('html contains both CTA links', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    expect(html).toContain(BASE_EMAIL.gmapLink)
+    expect(html).toContain(BASE_EMAIL.aiLink)
+  })
+
+  it('html does NOT contain the old single-link shortLink pattern', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    // The old template had /review/ links; new template uses /r/gmap and /r/ai only
+    expect(html).not.toContain('/review/')
+  })
+
+  it('html contains JG code and 10% off', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    expect(html).toContain('JG')
+    expect(html).toContain('10%')
+  })
+
+  it('html contains unsubscribe link', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    expect(html).toContain(BASE_EMAIL.unsubscribeLink)
+    expect(html.toLowerCase()).toContain('unsubscribe')
+  })
+
+  it('html contains clinic name and sender name', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    expect(html).toContain('V-Health Rehab Clinic')
     expect(html).toContain('V-Health')
-    expect(html).toContain('https://x/review/abc')
-    expect(html).toContain('unsubscribe')
+  })
+})
+
+describe('email plain-text fallback — Variant C', () => {
+  it('contains both CTA links', () => {
+    const text = buildReviewEmailText(BASE_EMAIL)
+    expect(text).toContain(BASE_EMAIL.gmapLink)
+    expect(text).toContain(BASE_EMAIL.aiLink)
+  })
+
+  it('contains firstName', () => {
+    const text = buildReviewEmailText(BASE_EMAIL)
+    expect(text).toContain('Hi Ethan')
+  })
+
+  it('contains JG code and 10% off', () => {
+    const text = buildReviewEmailText(BASE_EMAIL)
+    expect(text).toContain('JG')
+    expect(text).toContain('10%')
+  })
+
+  it('contains unsubscribe link', () => {
+    const text = buildReviewEmailText(BASE_EMAIL)
+    expect(text).toContain(BASE_EMAIL.unsubscribeLink)
+  })
+
+  it('mirrors same info as HTML (gmap + ai + JG)', () => {
+    const text = buildReviewEmailText(BASE_EMAIL)
+    expect(text).toContain('Option A')
+    expect(text).toContain('Option B')
+    expect(text).toContain(BASE_EMAIL.gmapLink)
+    expect(text).toContain(BASE_EMAIL.aiLink)
+    expect(text).toContain('JG')
   })
 })
 

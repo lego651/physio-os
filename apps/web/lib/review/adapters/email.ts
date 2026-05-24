@@ -7,6 +7,8 @@ export interface EmailSendInput {
   from: string
   subject: string
   html: string
+  /** Plain-text fallback — improves deliverability and spam score */
+  text?: string
   headers?: Record<string, string>
 }
 
@@ -41,6 +43,7 @@ export class EmailAdapter {
         to: input.to,
         subject: input.subject,
         html: input.html,
+        ...(input.text !== undefined ? { text: input.text } : {}),
       }),
     })
 
