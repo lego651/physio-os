@@ -1,0 +1,48 @@
+name: Post-Deploy Smoke Test
+
+on:
+  # Automatically triggers when Vercel reports a successful production deploy
+  deployment_status: {}
+  # Manual trigger for testing or re-running after a failed smoke test
+  workflow_dispatch:
+    inputs:
+      target_url:
+        description: 'Deployment URL to test (leave blank for prod default)'
+        required: false
+        default: ''
+
+jobs:
+  smoke-test:
+    # Only run on:
+    #   - manual dispatch
+    #   - automatic: Vercel production deploy marked 'success'
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'deployment_status' &&
+       github.event.deployment_status.state == 'success' &&
+       contains(github.event.deployment_status.environment, 'Production'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Wait for env propagation
+        run: sleep 30
+
+      - name: Run post-deploy smoke test
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+          SMOKE_TEST_RECIPIENT_PHONE: ${{ secrets.SMOKE_TEST_RECIPIENT_PHONE }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          DEPLOY_URL: >-
+            ${{
+              github.event.deployment_status.target_url ||
+              inputs.target_url ||
+              'https://physio-os-web.vercel.app'
+            }}
+        run: node .github/scripts/post-deploy-smoke.mjs

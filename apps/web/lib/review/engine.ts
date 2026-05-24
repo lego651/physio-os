@@ -7,7 +7,7 @@ import { randomUUID } from 'node:crypto'
 import { mintReviewToken } from './tokens'
 import { logFunnelEvent } from './events'
 import { isOptedOut } from './opt-outs'
-import { buildReviewEmailHtml, buildReviewEmailSubject } from './templates/email'
+import { buildReviewEmailHtml, buildReviewEmailText, buildReviewEmailSubject } from './templates/email'
 import { buildReviewSmsBody } from './templates/sms'
 import type { EmailAdapter } from './adapters/email'
 import type { SmsAdapter } from './adapters/sms'
@@ -100,8 +100,12 @@ export class ReviewRequestEngine {
     const shortLink = `${this.deps.config.baseUrl}/review/${token}`
     const unsubLink = `${this.deps.config.baseUrl}/api/review-requests/unsubscribe?token=${encodeURIComponent(token)}`
 
-    // Track whether at least one channel successfully dispatched.
+    // Track whether at least one channel successfully dispatched,
+    // and whether any channel hit a provider-level error (as opposed to
+    // soft-skip reasons like opted_out or no_recipient).
     let anySent = false
+    let anyProviderError = false
+    const providerErrors: string[] = []
 
     if (wantsEmail) {
       const realEmail = input.patientEmail
@@ -138,7 +142,16 @@ export class ReviewRequestEngine {
               clinicName: clinic.name,
               senderName,
               patientName: input.patientName,
-              shortLink,
+              gmapLink: `${this.deps.config.baseUrl}/r/gmap?t=${jti}`,
+              aiLink: `${this.deps.config.baseUrl}/r/ai?t=${jti}`,
+              unsubscribeLink: unsubLink,
+            }),
+            text: buildReviewEmailText({
+              clinicName: clinic.name,
+              senderName,
+              patientName: input.patientName,
+              gmapLink: `${this.deps.config.baseUrl}/r/gmap?t=${jti}`,
+              aiLink: `${this.deps.config.baseUrl}/r/ai?t=${jti}`,
               unsubscribeLink: unsubLink,
             }),
           })
@@ -149,6 +162,8 @@ export class ReviewRequestEngine {
           })
           anySent = true
         } catch (err) {
+          anyProviderError = true
+          providerErrors.push(`email: ${String(err)}`)
           await logFunnelEvent(this.deps.supabase, {
             requestId,
             eventType: 'send_failed',
@@ -197,6 +212,8 @@ export class ReviewRequestEngine {
           })
           anySent = true
         } catch (err) {
+          anyProviderError = true
+          providerErrors.push(`sms: ${String(err)}`)
           await logFunnelEvent(this.deps.supabase, {
             requestId,
             eventType: 'send_failed',
@@ -212,6 +229,12 @@ export class ReviewRequestEngine {
       .from('review_requests')
       .update({ status: finalStatus })
       .eq('id', requestId)
+
+    // Only throw when a provider actually failed — soft skips (opted_out,
+    // no_recipient) are expected states that the caller should not treat as errors.
+    if (!anySent && anyProviderError) {
+      throw new Error(`Send failed: ${providerErrors.join('; ')}`)
+    }
 
     return { id: requestId, token }
   }
@@ -264,24 +287,36 @@ export class ReviewRequestEngine {
     const wantsEmail = channel === 'email' || channel === 'both'
     const wantsSms = channel === 'sms' || channel === 'both'
     let anySent = false
+    let anyProviderError = false
+    const providerErrors: string[] = []
 
     if (wantsEmail) {
       const realEmail = existing.patient_email as string | null
       const recipient = this.deps.config.testMode ? this.deps.config.testRecipientEmail : realEmail
       if (recipient) {
         try {
+          const patientName = existing.patient_name as string
           const result = await this.deps.email.send({
             to: recipient,
             from: `${senderName} <onboarding@resend.dev>`,
             subject: buildReviewEmailSubject({
               clinicName: clinic.name,
-              patientName: existing.patient_name as string,
+              patientName,
             }),
             html: buildReviewEmailHtml({
               clinicName: clinic.name,
               senderName,
-              patientName: existing.patient_name as string,
-              shortLink,
+              patientName,
+              gmapLink: `${this.deps.config.baseUrl}/r/gmap?t=${jti}`,
+              aiLink: `${this.deps.config.baseUrl}/r/ai?t=${jti}`,
+              unsubscribeLink: unsubLink,
+            }),
+            text: buildReviewEmailText({
+              clinicName: clinic.name,
+              senderName,
+              patientName,
+              gmapLink: `${this.deps.config.baseUrl}/r/gmap?t=${jti}`,
+              aiLink: `${this.deps.config.baseUrl}/r/ai?t=${jti}`,
               unsubscribeLink: unsubLink,
             }),
           })
@@ -292,6 +327,8 @@ export class ReviewRequestEngine {
           })
           anySent = true
         } catch (err) {
+          anyProviderError = true
+          providerErrors.push(`email: ${String(err)}`)
           await logFunnelEvent(this.deps.supabase, {
             requestId,
             eventType: 'send_failed',
@@ -327,6 +364,8 @@ export class ReviewRequestEngine {
           })
           anySent = true
         } catch (err) {
+          anyProviderError = true
+          providerErrors.push(`sms: ${String(err)}`)
           await logFunnelEvent(this.deps.supabase, {
             requestId,
             eventType: 'send_failed',
@@ -347,6 +386,21 @@ export class ReviewRequestEngine {
       .from('review_requests')
       .update({ status: finalStatus })
       .eq('id', requestId)
+
+    // Only throw when a provider actually failed — soft skips (no_recipient)
+    // are expected states that the caller should not treat as errors.
+    if (!anySent && anyProviderError) {
+      throw new Error(`Send failed: ${providerErrors.join('; ')}`)
+    }
+
+    // Special case: if no contact info was available at all, surface that clearly.
+    if (!anySent && !anyProviderError) {
+      const noEmail = wantsEmail && !(existing.patient_email as string | null)
+      const noPhone = wantsSms && !(existing.patient_phone as string | null)
+      if (noEmail || noPhone) {
+        throw new Error(`Send failed: no contact information available (channel=${channel})`)
+      }
+    }
 
     return { id: requestId, token }
   }
