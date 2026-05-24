@@ -4,20 +4,33 @@
 -- Context: migration 001 created an old patients table (phone-unique, auth_user_id-based)
 -- from the pre-pivot architecture. That table is replaced here with the new multi-tenant
 -- clinic-scoped design. Dependent tables (messages, metrics, reports) from the pre-pivot
--- schema are also dropped — they are unused in the current S1.x application.
+-- schema are also renamed — they are unused in the current S1.x application but contain
+-- real demo/seed data (V-Health Coach session, ~47 rows) that Jason wants preserved.
 --
 -- Migration 003 attached trg_patients_updated_at to the old patients table.
--- After DROP CASCADE below that trigger is gone; we reattach it to the new table.
+-- After RENAME the trigger moves with the table (PostgreSQL renames all attached triggers
+-- automatically). We reattach a fresh trigger to the new patients table in step 4.
 --
--- Idempotent: all CREATE statements use IF NOT EXISTS.
+-- Idempotent: all CREATE statements use IF NOT EXISTS; RENAME uses ALTER TABLE IF EXISTS
+-- so a second run is a no-op (source table no longer exists after first run).
 
--- 1. Drop pre-pivot tables that depended on the old patients table.
---    These tables are unused in the S1.x codebase (no application code references them).
---    CASCADE is required because reports → patients, metrics → patients, messages → patients.
-DROP TABLE IF EXISTS public.reports   CASCADE;
-DROP TABLE IF EXISTS public.metrics   CASCADE;
-DROP TABLE IF EXISTS public.messages  CASCADE;
-DROP TABLE IF EXISTS public.patients  CASCADE;
+-- 1. Rename pre-pivot tables to _legacy_* to free the original table names for the new
+--    clinic-scoped schema while preserving historical demo data (~47 rows across 3 tables).
+--    Pre-pivot tables: reports (0 rows), metrics (15 rows), messages (28 rows), patients (4 rows).
+--
+--    Idempotent: if migration has already run, public.patients no longer exists (it was renamed
+--    to _legacy_patients), so ALTER TABLE IF EXISTS becomes a no-op — no error on replay.
+--
+--    Note: CASCADE is NOT needed for RENAME; FK constraints are updated to point at the
+--    new name automatically by PostgreSQL.
+-- Pre-pivot tables (V-Health Coach demo data, ~47 rows). Renamed to _legacy_*
+-- so the original table names are freed for the new clinic-scoped schema,
+-- but the data is preserved for historical reference.
+-- Idempotent: use ALTER ... RENAME TO ... IF EXISTS pattern.
+ALTER TABLE IF EXISTS public.reports  RENAME TO _legacy_reports;
+ALTER TABLE IF EXISTS public.metrics  RENAME TO _legacy_metrics;
+ALTER TABLE IF EXISTS public.messages RENAME TO _legacy_messages;
+ALTER TABLE IF EXISTS public.patients RENAME TO _legacy_patients;
 
 -- 2. Create the new clinic-scoped patients table.
 CREATE TABLE IF NOT EXISTS public.patients (
