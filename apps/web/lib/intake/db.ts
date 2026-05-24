@@ -101,6 +101,7 @@ export interface CreateReviewRequestForIntakeInput {
   therapist_name: string | null
   service_type: SessionType
   clinic_slug?: string
+  patient_id?: string
 }
 
 /**
@@ -129,14 +130,32 @@ export async function createReviewRequestForIntake(
 
   const expiresAt = new Date(Date.now() + TOKEN_EXPIRES_IN_DAYS * 86_400_000).toISOString()
 
+  // S1.7-6: if a patient_id is linked, pull contact info from patients table.
+  // Denormalised at insert time so the record reflects the contact used at send time.
+  // If the lookup fails (patient deleted, etc.) we fall back gracefully to null.
+  let patientPhone: string | null = null
+  let patientEmail: string | null = null
+  if (input.patient_id) {
+    const { data: patient } = await supabase
+      .from('patients')
+      .select('phone, email')
+      .eq('id', input.patient_id)
+      .single()
+    if (patient) {
+      patientPhone = patient.phone ?? null
+      patientEmail = patient.email ?? null
+    }
+  }
+
   const { data, error } = await supabase
     .from('review_requests')
     .insert({
       clinic_id: clinic.id,
       intake_record_id: input.intake_record_id,
       patient_name: input.patient_name,
-      patient_email: null,
-      patient_phone: null,
+      patient_email: patientEmail,
+      patient_phone: patientPhone,
+      patient_id: input.patient_id,
       therapist_name: input.therapist_name,
       service_type: input.service_type,
       channel: 'email',

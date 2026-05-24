@@ -273,4 +273,60 @@ describe('POST /api/intake/save', () => {
     const body = await res.json()
     expect(body.record.patient_id).toBe(PATIENT_UUID)
   })
+
+  // ── S1.7-6: review_requests auto-fill contact from patients ──────────────────
+
+  it('S1.7-6: passes patient_id to createReviewRequestForIntake when intake has patient_id', async () => {
+    const { POST } = await import('../route')
+    const { createReviewRequestForIntake } = await import('../../../../../lib/intake/db')
+    vi.mocked(createReviewRequestForIntake).mockClear()
+
+    const PATIENT_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+    const req = new Request('http://localhost/api/intake/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_name: 'Jason Gao',
+        date_of_visit: '2026-05-23',
+        therapist_name: 'David',
+        treatment_area: 'neck',
+        session_notes: 'Follow-up',
+        session_type: 'physio',
+        source: 'in_app',
+        patient_id: PATIENT_UUID,
+      }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(createReviewRequestForIntake).toHaveBeenCalledWith(
+      expect.objectContaining({ patient_id: PATIENT_UUID }),
+    )
+  })
+
+  it('S1.7-6: does NOT pass patient_id to createReviewRequestForIntake when intake has no patient_id (backward-compat)', async () => {
+    const { POST } = await import('../route')
+    const { createReviewRequestForIntake } = await import('../../../../../lib/intake/db')
+    vi.mocked(createReviewRequestForIntake).mockClear()
+
+    const req = new Request('http://localhost/api/intake/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_name: 'Jane Doe',
+        date_of_visit: '2026-05-23',
+        therapist_name: 'David',
+        treatment_area: 'shoulder',
+        session_notes: 'Walk-in',
+        session_type: 'physio',
+        source: 'in_app',
+        // patient_id intentionally omitted
+      }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    // patient_id should not be present OR should be undefined in the call
+    expect(createReviewRequestForIntake).toHaveBeenCalledWith(
+      expect.not.objectContaining({ patient_id: expect.any(String) }),
+    )
+  })
 })

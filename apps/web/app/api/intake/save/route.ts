@@ -62,6 +62,7 @@ export async function POST(request: Request): Promise<NextResponse> {
         patient_name: record.patient_name,
         therapist_name: record.therapist_name,
         service_type: parsed.data.session_type,
+        patient_id: parsed.data.patient_id,
       })
     } catch (err) {
       console.warn('[api/intake/save] review_request auto-create failed', {
