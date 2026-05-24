@@ -17,6 +17,16 @@ import { Mic, Pencil } from 'lucide-react'
 import type { SessionType } from '@physio-os/shared'
 import { formatTreatmentBubble } from './treatment-bubble'
 
+// ─── Patient-picker types ─────────────────────────────────────────────────────
+
+interface PatientCandidate {
+  id: string
+  name: string
+  phone_suffix4: string | null
+  email_partial: string | null
+  last_seen_at: string | null
+}
+
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type Step =
@@ -115,6 +125,22 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
   const [editValue, setEditValue] = useState('')
   const [rerecordingStep, setRerecordingStep] = useState<keyof VoiceIntakeResult | null>(null)
 
+  // ── S1.7-4/5: patient picker state ──────────────────────────────────────────
+  const [candidates, setCandidates] = useState<PatientCandidate[]>([])
+  const [matchLoading, setMatchLoading] = useState(false)
+  const [matchDone, setMatchDone] = useState(false)
+  // null = nothing selected, string = existing patient id, 'new' = create new
+  const [selectedPatientId, setSelectedPatientId] = useState<string | 'new' | null>(null)
+  const [showNewPatientForm, setShowNewPatientForm] = useState(false)
+  const [newPatientName, setNewPatientName] = useState('')
+  const [newPatientPhone, setNewPatientPhone] = useState('')
+  const [newPatientEmail, setNewPatientEmail] = useState('')
+  // Once created, store the new patient's UUID so confirmIntake can send it
+  const [createdPatientId, setCreatedPatientId] = useState<string | null>(null)
+  const [savingPatient, setSavingPatient] = useState(false)
+  const [patientSaved, setPatientSaved] = useState(false)
+  const [patientSavedName, setPatientSavedName] = useState('')
+
   const router = useRouter()
 
   const recorderRef = useRef<MediaRecorder | null>(null)
@@ -145,6 +171,41 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     }
   }, [])
 
+  // S1.7-4: when CONFIRM step mounts, auto-call match-patient
+  useEffect(() => {
+    if (step !== 'CONFIRM' || matchDone) return
+    const name = result.patient_name
+    if (!name) return
+    setMatchLoading(true)
+    setMatchDone(true)
+    fetch('/api/intake/match-patient', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clinic_id: clinicId, name }),
+    })
+      .then((r) => (r.ok ? r.json() : Promise.reject(r.status)))
+      .then((d: { candidates: PatientCandidate[] }) => {
+        const found = d.candidates ?? []
+        setCandidates(found)
+        // Auto-select: 1 exact match → pre-select; 0 candidates → auto create-new
+        if (found.length === 1) {
+          setSelectedPatientId(found[0]!.id)
+        } else if (found.length === 0) {
+          setSelectedPatientId('new')
+          setShowNewPatientForm(true)
+          setNewPatientName(name)
+        }
+      })
+      .catch((err: unknown) => {
+        console.error('[voice-intake] match-patient failed', err)
+        // On error: default to create-new so intake is never blocked
+        setSelectedPatientId('new')
+        setShowNewPatientForm(true)
+        setNewPatientName(name ?? '')
+      })
+      .finally(() => setMatchLoading(false))
+  }, [step, matchDone, result.patient_name, clinicId])
+
   const pushBubble = useCallback((bubble: Bubble) => {
     setBubbles((prev) => [...prev, bubble])
   }, [])
@@ -155,6 +216,19 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     setError(null)
     setStep('STEP_1_NAME')
     setBubbles([{ role: 'ai', text: STEP_QUESTIONS['STEP_1_NAME']! }])
+    // Reset patient picker
+    setCandidates([])
+    setMatchLoading(false)
+    setMatchDone(false)
+    setSelectedPatientId(null)
+    setShowNewPatientForm(false)
+    setNewPatientName('')
+    setNewPatientPhone('')
+    setNewPatientEmail('')
+    setCreatedPatientId(null)
+    setSavingPatient(false)
+    setPatientSaved(false)
+    setPatientSavedName('')
   }
 
   async function startRecording() {
@@ -374,6 +448,37 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
     setEditingStep(null)
   }
 
+  async function saveNewPatient() {
+    setSavingPatient(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/intake/create-patient', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clinic_id: clinicId,
+          name: newPatientName.trim(),
+          phone: newPatientPhone.trim() || null,
+          email: newPatientEmail.trim() || null,
+        }),
+      })
+      if (!res.ok) {
+        const d = (await res.json().catch(() => null)) as { error?: string } | null
+        throw new Error(d?.error ?? `Create patient failed (${res.status})`)
+      }
+      const created = (await res.json()) as { id: string; name: string }
+      setCreatedPatientId(created.id)
+      setPatientSaved(true)
+      setPatientSavedName(created.name)
+      setShowNewPatientForm(false)
+    } catch (err) {
+      // Non-blocking: show error but allow intake to proceed with patient_id = null
+      setError(err instanceof Error ? err.message : 'Failed to save patient — you can still proceed.')
+    } finally {
+      setSavingPatient(false)
+    }
+  }
+
   async function confirmIntake() {
     const full: VoiceIntakeResult = {
       patient_name: result.patient_name ?? '',
@@ -383,13 +488,27 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
       session_notes: result.session_notes ?? '',
       date_of_visit: todayDate(),
     }
+    // Resolve the patient_id to send:
+    //   - existing candidate selected → use that candidate's id
+    //   - new patient was saved → use createdPatientId
+    //   - 'new' selected but not yet saved → null (intake not blocked)
+    const resolvedPatientId: string | null =
+      selectedPatientId && selectedPatientId !== 'new'
+        ? selectedPatientId
+        : createdPatientId
+
     setSaving(true)
     setError(null)
     try {
       const res = await fetch('/api/intake/save', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...full, source: 'in_app', raw_transcript: null }),
+        body: JSON.stringify({
+          ...full,
+          source: 'in_app',
+          raw_transcript: null,
+          ...(resolvedPatientId ? { patient_id: resolvedPatientId } : {}),
+        }),
       })
       if (!res.ok) {
         const d = (await res.json().catch(() => null)) as { error?: string } | null
@@ -562,6 +681,7 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
         {/* Confirm step */}
         {step === 'CONFIRM' && (
           <div className="mt-2 flex flex-col gap-3">
+            {/* Session summary */}
             <div className="rounded-lg border bg-muted/40 p-4 text-sm">
               <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                 <span className="font-medium">Patient</span>
@@ -585,8 +705,121 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                 <span>{todayDate()}</span>
               </div>
             </div>
+
+            {/* Patient directory picker */}
+            <div className="rounded-lg border p-3 text-sm">
+              <p className="mb-2 font-medium text-muted-foreground">Patient in directory?</p>
+              {matchLoading && (
+                <p className="text-xs text-muted-foreground">Looking up patient...</p>
+              )}
+              {!matchLoading && (
+                <div className="flex flex-col gap-1">
+                  {candidates.map((c) => (
+                    <label key={c.id} className="flex cursor-pointer items-center gap-2">
+                      <input
+                        type="radio"
+                        name="patient-pick"
+                        value={c.id}
+                        checked={selectedPatientId === c.id}
+                        onChange={() => {
+                          setSelectedPatientId(c.id)
+                          setShowNewPatientForm(false)
+                        }}
+                        className="accent-primary"
+                      />
+                      <span>
+                        {c.name}
+                        {c.phone_suffix4 && <span className="ml-1 text-muted-foreground">··· {c.phone_suffix4}</span>}
+                        {c.email_partial && <span className="ml-1 text-muted-foreground">{c.email_partial}</span>}
+                        <span className="ml-2 text-xs text-muted-foreground">
+                          Last visit: {c.last_seen_at ?? 'New'}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+
+                  {/* "+ Create new patient" option — always shown */}
+                  <label className="flex cursor-pointer items-center gap-2">
+                    <input
+                      type="radio"
+                      name="patient-pick"
+                      value="new"
+                      checked={selectedPatientId === 'new'}
+                      onChange={() => {
+                        setSelectedPatientId('new')
+                        setShowNewPatientForm(true)
+                        if (!newPatientName) setNewPatientName(result.patient_name ?? '')
+                      }}
+                      className="accent-primary"
+                    />
+                    <span className="text-primary">+ Create new patient</span>
+                  </label>
+                </div>
+              )}
+
+              {/* Inline new patient form */}
+              {showNewPatientForm && !patientSaved && (
+                <div className="mt-3 flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium">Name</label>
+                    <Input
+                      value={newPatientName}
+                      onChange={(e) => setNewPatientName(e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="Patient name"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium">Phone (for SMS review request)</label>
+                    <Input
+                      value={newPatientPhone}
+                      onChange={(e) => setNewPatientPhone(e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="e.g. 403-555-0123"
+                      type="tel"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <label className="text-xs font-medium">Email (for email review request)</label>
+                    <Input
+                      value={newPatientEmail}
+                      onChange={(e) => setNewPatientEmail(e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="e.g. patient@example.com"
+                      type="email"
+                    />
+                  </div>
+                  <Button
+                    size="sm"
+                    onClick={saveNewPatient}
+                    disabled={savingPatient || (!newPatientPhone.trim() && !newPatientEmail.trim())}
+                    className="mt-1 h-8"
+                  >
+                    {savingPatient ? 'Saving patient...' : 'Save patient'}
+                  </Button>
+                </div>
+              )}
+
+              {/* Patient saved confirmation */}
+              {patientSaved && (
+                <p className="mt-2 text-xs text-green-700">
+                  Patient saved — {patientSavedName}
+                </p>
+              )}
+            </div>
+
+            {/* Action buttons */}
             <div className="flex gap-2">
-              <Button onClick={confirmIntake} disabled={saving} className="h-11 flex-1">
+              <Button
+                onClick={confirmIntake}
+                disabled={
+                  saving ||
+                  matchLoading ||
+                  selectedPatientId === null ||
+                  (selectedPatientId === 'new' && showNewPatientForm && !patientSaved && !createdPatientId)
+                }
+                className="h-11 flex-1"
+              >
                 {saving ? 'Saving...' : 'Confirm & save'}
               </Button>
               <Button
@@ -596,6 +829,14 @@ export function VoiceIntakeChat({ clinicId = 'vhealth', onComplete }: Props) {
                   setBubbles([{ role: 'ai', text: STEP_QUESTIONS['STEP_1_NAME']! }])
                   setResult(current)
                   setStep('STEP_1_NAME')
+                  // Reset patient picker for re-entry
+                  setCandidates([])
+                  setMatchDone(false)
+                  setSelectedPatientId(null)
+                  setShowNewPatientForm(false)
+                  setCreatedPatientId(null)
+                  setPatientSaved(false)
+                  setPatientSavedName('')
                 }}
                 className="h-11 flex-1"
               >

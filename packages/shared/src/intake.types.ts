@@ -31,6 +31,7 @@ export interface IntakeRecord extends IntakeFields {
   clinic_id: string
   source: IntakeSource
   raw_transcript: string | null
+  patient_id: string | null
   created_at: string
   updated_at: string
 }

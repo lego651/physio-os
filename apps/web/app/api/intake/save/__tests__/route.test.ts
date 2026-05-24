@@ -14,10 +14,12 @@ vi.mock('../../../../../lib/intake/db', () => ({
     session_type: 'physio',
     source: 'in_app',
     raw_transcript: null,
+    patient_id: null,
     created_at: '2026-05-13T00:00:00Z',
     updated_at: '2026-05-13T00:00:00Z',
   }),
   createReviewRequestForIntake: vi.fn().mockResolvedValue('rr-uuid-123'),
+  createPatient: vi.fn(),
 }))
 
 describe('POST /api/intake/save', () => {
@@ -175,5 +177,100 @@ describe('POST /api/intake/save', () => {
     expect(body.record.id).toBe('test-uuid')
     expect(body.review_request_id).toBeNull()
     expect(createReviewRequestForIntake).not.toHaveBeenCalled()
+  })
+
+  // ── S1.7-4/5: patient_id support ─────────────────────────────────────────────
+
+  it('passes patient_id to saveIntakeRecord when provided', async () => {
+    const { POST } = await import('../route')
+    const { saveIntakeRecord } = await import('../../../../../lib/intake/db')
+    vi.mocked(saveIntakeRecord).mockClear()
+
+    const PATIENT_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+    const req = new Request('http://localhost/api/intake/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_name: 'Jason Gao',
+        date_of_visit: '2026-05-23',
+        therapist_name: 'David',
+        treatment_area: 'neck',
+        session_notes: 'Follow-up',
+        session_type: 'physio',
+        source: 'in_app',
+        patient_id: PATIENT_UUID,
+      }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(saveIntakeRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ patient_id: PATIENT_UUID }),
+    )
+  })
+
+  it('saves without patient_id when omitted (backward-compatible)', async () => {
+    const { POST } = await import('../route')
+    const { saveIntakeRecord } = await import('../../../../../lib/intake/db')
+    vi.mocked(saveIntakeRecord).mockClear()
+
+    const req = new Request('http://localhost/api/intake/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_name: 'Jane Doe',
+        date_of_visit: '2026-05-23',
+        therapist_name: 'David',
+        treatment_area: 'shoulder',
+        session_notes: 'Normal',
+        session_type: 'physio',
+        source: 'in_app',
+        // patient_id intentionally omitted
+      }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    expect(saveIntakeRecord).toHaveBeenCalledWith(
+      expect.objectContaining({ patient_id: undefined }),
+    )
+  })
+
+  it('returns patient_id in response body when provided', async () => {
+    const { POST } = await import('../route')
+    const { saveIntakeRecord } = await import('../../../../../lib/intake/db')
+    const PATIENT_UUID = 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'
+    vi.mocked(saveIntakeRecord).mockResolvedValueOnce({
+      id: 'test-uuid',
+      clinic_id: 'vhealth',
+      patient_name: 'Jason Gao',
+      date_of_visit: '2026-05-23',
+      therapist_name: 'David',
+      treatment_area: 'neck',
+      session_notes: 'Follow-up session',
+      session_type: 'physio',
+      source: 'in_app',
+      raw_transcript: null,
+      patient_id: PATIENT_UUID,
+      created_at: '2026-05-23T00:00:00Z',
+      updated_at: '2026-05-23T00:00:00Z',
+    })
+
+    const req = new Request('http://localhost/api/intake/save', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        patient_name: 'Jason Gao',
+        date_of_visit: '2026-05-23',
+        therapist_name: 'David',
+        treatment_area: 'neck',
+        session_notes: 'Follow-up session',
+        session_type: 'physio',
+        source: 'in_app',
+        patient_id: PATIENT_UUID,
+      }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.record.patient_id).toBe(PATIENT_UUID)
   })
 })

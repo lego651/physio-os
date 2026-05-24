@@ -8,6 +8,7 @@ export const runtime = 'nodejs'
 const SaveBodySchema = IntakeFieldsSchema.extend({
   source: z.enum(['in_app', 'manual']).optional(),
   raw_transcript: z.string().nullable().optional(),
+  patient_id: z.string().uuid().optional(),
 })
 
 export async function POST(request: Request): Promise<NextResponse> {
@@ -39,6 +40,7 @@ export async function POST(request: Request): Promise<NextResponse> {
       session_type: parsed.data.session_type,
       source: parsed.data.source ?? 'manual',
       raw_transcript: parsed.data.raw_transcript ?? null,
+      patient_id: parsed.data.patient_id,
     })
     console.log('[api/intake/save] saved', { id: record.id })
   } catch (err) {

@@ -6,6 +6,52 @@ export interface SaveIntakeRecordInput extends IntakeFields {
   source: 'telegram' | 'in_app' | 'manual'
   raw_transcript?: string | null
   clinic_id?: string
+  patient_id?: string
+}
+
+export interface CreatePatientInput {
+  clinic_id: string
+  name: string
+  phone?: string | null
+  email?: string | null
+  notes?: string | null
+}
+
+export interface CreatedPatient {
+  id: string
+  name: string
+  phone: string | null
+  email: string | null
+}
+
+/**
+ * S1.7-5: Insert a new patient row. Uses service-role client to bypass RLS.
+ * Returns the inserted patient's id, name, phone, email.
+ */
+export async function createPatient(input: CreatePatientInput): Promise<CreatedPatient> {
+  const supabase = createAdminClient()
+  const { data, error } = await supabase
+    .from('patients')
+    .insert({
+      clinic_id: input.clinic_id,
+      name: input.name,
+      phone: input.phone ?? null,
+      email: input.email ?? null,
+      notes: input.notes ?? null,
+    })
+    .select('id, name, phone, email')
+    .single()
+
+  if (error || !data) {
+    throw new Error(`createPatient: insert failed — ${error?.message ?? 'unknown'}`)
+  }
+
+  return {
+    id: data.id,
+    name: data.name,
+    phone: data.phone,
+    email: data.email,
+  }
 }
 
 /**
@@ -32,6 +78,7 @@ export async function saveIntakeRecord(input: SaveIntakeRecordInput): Promise<In
       session_type: input.session_type ?? 'other',
       source: input.source,
       raw_transcript: input.raw_transcript ?? null,
+      patient_id: input.patient_id ?? null,
     })
     .select()
     .single()
