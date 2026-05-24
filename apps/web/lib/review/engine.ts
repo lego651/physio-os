@@ -98,10 +98,6 @@ export class ReviewRequestEngine {
       expiresInDays: TOKEN_EXPIRES_IN_DAYS,
     })
     const shortLink = `${this.deps.config.baseUrl}/review/${token}`
-    // SMS link uses the bare request_id (UUID, 36 chars) instead of the
-    // ~280-char JWT — keeps the SMS body inside 1-2 segments. The landing
-    // page accepts both formats; see app/review/[token]/page.tsx.
-    const smsLink = `${this.deps.config.baseUrl}/review/${requestId}`
     const unsubLink = `${this.deps.config.baseUrl}/api/review-requests/unsubscribe?token=${encodeURIComponent(token)}`
 
     // Track whether at least one channel successfully dispatched.
@@ -189,9 +185,9 @@ export class ReviewRequestEngine {
           const result = await this.deps.sms.send({
             to: recipient,
             body: buildReviewSmsBody({
-              senderName,
-              patientName: input.patientName,
-              shortLink: smsLink,
+              firstName: input.patientName.split(/\s+/)[0] ?? 'there',
+              gmapLink: `${this.deps.config.baseUrl}/r/gmap?t=${jti}`,
+              aiLink:   `${this.deps.config.baseUrl}/r/ai?t=${jti}`,
             }),
           })
           await logFunnelEvent(this.deps.supabase, {
@@ -262,7 +258,6 @@ export class ReviewRequestEngine {
       expiresInDays: TOKEN_EXPIRES_IN_DAYS,
     })
     const shortLink = `${this.deps.config.baseUrl}/review/${token}`
-    const smsLink = `${this.deps.config.baseUrl}/review/${requestId}`
     const unsubLink = `${this.deps.config.baseUrl}/api/review-requests/unsubscribe?token=${encodeURIComponent(token)}`
 
     const channel = existing.channel as 'email' | 'sms' | 'both'
@@ -320,9 +315,9 @@ export class ReviewRequestEngine {
           const result = await this.deps.sms.send({
             to: recipient,
             body: buildReviewSmsBody({
-              senderName,
-              patientName: existing.patient_name as string,
-              shortLink: smsLink,
+              firstName: (existing.patient_name as string).split(/\s+/)[0] ?? 'there',
+              gmapLink: `${this.deps.config.baseUrl}/r/gmap?t=${jti}`,
+              aiLink:   `${this.deps.config.baseUrl}/r/ai?t=${jti}`,
             }),
           })
           await logFunnelEvent(this.deps.supabase, {
