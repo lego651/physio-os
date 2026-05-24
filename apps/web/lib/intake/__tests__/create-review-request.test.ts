@@ -103,7 +103,7 @@ describe('createReviewRequestForIntake — S1.7-6 contact auto-fill', () => {
     expect(inserted.patient_id).toBe('patient-uuid')
   })
 
-  it('skips insert and returns null when patient_id is not provided (no contact info)', async () => {
+  it('always inserts row with channel=email and status=pending when no contact info (Bug V)', async () => {
     const { client, getInsert } = makeSupabase({ patientRow: null })
     vi.mocked(createAdminClient).mockReturnValue(client)
 
@@ -116,8 +116,14 @@ describe('createReviewRequestForIntake — S1.7-6 contact auto-fill', () => {
       // patient_id intentionally omitted — no contact info available
     })
 
-    expect(result).toBeNull()
-    expect(getInsert()).toBeNull()
+    // Bug V: must always INSERT so admin sees pending row in dashboard
+    expect(result).toBe('rr-uuid')
+    const inserted = getInsert() as Record<string, unknown>
+    expect(inserted.channel).toBe('email')
+    expect(inserted.status).toBe('pending')
+    expect(inserted.patient_phone).toBeNull()
+    expect(inserted.patient_email).toBeNull()
+    expect(inserted.patient_id).toBeUndefined()
   })
 
   it('fills phone only, leaves email NULL when patient has phone but no email', async () => {
@@ -160,7 +166,7 @@ describe('createReviewRequestForIntake — S1.7-6 contact auto-fill', () => {
     expect(inserted.patient_email).toBe('email-only@example.com')
   })
 
-  it('falls back to NULL contact when patient_id points to non-existent patient (graceful degradation)', async () => {
+  it('inserts pending row when patient_id points to non-existent patient (graceful degradation, Bug V)', async () => {
     const { client, getInsert } = makeSupabase({
       patientRow: null,
       patientsError: 'Row not found',
@@ -169,7 +175,7 @@ describe('createReviewRequestForIntake — S1.7-6 contact auto-fill', () => {
 
     const { createReviewRequestForIntake } = await import('../db')
     // Should NOT throw — intake save must not be blocked by patient lookup failure.
-    // When lookup fails and no contact is recoverable, returns null (skip insert).
+    // Bug V: even when lookup fails, INSERT row so admin sees it in dashboard.
     const result = await createReviewRequestForIntake({
       intake_record_id: 'intake-uuid',
       patient_name: 'Ghost Patient',
@@ -178,8 +184,12 @@ describe('createReviewRequestForIntake — S1.7-6 contact auto-fill', () => {
       patient_id: 'non-existent-uuid',
     })
 
-    expect(result).toBeNull()
-    expect(getInsert()).toBeNull()
+    expect(result).toBe('rr-uuid')
+    const inserted = getInsert() as Record<string, unknown>
+    expect(inserted.channel).toBe('email')
+    expect(inserted.status).toBe('pending')
+    expect(inserted.patient_phone).toBeNull()
+    expect(inserted.patient_email).toBeNull()
   })
 })
 
@@ -245,7 +255,7 @@ describe('createReviewRequestForIntake — channel auto-pick (Bug T)', () => {
     expect(inserted.channel).toBe('sms')
   })
 
-  it('skips insert entirely when patient has neither email nor phone', async () => {
+  it('inserts row with channel=email and status=pending when patient has neither email nor phone (Bug V)', async () => {
     const { client, getInsert } = makeSupabase({
       patientRow: { phone: null, email: null },
     })
@@ -260,8 +270,13 @@ describe('createReviewRequestForIntake — channel auto-pick (Bug T)', () => {
       patient_id: 'patient-no-contact',
     })
 
-    expect(result).toBeNull()
-    expect(getInsert()).toBeNull()
+    // Bug V: must always INSERT so admin sees pending row in dashboard
+    expect(result).toBe('rr-uuid')
+    const inserted = getInsert() as Record<string, unknown>
+    expect(inserted.channel).toBe('email')
+    expect(inserted.status).toBe('pending')
+    expect(inserted.patient_phone).toBeNull()
+    expect(inserted.patient_email).toBeNull()
   })
 })
 
@@ -297,7 +312,7 @@ describe('createReviewRequestForIntake — Bug U: canonical patient_name from pa
     expect(inserted.patient_name).toBe('Ethan Liu')
   })
 
-  it('falls back to input.patient_name when no patient_id is provided (unlinked visit)', async () => {
+  it('falls back to input.patient_name when no patient_id is provided (unlinked visit, Bug V always inserts)', async () => {
     const { client, getInsert } = makeSupabase({ patientRow: null })
     vi.mocked(createAdminClient).mockReturnValue(client)
 
@@ -310,9 +325,12 @@ describe('createReviewRequestForIntake — Bug U: canonical patient_name from pa
       // patient_id intentionally omitted
     })
 
-    // No contact info → skips insert → returns null (existing graceful-skip behaviour)
-    expect(result).toBeNull()
-    expect(getInsert()).toBeNull()
+    // Bug V: always INSERT; unlinked visit uses input.patient_name as fallback
+    expect(result).toBe('rr-uuid')
+    const inserted = getInsert() as Record<string, unknown>
+    expect(inserted.patient_name).toBe('Walk-In Patient')
+    expect(inserted.channel).toBe('email')
+    expect(inserted.status).toBe('pending')
   })
 
   it('still uses patients.name even when patients row has email but no phone', async () => {

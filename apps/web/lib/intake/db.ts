@@ -119,22 +119,22 @@ export interface CreateReviewRequestForIntakeInput {
 }
 
 /**
- * S1.6 (D18-2): on voice-session confirm, create a pending review_requests
- * row keyed to the intake record. Channel is auto-picked from patient contact:
- *   email present → 'email'
- *   no email but phone present → 'sms'
- *   neither → skip insert, return null (log warning)
+ * S1.6 (D18-2): on voice-session confirm, always create a review_requests
+ * row keyed to the intake record. Channel and status are auto-picked from patient contact:
+ *   email present → channel='email', status='queued'
+ *   no email but phone present → channel='sms', status='queued'
+ *   neither → channel='email' (default, satisfies NOT NULL), status='pending'
+ *             admin fills contact info later and sends manually
  *
  * NOT atomic with intake save: if this throws, caller logs a warning but
  * still returns 200 (the intake row is the source of truth, the review row
  * is derivable).
  *
- * Returns the inserted review_requests.id, or null if no contact info is
- * available (graceful skip — caller should log but not fail).
+ * Always returns the inserted review_requests.id (never null).
  */
 export async function createReviewRequestForIntake(
   input: CreateReviewRequestForIntakeInput,
-): Promise<string | null> {
+): Promise<string> {
   const supabase = createAdminClient()
 
   const slug = input.clinic_slug ?? VHEALTH_SLUG
@@ -168,19 +168,25 @@ export async function createReviewRequestForIntake(
     }
   }
 
-  // Bug T: auto-pick channel based on available contact info.
-  // email preferred; fall back to sms; skip entirely if neither.
+  // Bug V: always INSERT a review_requests row so admin sees it in /dashboard/review-requests.
+  // Auto-pick channel from available contact; fall back to 'email' default when neither
+  // is present so the NOT NULL constraint is satisfied — admin fills contact + channel later.
+  // status='queued' when contact exists (ready to send), 'pending' when no contact (admin action needed).
   let channel: 'email' | 'sms'
+  let status: 'queued' | 'pending'
   if (patientEmail) {
     channel = 'email'
+    status = 'queued'
   } else if (patientPhone) {
     channel = 'sms'
+    status = 'queued'
   } else {
-    console.warn('[intake/db] review_request skipped — no contact info', {
+    channel = 'email'
+    status = 'pending'
+    console.log('[intake/db] no contact info — inserting pending row for admin to fill', {
       intake_record_id: input.intake_record_id,
       patient_id: input.patient_id ?? null,
     })
-    return null
   }
 
   const { data, error } = await supabase
@@ -197,7 +203,7 @@ export async function createReviewRequestForIntake(
       channel,
       token_jti: randomUUID(),
       test_mode: false,
-      status: 'pending',
+      status,
       expires_at: expiresAt,
       metadata: { source: 'voice_intake_auto' },
     })
