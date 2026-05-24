@@ -26,27 +26,54 @@ describe('email template', () => {
   })
 })
 
-describe('sms template', () => {
-  it('builds a body containing the link, sender, first name, and STOP footer', () => {
-    const body = buildReviewSmsBody({
-      senderName: 'V-Health',
-      patientName: 'Alice',
-      shortLink: 'https://x/review/abc',
-    })
-    expect(body).toContain('V-Health')
+describe('sms template — Variant C', () => {
+  const base = {
+    firstName: 'Alice',
+    gmapLink: 'https://physio-os-web.vercel.app/r/gmap?t=abc-123',
+    aiLink:   'https://physio-os-web.vercel.app/r/ai?t=abc-123',
+  }
+
+  it('contains both links', () => {
+    const body = buildReviewSmsBody(base)
+    expect(body).toContain(base.gmapLink)
+    expect(body).toContain(base.aiLink)
+  })
+
+  it('contains firstName', () => {
+    const body = buildReviewSmsBody(base)
     expect(body).toContain('Alice')
-    expect(body).toContain('https://x/review/abc')
+  })
+
+  it('contains V-Health Rehab branding', () => {
+    const body = buildReviewSmsBody(base)
+    expect(body).toContain('V-Health Rehab')
+  })
+
+  it('contains STOP opt-out footer', () => {
+    const body = buildReviewSmsBody(base)
     expect(body).toContain('STOP')
   })
 
-  it('NEVER truncates — full URL must survive even when body exceeds 160 chars (multi-segment SMS)', () => {
-    const longLink = 'https://example.com/review/' + 'a'.repeat(250)
+  it('contains discount code JG', () => {
+    const body = buildReviewSmsBody(base)
+    expect(body).toContain('JG')
+  })
+
+  it('fits within 2 SMS segments (≤306 chars) with realistic UUID tokens', () => {
+    // physio-os-web.vercel.app host + two 36-char UUIDs = ~231 chars total.
+    // Single-segment (160) is not achievable with this host length; 2 segments
+    // (306 GSM chars) is the hard ceiling. Never truncate URLs.
+    const body = buildReviewSmsBody(base)
+    expect(body.length).toBeLessThanOrEqual(306)
+  })
+
+  it('never truncates URLs even when firstName is very long', () => {
     const body = buildReviewSmsBody({
-      senderName: 'V-Health Rehab Clinic',
-      patientName: 'Alexandra Magdalena',
-      shortLink: longLink,
+      firstName: 'Bartholomew',
+      gmapLink: base.gmapLink,
+      aiLink:   base.aiLink,
     })
-    expect(body).toContain(longLink)
-    expect(body.length).toBeGreaterThan(160)
+    expect(body).toContain(base.gmapLink)
+    expect(body).toContain(base.aiLink)
   })
 })

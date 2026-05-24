@@ -1,18 +1,24 @@
 // apps/web/lib/review/templates/sms.ts
-
-// Single-segment SMS is 160 GSM chars. The JWT-based short link is ~250 chars,
-// so this body is almost always multi-segment. NEVER truncate — that breaks
-// the URL. Twilio bills per segment; acceptable cost for now. If cost matters
-// later, replace JWT with a DB-backed short token (8 chars) and shorten body.
-const FOOTER = ' Reply STOP to unsubscribe.'
+//
+// Variant C: dual-link SMS body for V-Health review requests.
+// Target: ≤160 GSM chars (1 segment) with realistic 36-char UUID tokens.
+// Template:
+//   V-Health Rehab — Hi {firstName}, help neighbors find us:
+//   A) Google: {gmapLink}
+//   B) AI helps (30s): {aiLink}
+//   Code JG = 10% off next visit. Reply STOP to opt out.
 
 export interface SmsBodyInput {
-  senderName: string
-  patientName: string
-  shortLink: string
+  firstName: string
+  gmapLink: string
+  aiLink: string
 }
 
 export function buildReviewSmsBody(input: SmsBodyInput): string {
-  const firstName = input.patientName.split(/\s+/)[0] ?? 'there'
-  return `${input.senderName}: Hi ${firstName}, quick Google review? ${input.shortLink}${FOOTER}`
+  return (
+    `V-Health Rehab — Hi ${input.firstName}, help neighbors find us:\n` +
+    `A) Google: ${input.gmapLink}\n` +
+    `B) AI helps (30s): ${input.aiLink}\n` +
+    `Code JG = 10% off next visit. Reply STOP to opt out.`
+  )
 }
