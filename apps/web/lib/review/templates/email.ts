@@ -55,8 +55,7 @@ export function buildReviewEmailHtml(input: EmailHtmlInput): string {
   </table>
 
   <p style="margin:0 0 16px;font-size:14px;color:#374151">
-    Thanks for being a community member &mdash;<br>
-    use code <strong>JG</strong> for <strong>10% off</strong> your next visit.
+    Thanks for your help! Use code <strong>JG</strong> for <strong>10% off</strong> your next visit.
   </p>
 
   <p style="color:#6b7280;font-size:13px;margin:0 0 8px">&mdash; ${escapeHtml(input.senderName)}</p>
@@ -95,7 +94,7 @@ export function buildReviewEmailText(input: EmailTextInput): string {
     `Option B — AI writes it for you (30s):`,
     input.aiLink,
     '',
-    `Thanks for being a community member — use code JG for 10% off your next visit.`,
+    `Thanks for your help! Use code JG for 10% off your next visit.`,
     '',
     `— ${input.senderName}`,
     '',
