@@ -40,12 +40,14 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
     therapist_name: string | null
     service_type: string | null
     session_notes: string | null
-    clinics: { name: string; google_maps_url: string | null; google_place_id: string | null }
+    // Left join (no !inner) — clinics may be null if the FK row is missing.
+    // All clinic fields are accessed with optional chaining + fallbacks below.
+    clinics: { name: string; google_maps_url: string | null; google_place_id: string | null } | null
   }
 
   const { data: row } = await supabase
     .from('review_requests')
-    .select('id, status, expires_at, patient_name, therapist_name, service_type, session_notes, clinics!inner(name, google_maps_url, google_place_id)')
+    .select('id, status, expires_at, patient_name, therapist_name, service_type, session_notes, clinics(name, google_maps_url, google_place_id)')
     .eq('token_jti', t)
     .single()
 
@@ -64,7 +66,8 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
     .update({ clicked_at: new Date().toISOString(), clicked_channel: 'ai' })
     .eq('id', typedRow.id)
 
-  const clinicName = typedRow.clinics.name
+  // Guard all clinic fields — left join means clinics may be null
+  const clinicName = typedRow.clinics?.name ?? 'V-Health Rehab Clinic'
   const therapistName = typedRow.therapist_name ?? 'the therapist'
   const service = typedRow.service_type ?? 'treatment'
   const notes = typedRow.session_notes ?? 'none'
@@ -100,12 +103,11 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
     }
   }
 
-  const clinic = typedRow.clinics
   const mapsUrl =
     process.env.VHEALTH_GOOGLE_REVIEW_URL ??
-    (clinic.google_place_id
-      ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(clinic.google_place_id)}`
-      : (clinic.google_maps_url ?? GOOGLE_FALLBACK))
+    (typedRow.clinics?.google_place_id
+      ? `https://search.google.com/local/writereview?placeid=${encodeURIComponent(typedRow.clinics.google_place_id)}`
+      : (typedRow.clinics?.google_maps_url ?? GOOGLE_FALLBACK))
 
   const firstName = typedRow.patient_name.split(/\s+/)[0] ?? 'there'
 
