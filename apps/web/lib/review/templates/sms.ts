@@ -12,7 +12,9 @@
 //   B) AI writes it for you (30s):
 //   {aiLink}
 //
-//   Code JG = 10% off. Reply STOP.
+//   Thanks for your help! Use code JG for 10% off your next visit.
+//
+//   Reply STOP to opt out.
 
 export interface SmsBodyInput {
   firstName: string
@@ -25,6 +27,7 @@ export function buildReviewSmsBody(input: SmsBodyInput): string {
     `V-Health Rehab - Hi ${input.firstName}, help neighbors find us:\n\n` +
     `A) Leave a quick Google review:\n${input.gmapLink}\n\n` +
     `B) AI writes it for you (30s):\n${input.aiLink}\n\n` +
-    `Code JG = 10% off. Reply STOP.`
+    `Thanks for your help! Use code JG for 10% off your next visit.\n\n` +
+    `Reply STOP to opt out.`
   )
 }

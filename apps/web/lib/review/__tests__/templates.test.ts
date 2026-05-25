@@ -125,28 +125,36 @@ describe('sms template — Variant C', () => {
     expect(body).toContain('V-Health Rehab')
   })
 
-  it('contains STOP opt-out footer', () => {
+  it('contains STOP opt-out footer as its own complete sentence on its own line', () => {
     const body = buildReviewSmsBody(base)
-    expect(body).toContain('STOP')
+    expect(body).toContain('Reply STOP to opt out.')
+    // Must be on its own line (blank line before it)
+    expect(body).toMatch(/\n\nReply STOP to opt out\.$/)
   })
 
-  it('contains discount code JG', () => {
+  it('contains grateful JG discount sentence (not bare "Code JG = 10%")', () => {
     const body = buildReviewSmsBody(base)
-    expect(body).toContain('JG')
+    expect(body).toContain('Thanks for your help!')
+    expect(body).toContain('Use code JG for 10% off your next visit.')
+    expect(body).not.toContain('Code JG = 10% off.')
   })
 
-  it('fits within 2 SMS segments (≤306 chars) with realistic UUID tokens', () => {
+  it('fits within 3 SMS segments (≤459 chars) with realistic UUID tokens', () => {
     // IMPORTANT: test uses realistic 36-char UUID tokens (not abc-123 shorthand)
     // so this constraint actually validates the real-world SMS segment count.
-    // Single-segment (160) is not achievable with this host length; 2 segments
-    // (306 GSM chars) is the hard ceiling. Never truncate URLs.
+    // Single-segment (160) is not achievable with this host length.
+    // Grateful tone copy ("Thanks for your help! Use code JG for 10% off your next visit.\n\nReply STOP to opt out.")
+    // adds ~53 chars over the old "Code JG = 10% off. Reply STOP." footer,
+    // pushing the body to ~3 segments (459 GSM-7 chars max). This is intentional:
+    // Jason confirmed paid Twilio account has no segment cost pressure.
+    // Never truncate URLs.
     const realisticBase = {
       firstName: 'Alice',
       gmapLink: 'https://physio-os-web.vercel.app/r/gmap?t=07429f85-5b2f-4d92-97bf-5ca186b3651e',
       aiLink:   'https://physio-os-web.vercel.app/r/ai?t=07429f85-5b2f-4d92-97bf-5ca186b3651e',
     }
     const body = buildReviewSmsBody(realisticBase)
-    expect(body.length).toBeLessThanOrEqual(306)
+    expect(body.length).toBeLessThanOrEqual(459)
   })
 
   it('never truncates URLs even when firstName is very long', () => {
