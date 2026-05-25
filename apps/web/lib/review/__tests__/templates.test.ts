@@ -136,10 +136,16 @@ describe('sms template — Variant C', () => {
   })
 
   it('fits within 2 SMS segments (≤306 chars) with realistic UUID tokens', () => {
-    // physio-os-web.vercel.app host + two 36-char UUIDs = ~231 chars total.
+    // IMPORTANT: test uses realistic 36-char UUID tokens (not abc-123 shorthand)
+    // so this constraint actually validates the real-world SMS segment count.
     // Single-segment (160) is not achievable with this host length; 2 segments
     // (306 GSM chars) is the hard ceiling. Never truncate URLs.
-    const body = buildReviewSmsBody(base)
+    const realisticBase = {
+      firstName: 'Alice',
+      gmapLink: 'https://physio-os-web.vercel.app/r/gmap?t=07429f85-5b2f-4d92-97bf-5ca186b3651e',
+      aiLink:   'https://physio-os-web.vercel.app/r/ai?t=07429f85-5b2f-4d92-97bf-5ca186b3651e',
+    }
+    const body = buildReviewSmsBody(realisticBase)
     expect(body.length).toBeLessThanOrEqual(306)
   })
 
