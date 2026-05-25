@@ -49,7 +49,7 @@ export function buildReviewEmailHtml(input: EmailHtmlInput): string {
   </table>
 
   <p style="margin:0 0 12px;font-size:14px;color:#374151">
-    Even simpler: pick a few words about today's visit:
+    Even simpler: pick a few words about today's visit, we'll write it:
   </p>
 
   <table style="border-collapse:collapse;margin:0 0 24px" role="presentation">
@@ -57,7 +57,7 @@ export function buildReviewEmailHtml(input: EmailHtmlInput): string {
       <td>
         <a href="${input.aiLink}"
            style="display:inline-block;background:#2563eb;color:#ffffff;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px">
-          We'll write it
+          One tap
         </a>
       </td>
     </tr>
@@ -100,9 +100,8 @@ export function buildReviewEmailText(input: EmailTextInput): string {
     `Leave us a Google review:`,
     input.gmapLink,
     '',
-    `Even simpler: pick a few words about today's visit:`,
-    `We'll write it for you:`,
-    input.aiLink,
+    `Even simpler: pick a few words about today's visit, we'll write it:`,
+    `One tap: ${input.aiLink}`,
     '',
     `Thanks for your help! Use code JG for 10% off your next visit.`,
     '',

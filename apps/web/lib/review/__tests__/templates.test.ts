@@ -74,14 +74,14 @@ describe('email template — Variant C', () => {
     expect(html).toContain('Leave us a Google review')
   })
 
-  it('secondary CTA button says "We\'ll write it"', () => {
+  it('secondary CTA button says "One tap" (low-effort signal)', () => {
     const html = buildReviewEmailHtml(BASE_EMAIL)
-    expect(html).toContain("We'll write it")
+    expect(html).toContain("One tap")
   })
 
-  it('explainer text above secondary CTA says "Even simpler: pick a few words about today\'s visit:"', () => {
+  it('explainer text above secondary CTA includes "we\'ll write it" promise', () => {
     const html = buildReviewEmailHtml(BASE_EMAIL)
-    expect(html).toContain("Even simpler: pick a few words about today's visit:")
+    expect(html).toContain("Even simpler: pick a few words about today's visit, we'll write it:")
   })
 
   it('both CTAs are the same size (padding:14px 24px); secondary is blue', () => {
@@ -93,7 +93,7 @@ describe('email template — Variant C', () => {
     const matches = html.match(/padding:14px 24px/g)
     expect(matches?.length).toBeGreaterThanOrEqual(2)
     // Primary appears before secondary
-    expect(html.indexOf('Leave us a Google review')).toBeLessThan(html.indexOf("We'll write it"))
+    expect(html.indexOf('Leave us a Google review')).toBeLessThan(html.indexOf("One tap"))
   })
 })
 
@@ -133,10 +133,10 @@ describe('email plain-text fallback — Variant C', () => {
     expect(text).toContain('Leave us a Google review')
   })
 
-  it('plain text contains both "Even simpler" explainer and "We\'ll write it" CTA', () => {
+  it('plain text contains "Even simpler" explainer (with "we\'ll write it" promise) and "One tap" CTA', () => {
     const text = buildReviewEmailText(BASE_EMAIL)
-    expect(text).toContain("Even simpler: pick a few words about today's visit:")
-    expect(text).toContain("We'll write it")
+    expect(text).toContain("Even simpler: pick a few words about today's visit, we'll write it:")
+    expect(text).toContain("One tap")
   })
 
   it('does NOT use "Option A" or "Option B" labels in plain text', () => {
