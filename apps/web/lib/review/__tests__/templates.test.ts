@@ -74,9 +74,9 @@ describe('email template — Variant C', () => {
     expect(html).toContain('Leave a quick Google review')
   })
 
-  it('secondary CTA button says "Need help? Pick a few words"', () => {
+  it('secondary CTA button says "One tap to help us"', () => {
     const html = buildReviewEmailHtml(BASE_EMAIL)
-    expect(html).toContain('Need help? Pick a few words')
+    expect(html).toContain('One tap to help us')
   })
 
   it('primary CTA has larger padding than secondary CTA (visual weight)', () => {
@@ -87,7 +87,7 @@ describe('email template — Variant C', () => {
     const secondaryPaddingMatch = html.match(/padding:[^;]*10px[^;]*18px/)
     expect(primaryPaddingMatch).not.toBeNull()
     expect(secondaryPaddingMatch).not.toBeNull()
-    expect(html.indexOf('Leave a quick Google review')).toBeLessThan(html.indexOf('Need help? Pick a few words'))
+    expect(html.indexOf('Leave a quick Google review')).toBeLessThan(html.indexOf('One tap to help us'))
   })
 })
 
@@ -127,9 +127,9 @@ describe('email plain-text fallback — Variant C', () => {
     expect(text).toContain('Leave a quick Google review')
   })
 
-  it('plain text secondary CTA uses "Pick a few words" wording', () => {
+  it('plain text secondary CTA uses "One tap to help us" wording', () => {
     const text = buildReviewEmailText(BASE_EMAIL)
-    expect(text).toContain('Pick a few words')
+    expect(text).toContain('One tap to help us')
   })
 
   it('does NOT use "Option A" or "Option B" labels in plain text', () => {
@@ -222,9 +222,9 @@ describe('sms template — Variant C', () => {
     expect(body).toContain('Leave a quick Google review')
   })
 
-  it('second CTA uses "Pick a few words" wording (secondary assist)', () => {
+  it('second CTA uses "One tap to help us" wording (secondary assist)', () => {
     const body = buildReviewSmsBody(base)
-    expect(body).toContain('Pick a few words')
+    expect(body).toContain('One tap to help us')
   })
 
   it('Google review link appears before the AI link in the body', () => {

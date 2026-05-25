@@ -50,7 +50,7 @@ export function buildReviewEmailHtml(input: EmailHtmlInput): string {
       <td>
         <a href="${input.aiLink}"
            style="display:inline-block;background:#6b7280;color:#ffffff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:500;font-size:13px">
-          Need help? Pick a few words
+          One tap to help us
         </a>
       </td>
     </tr>
@@ -93,7 +93,7 @@ export function buildReviewEmailText(input: EmailTextInput): string {
     `Leave a quick Google review:`,
     input.gmapLink,
     '',
-    `Or need help? Pick a few words about your visit:`,
+    `One tap to help us — pick a few words about your visit:`,
     input.aiLink,
     '',
     `Thanks for your help! Use code JG for 10% off your next visit.`,

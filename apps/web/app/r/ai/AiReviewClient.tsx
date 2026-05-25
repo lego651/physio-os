@@ -16,7 +16,10 @@ interface Props {
 }
 
 export default function AiReviewClient({ token, firstName, dynamicChips, mapsUrl }: Props) {
-  const [selectedFacts, setSelectedFacts] = useState<Set<string>>(new Set())
+  // Dynamic facts from intake_records (therapist, treatment area, session type)
+  // are pre-selected — they're true facts about this patient's visit; user only
+  // needs to deselect what they don't want to mention. Static feelings start blank.
+  const [selectedFacts, setSelectedFacts] = useState<Set<string>>(() => new Set(dynamicChips))
   const [selectedFeelings, setSelectedFeelings] = useState<Set<string>>(new Set())
   const [notes, setNotes] = useState('')
   const [draft, setDraft] = useState<string | null>(null)

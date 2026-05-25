@@ -8,7 +8,7 @@
 //   Leave a quick Google review:
 //   {gmapLink}
 //
-//   Or need help? Pick a few words about your visit:
+//   One tap to help us - pick a few words about your visit:
 //   {aiLink}
 //
 //   Thanks for your help! Use code JG for 10% off your next visit.
@@ -25,7 +25,7 @@ export function buildReviewSmsBody(input: SmsBodyInput): string {
   return (
     `V-Health Rehab - Hi ${input.firstName}, help neighbors find us:\n\n` +
     `Leave a quick Google review:\n${input.gmapLink}\n\n` +
-    `Or need help? Pick a few words about your visit:\n${input.aiLink}\n\n` +
+    `One tap to help us - pick a few words about your visit:\n${input.aiLink}\n\n` +
     `Thanks for your help! Use code JG for 10% off your next visit.\n\n` +
     `Reply STOP to opt out.`
   )
