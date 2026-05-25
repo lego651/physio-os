@@ -152,4 +152,10 @@ describe('sms template — Variant C', () => {
     expect(body).toContain(base.gmapLink)
     expect(body).toContain(base.aiLink)
   })
+
+  it('uses ASCII hyphen separator (not em-dash U+2014) to stay in GSM-7', () => {
+    const body = buildReviewSmsBody(base)
+    expect(body).not.toContain('—') // em-dash must be absent
+    expect(body).toContain(' - ') // ASCII hyphen separator present
+  })
 })
