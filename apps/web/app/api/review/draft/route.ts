@@ -50,12 +50,12 @@ export async function POST(req: Request) {
     therapist_name: string | null
     service_type: string | null
     session_notes: string | null
-    clinics: { name: string }
+    clinics: { name: string } | null
   }
 
   const { data: row } = await supabase
     .from('review_requests')
-    .select('id, status, expires_at, patient_name, therapist_name, service_type, session_notes, clinics!inner(name)')
+    .select('id, status, expires_at, patient_name, therapist_name, service_type, session_notes, clinics(name)')
     .eq('token_jti', parsed.data.token)
     .single()
 
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
   const apiKey = process.env.ANTHROPIC_API_KEY_WIDGET ?? process.env.ANTHROPIC_API_KEY
   if (!apiKey) return Response.json({ error: 'AI not configured' }, { status: 500 })
 
-  const clinicName = typedRow.clinics.name
+  const clinicName = typedRow.clinics?.name ?? 'V-Health Rehab Clinic'
   const therapistName = typedRow.therapist_name ?? 'the therapist'
   const service = typedRow.service_type ?? 'treatment'
   const notes = parsed.data.notes ?? typedRow.session_notes ?? 'none'
