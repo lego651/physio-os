@@ -48,7 +48,7 @@ export function buildReviewEmailHtml(input: EmailHtmlInput): string {
       <td>
         <a href="${input.aiLink}"
            style="display:inline-block;background:#6b7280;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
-          AI helps you write (30s)
+          AI writes it for you (30s)
         </a>
       </td>
     </tr>
@@ -92,7 +92,7 @@ export function buildReviewEmailText(input: EmailTextInput): string {
     `Option A — Write directly on Google:`,
     input.gmapLink,
     '',
-    `Option B — AI helps you write (30s):`,
+    `Option B — AI writes it for you (30s):`,
     input.aiLink,
     '',
     `Thanks for being a community member — use code JG for 10% off your next visit.`,
