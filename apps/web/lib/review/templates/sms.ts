@@ -16,7 +16,7 @@ export interface SmsBodyInput {
 
 export function buildReviewSmsBody(input: SmsBodyInput): string {
   return (
-    `V-Health Rehab — Hi ${input.firstName}, help neighbors find us:\n` +
+    `V-Health Rehab - Hi ${input.firstName}, help neighbors find us:\n` +
     `A) Google: ${input.gmapLink}\n` +
     `B) AI helps (30s): ${input.aiLink}\n` +
     `Code JG = 10% off next visit. Reply STOP to opt out.`

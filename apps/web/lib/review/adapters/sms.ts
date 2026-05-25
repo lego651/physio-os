@@ -52,7 +52,19 @@ export class SmsAdapter {
       throw new Error(`Twilio send failed: ${res.status} ${body}`)
     }
 
-    const data = (await res.json()) as { sid: string }
+    const data = (await res.json()) as {
+      sid: string
+      status: string
+      error_code: number | null
+      error_message: string | null
+    }
+
+    if (data.status === 'failed' || data.status === 'undelivered' || data.status === 'canceled') {
+      throw new Error(
+        `Twilio reported status=${data.status} errorCode=${data.error_code ?? 'none'}: ${data.error_message ?? 'no message'}`,
+      )
+    }
+
     return { providerMessageId: data.sid }
   }
 }
