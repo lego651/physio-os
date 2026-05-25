@@ -5,10 +5,10 @@
 // Template (blank lines between sections for mobile readability):
 //   V-Health Rehab - Hi {firstName}, help neighbors find us:
 //
-//   Leave a quick Google review:
+//   Leave us a Google review:
 //   {gmapLink}
 //
-//   One tap to help us - pick a few words about your visit:
+//   Even simpler: pick a few words about today's visit, we'll write it:
 //   {aiLink}
 //
 //   Thanks for your help! Use code JG for 10% off your next visit.
@@ -24,8 +24,8 @@ export interface SmsBodyInput {
 export function buildReviewSmsBody(input: SmsBodyInput): string {
   return (
     `V-Health Rehab - Hi ${input.firstName}, help neighbors find us:\n\n` +
-    `Leave a quick Google review:\n${input.gmapLink}\n\n` +
-    `One tap to help us - pick a few words about your visit:\n${input.aiLink}\n\n` +
+    `Leave us a Google review:\n${input.gmapLink}\n\n` +
+    `Even simpler: pick a few words about today's visit, we'll write it:\n${input.aiLink}\n\n` +
     `Thanks for your help! Use code JG for 10% off your next visit.\n\n` +
     `Reply STOP to opt out.`
   )
