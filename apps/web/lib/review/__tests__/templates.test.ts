@@ -74,20 +74,26 @@ describe('email template — Variant C', () => {
     expect(html).toContain('Leave us a Google review')
   })
 
-  it('secondary CTA button says "Even simpler"', () => {
+  it('secondary CTA button says "We\'ll write it"', () => {
     const html = buildReviewEmailHtml(BASE_EMAIL)
-    expect(html).toContain('Even simpler')
+    expect(html).toContain("We'll write it")
   })
 
-  it('primary CTA has larger padding than secondary CTA (visual weight)', () => {
+  it('explainer text above secondary CTA says "Even simpler: pick a few words about today\'s visit:"', () => {
     const html = buildReviewEmailHtml(BASE_EMAIL)
-    // Primary: padding:14px 24px  Secondary: padding:10px 18px
-    // We verify both padding strings exist and primary appears first
-    const primaryPaddingMatch = html.match(/padding:[^;]*14px[^;]*24px/)
-    const secondaryPaddingMatch = html.match(/padding:[^;]*10px[^;]*18px/)
-    expect(primaryPaddingMatch).not.toBeNull()
-    expect(secondaryPaddingMatch).not.toBeNull()
-    expect(html.indexOf('Leave us a Google review')).toBeLessThan(html.indexOf('Even simpler'))
+    expect(html).toContain("Even simpler: pick a few words about today's visit:")
+  })
+
+  it('both CTAs are the same size (padding:14px 24px); secondary is blue', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    // Both buttons use the SAME padding now — equal visual weight, color differentiates them
+    expect(html).toContain('background:#16a34a') // primary green
+    expect(html).toContain('background:#2563eb') // secondary blue
+    // Both should use padding:14px 24px
+    const matches = html.match(/padding:14px 24px/g)
+    expect(matches?.length).toBeGreaterThanOrEqual(2)
+    // Primary appears before secondary
+    expect(html.indexOf('Leave us a Google review')).toBeLessThan(html.indexOf("We'll write it"))
   })
 })
 
@@ -127,9 +133,10 @@ describe('email plain-text fallback — Variant C', () => {
     expect(text).toContain('Leave us a Google review')
   })
 
-  it('plain text secondary CTA uses "Even simpler" wording', () => {
+  it('plain text contains both "Even simpler" explainer and "We\'ll write it" CTA', () => {
     const text = buildReviewEmailText(BASE_EMAIL)
-    expect(text).toContain('Even simpler')
+    expect(text).toContain("Even simpler: pick a few words about today's visit:")
+    expect(text).toContain("We'll write it")
   })
 
   it('does NOT use "Option A" or "Option B" labels in plain text', () => {

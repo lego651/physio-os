@@ -37,20 +37,27 @@ export function buildReviewEmailHtml(input: EmailHtmlInput): string {
     As a small local clinic, your review on Google helps neighbors find us.
   </p>
 
-  <table style="border-collapse:collapse;margin:24px 0" role="presentation">
+  <table style="border-collapse:collapse;margin:24px 0 16px" role="presentation">
     <tr>
-      <td style="padding:0 0 12px 0;display:block">
+      <td>
         <a href="${input.gmapLink}"
            style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px">
           Leave us a Google review
         </a>
       </td>
     </tr>
+  </table>
+
+  <p style="margin:0 0 12px;font-size:14px;color:#374151">
+    Even simpler: pick a few words about today's visit:
+  </p>
+
+  <table style="border-collapse:collapse;margin:0 0 24px" role="presentation">
     <tr>
       <td>
         <a href="${input.aiLink}"
-           style="display:inline-block;background:#6b7280;color:#ffffff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:500;font-size:13px">
-          Even simpler — we'll write it
+           style="display:inline-block;background:#2563eb;color:#ffffff;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px">
+          We'll write it
         </a>
       </td>
     </tr>
@@ -93,7 +100,8 @@ export function buildReviewEmailText(input: EmailTextInput): string {
     `Leave us a Google review:`,
     input.gmapLink,
     '',
-    `Even simpler: pick a few words about today's visit, we'll write it:`,
+    `Even simpler: pick a few words about today's visit:`,
+    `We'll write it for you:`,
     input.aiLink,
     '',
     `Thanks for your help! Use code JG for 10% off your next visit.`,
