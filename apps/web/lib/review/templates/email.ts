@@ -39,16 +39,18 @@ export function buildReviewEmailHtml(input: EmailHtmlInput): string {
 
   <table style="border-collapse:collapse;margin:24px 0" role="presentation">
     <tr>
-      <td style="padding:0 8px 0 0">
+      <td style="padding:0 0 12px 0;display:block">
         <a href="${input.gmapLink}"
-           style="display:inline-block;background:#16a34a;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
-          Write directly on Google
+           style="display:inline-block;background:#16a34a;color:#ffffff;padding:14px 24px;border-radius:8px;text-decoration:none;font-weight:600;font-size:16px">
+          Leave a quick Google review
         </a>
       </td>
+    </tr>
+    <tr>
       <td>
         <a href="${input.aiLink}"
-           style="display:inline-block;background:#6b7280;color:#ffffff;padding:12px 20px;border-radius:8px;text-decoration:none;font-weight:600;font-size:14px">
-          AI writes it for you (30s)
+           style="display:inline-block;background:#6b7280;color:#ffffff;padding:10px 18px;border-radius:6px;text-decoration:none;font-weight:500;font-size:13px">
+          Need help? Pick a few words
         </a>
       </td>
     </tr>
@@ -88,10 +90,10 @@ export function buildReviewEmailText(input: EmailTextInput): string {
     `Thanks for visiting ${input.clinicName}.`,
     `As a small local clinic, your review on Google helps neighbors find us.`,
     '',
-    `Option A — Write directly on Google:`,
+    `Leave a quick Google review:`,
     input.gmapLink,
     '',
-    `Option B — AI writes it for you (30s):`,
+    `Or need help? Pick a few words about your visit:`,
     input.aiLink,
     '',
     `Thanks for your help! Use code JG for 10% off your next visit.`,

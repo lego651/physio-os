@@ -1,12 +1,11 @@
 // apps/web/app/r/ai/page.tsx
 //
 // SSR page for the AI-assisted review flow.
-// Validates token_jti, records click, pre-generates draft, renders AiReviewClient.
+// Validates token_jti, records click, extracts dynamic chips from intake_records,
+// renders AiReviewClient. No pre-generated draft — AI is invoked on client demand only.
 
 import { notFound } from 'next/navigation'
 import { createAdminClient } from '@/lib/supabase/admin'
-import { createAnthropic } from '@ai-sdk/anthropic'
-import { generateText } from 'ai'
 import AiReviewClient from './AiReviewClient'
 
 export const runtime = 'nodejs'
@@ -14,11 +13,14 @@ export const dynamic = 'force-dynamic'
 
 const GOOGLE_FALLBACK = 'https://www.google.com/maps/place/V-Health+Rehab/'
 
-const VARIATION_HINTS = [
-  'Be concise and warm.',
-  'Lead with the outcome.',
-  'Start with how you felt walking in.',
-]
+// Human-readable labels for session_type enum values
+const SESSION_TYPE_LABELS: Record<string, string> = {
+  massage: 'Massage',
+  physio: 'Physiotherapy',
+  acupuncture: 'Acupuncture',
+  chiropractor: 'Chiropractic',
+  other: '',
+}
 
 interface PageProps {
   searchParams: Promise<Record<string, string | string[] | undefined>>
@@ -32,26 +34,24 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const supabase = createAdminClient() as any
 
-  interface AiReviewRow {
+  interface ReviewRequestRow {
     id: string
     status: string
     expires_at: string
     patient_name: string
-    therapist_name: string | null
-    service_type: string | null
+    intake_record_id: string | null
     // Left join (no !inner) — clinics may be null if the FK row is missing.
-    // All clinic fields are accessed with optional chaining + fallbacks below.
     clinics: { name: string; google_maps_url: string | null; google_place_id: string | null } | null
   }
 
   const { data: row } = await supabase
     .from('review_requests')
-    .select('id, status, expires_at, patient_name, therapist_name, service_type, clinics(name, google_maps_url, google_place_id)')
+    .select('id, status, expires_at, patient_name, intake_record_id, clinics(name, google_maps_url, google_place_id)')
     .eq('token_jti', t)
     .single()
 
   if (!row) notFound()
-  const typedRow = row as AiReviewRow
+  const typedRow = row as ReviewRequestRow
 
   if (
     typedRow.status === 'revoked' ||
@@ -65,38 +65,30 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
     .update({ clicked_at: new Date().toISOString(), clicked_channel: 'ai' })
     .eq('id', typedRow.id)
 
-  // Guard all clinic fields — left join means clinics may be null
-  const clinicName = typedRow.clinics?.name ?? 'V-Health Rehab Clinic'
-  const therapistName = typedRow.therapist_name ?? 'the therapist'
-  const service = typedRow.service_type ?? 'treatment'
-  const variationHint = VARIATION_HINTS[Math.floor(Math.random() * VARIATION_HINTS.length)]
+  // Fetch dynamic chips from intake_record if linked
+  let dynamicChips: string[] = []
 
-  const prompt = [
-    `You are writing a Google Maps review on behalf of a patient who just visited ${clinicName}.`,
-    ``,
-    `Therapist: ${therapistName}`,
-    `Service: ${service}`,
-    ``,
-    `Write a 60-90 word warm, authentic-sounding review. First person. Mention the therapist by name. Mention what they came in for. Sound human, not corporate. No emojis. Output the review text only, no preamble.`,
-    ``,
-    `Style hint: ${variationHint}`,
-  ].join('\n')
+  if (typedRow.intake_record_id) {
+    interface IntakeRow {
+      therapist_name: string
+      treatment_area: string
+      session_type: string
+    }
+    const { data: intake } = await supabase
+      .from('intake_records')
+      .select('therapist_name, treatment_area, session_type')
+      .eq('id', typedRow.intake_record_id)
+      .single()
 
-  const apiKey = process.env.ANTHROPIC_API_KEY_WIDGET ?? process.env.ANTHROPIC_API_KEY
-  let initialDraft = 'I recently visited V-Health Rehab Clinic and had a great experience. Highly recommend!'
-
-  if (apiKey) {
-    try {
-      const anthropic = createAnthropic({ apiKey })
-      const { text } = await generateText({
-        model: anthropic('claude-haiku-4-5-20251001'),
-        prompt,
-        maxOutputTokens: 300,
-        temperature: 0.7,
-      })
-      initialDraft = text.trim()
-    } catch {
-      // Serve page with fallback draft — don't 500 the user
+    if (intake) {
+      const ir = intake as IntakeRow
+      const chips: string[] = []
+      if (ir.therapist_name) chips.push(ir.therapist_name)
+      if (ir.treatment_area) chips.push(ir.treatment_area)
+      const sessionLabel = SESSION_TYPE_LABELS[ir.session_type] ?? ''
+      if (sessionLabel) chips.push(sessionLabel)
+      // Cap at 3 dynamic chips; filter duplicates
+      dynamicChips = [...new Set(chips)].slice(0, 3)
     }
   }
 
@@ -112,7 +104,7 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
     <AiReviewClient
       token={t}
       firstName={firstName}
-      initialDraft={initialDraft}
+      dynamicChips={dynamicChips}
       mapsUrl={mapsUrl}
     />
   )

@@ -67,6 +67,28 @@ describe('email template — Variant C', () => {
     expect(html).toContain('V-Health Rehab Clinic')
     expect(html).toContain('V-Health')
   })
+
+  // ── New CTA wording spec (Option C redesign) ────────────────────────────
+  it('primary CTA button says "Leave a quick Google review"', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    expect(html).toContain('Leave a quick Google review')
+  })
+
+  it('secondary CTA button says "Need help? Pick a few words"', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    expect(html).toContain('Need help? Pick a few words')
+  })
+
+  it('primary CTA has larger padding than secondary CTA (visual weight)', () => {
+    const html = buildReviewEmailHtml(BASE_EMAIL)
+    // Primary: padding:14px 24px  Secondary: padding:10px 18px
+    // We verify both padding strings exist and primary appears first
+    const primaryPaddingMatch = html.match(/padding:[^;]*14px[^;]*24px/)
+    const secondaryPaddingMatch = html.match(/padding:[^;]*10px[^;]*18px/)
+    expect(primaryPaddingMatch).not.toBeNull()
+    expect(secondaryPaddingMatch).not.toBeNull()
+    expect(html.indexOf('Leave a quick Google review')).toBeLessThan(html.indexOf('Need help? Pick a few words'))
+  })
 })
 
 describe('email plain-text fallback — Variant C', () => {
@@ -94,11 +116,26 @@ describe('email plain-text fallback — Variant C', () => {
 
   it('mirrors same info as HTML (gmap + ai + JG)', () => {
     const text = buildReviewEmailText(BASE_EMAIL)
-    expect(text).toContain('Option A')
-    expect(text).toContain('Option B')
     expect(text).toContain(BASE_EMAIL.gmapLink)
     expect(text).toContain(BASE_EMAIL.aiLink)
     expect(text).toContain('JG')
+  })
+
+  // ── New CTA wording spec (Option C redesign) ────────────────────────────
+  it('plain text primary CTA uses "Leave a quick Google review" wording', () => {
+    const text = buildReviewEmailText(BASE_EMAIL)
+    expect(text).toContain('Leave a quick Google review')
+  })
+
+  it('plain text secondary CTA uses "Pick a few words" wording', () => {
+    const text = buildReviewEmailText(BASE_EMAIL)
+    expect(text).toContain('Pick a few words')
+  })
+
+  it('does NOT use "Option A" or "Option B" labels in plain text', () => {
+    const text = buildReviewEmailText(BASE_EMAIL)
+    expect(text).not.toContain('Option A')
+    expect(text).not.toContain('Option B')
   })
 })
 
@@ -171,5 +208,27 @@ describe('sms template — Variant C', () => {
     const body = buildReviewSmsBody(base)
     expect(body).not.toContain('—') // em-dash must be absent
     expect(body).toContain(' - ') // ASCII hyphen separator present
+  })
+
+  // ── New wording spec (Option C redesign) ────────────────────────────────
+  it('does NOT use "A)" or "B)" CTA labels', () => {
+    const body = buildReviewSmsBody(base)
+    expect(body).not.toContain('A)')
+    expect(body).not.toContain('B)')
+  })
+
+  it('first CTA uses "Leave a quick Google review" wording', () => {
+    const body = buildReviewSmsBody(base)
+    expect(body).toContain('Leave a quick Google review')
+  })
+
+  it('second CTA uses "Pick a few words" wording (secondary assist)', () => {
+    const body = buildReviewSmsBody(base)
+    expect(body).toContain('Pick a few words')
+  })
+
+  it('Google review link appears before the AI link in the body', () => {
+    const body = buildReviewSmsBody(base)
+    expect(body.indexOf(base.gmapLink)).toBeLessThan(body.indexOf(base.aiLink))
   })
 })

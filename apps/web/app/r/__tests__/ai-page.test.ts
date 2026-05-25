@@ -90,7 +90,7 @@ describe('GET /r/ai — token validation', () => {
 
   it('calls notFound() when token not found in DB', async () => {
     const { client } = makeSupabase(null)
-    vi.mocked(createAdminClient).mockReturnValue(client as ReturnType<typeof createAdminClient>)
+    vi.mocked(createAdminClient).mockReturnValue(client as unknown as ReturnType<typeof createAdminClient>)
     await expectNotFound(AiReviewPage({ searchParams: sp('00000000-0000-0000-0000-000000000001') }))
   })
 
@@ -105,7 +105,7 @@ describe('GET /r/ai — token validation', () => {
       session_notes: null,
       clinics: { name: 'V-Health', google_maps_url: null, google_place_id: null },
     })
-    vi.mocked(createAdminClient).mockReturnValue(client as ReturnType<typeof createAdminClient>)
+    vi.mocked(createAdminClient).mockReturnValue(client as unknown as ReturnType<typeof createAdminClient>)
     await expectNotFound(AiReviewPage({ searchParams: sp('00000000-0000-0000-0000-000000000001') }))
   })
 
@@ -120,7 +120,7 @@ describe('GET /r/ai — token validation', () => {
       session_notes: null,
       clinics: { name: 'V-Health', google_maps_url: null, google_place_id: null },
     })
-    vi.mocked(createAdminClient).mockReturnValue(client as ReturnType<typeof createAdminClient>)
+    vi.mocked(createAdminClient).mockReturnValue(client as unknown as ReturnType<typeof createAdminClient>)
     await expectNotFound(AiReviewPage({ searchParams: sp('00000000-0000-0000-0000-000000000001') }))
   })
 
@@ -135,9 +135,104 @@ describe('GET /r/ai — token validation', () => {
       session_notes: null,
       clinics: { name: 'V-Health Rehab Clinic', google_maps_url: null, google_place_id: null },
     })
-    vi.mocked(createAdminClient).mockReturnValue(client as ReturnType<typeof createAdminClient>)
+    vi.mocked(createAdminClient).mockReturnValue(client as unknown as ReturnType<typeof createAdminClient>)
     await AiReviewPage({ searchParams: sp('00000000-0000-0000-0000-000000000001') })
     expect(notFoundMock).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /r/ai — dynamic chips from intake_records (Option C redesign)', () => {
+  it('passes dynamicChips array to AiReviewClient when intake_record is linked', async () => {
+    // Page returns JSX (<AiReviewClient {...props} />). Inspect .props directly
+    // because React doesn't invoke the component function until rendering — which
+    // we don't do in this unit test, so mock.calls would be empty.
+
+    // Supabase mock: first call returns review_request with intake_record_id,
+    // second call returns the intake_record row.
+    const intakeRow = {
+      id: 'intake-1',
+      therapist_name: 'Wendy',
+      treatment_area: 'Neck pain',
+      session_type: 'massage',
+    }
+    const requestRow = {
+      id: 'req-1',
+      status: 'sent',
+      expires_at: FUTURE_EXPIRY,
+      patient_name: 'Alice Smith',
+      therapist_name: null,
+      service_type: null,
+      intake_record_id: 'intake-1',
+      clinics: { name: 'V-Health Rehab Clinic', google_maps_url: null, google_place_id: null },
+    }
+
+    // Build a multi-call Supabase mock: first .from().select().eq().single() → requestRow,
+    // second .from().select().eq().single() → intakeRow.
+    let callCount = 0
+    const singleMock = vi.fn().mockImplementation(() => {
+      callCount++
+      if (callCount === 1) return Promise.resolve({ data: requestRow, error: null })
+      return Promise.resolve({ data: intakeRow, error: null })
+    })
+    const eqMock = vi.fn().mockReturnValue({ single: singleMock })
+    const selectMock = vi.fn().mockReturnValue({ eq: eqMock })
+    const updateChain = { eq: vi.fn().mockResolvedValue({ error: null }) }
+    const updateMock = vi.fn().mockReturnValue(updateChain)
+    const fromMock = vi.fn().mockReturnValue({ select: selectMock, update: updateMock })
+    const client = { from: fromMock }
+    vi.mocked(createAdminClient).mockReturnValue(client as unknown as ReturnType<typeof createAdminClient>)
+
+    const result = (await AiReviewPage({
+      searchParams: sp('00000000-0000-0000-0000-000000000001'),
+    })) as { props: { dynamicChips: string[] } }
+
+    expect(notFoundMock).not.toHaveBeenCalled()
+    expect(result.props).toHaveProperty('dynamicChips')
+    expect(result.props.dynamicChips).toContain('Wendy')
+    expect(result.props.dynamicChips).toContain('Neck pain')
+  })
+
+  it('passes empty dynamicChips when intake_record_id is null', async () => {
+    const { client } = makeSupabase({
+      id: 'req-1',
+      status: 'sent',
+      expires_at: FUTURE_EXPIRY,
+      patient_name: 'Bob Brown',
+      therapist_name: null,
+      service_type: null,
+      intake_record_id: null,
+      clinics: { name: 'V-Health Rehab Clinic', google_maps_url: null, google_place_id: null },
+    })
+    vi.mocked(createAdminClient).mockReturnValue(client as unknown as ReturnType<typeof createAdminClient>)
+
+    const result = (await AiReviewPage({
+      searchParams: sp('00000000-0000-0000-0000-000000000002'),
+    })) as { props: { dynamicChips: string[] } }
+
+    expect(notFoundMock).not.toHaveBeenCalled()
+    expect(result.props).toHaveProperty('dynamicChips')
+    expect(result.props.dynamicChips).toEqual([])
+  })
+
+  it('does NOT pass initialDraft to AiReviewClient (pre-gen removed)', async () => {
+    const { client } = makeSupabase({
+      id: 'req-1',
+      status: 'sent',
+      expires_at: FUTURE_EXPIRY,
+      patient_name: 'Carol White',
+      therapist_name: null,
+      service_type: null,
+      intake_record_id: null,
+      clinics: null,
+    })
+    vi.mocked(createAdminClient).mockReturnValue(client as unknown as ReturnType<typeof createAdminClient>)
+
+    const result = (await AiReviewPage({
+      searchParams: sp('00000000-0000-0000-0000-000000000003'),
+    })) as { props: Record<string, unknown> }
+
+    // initialDraft must NOT be passed — the new flow has no pre-generated draft
+    expect(result.props).not.toHaveProperty('initialDraft')
   })
 })
 
@@ -158,7 +253,7 @@ describe('GET /r/ai — null clinic regression (Bug: !inner join → 404)', () =
       session_notes: null,
       clinics: null, // simulates left join returning no clinic row
     })
-    vi.mocked(createAdminClient).mockReturnValue(client as ReturnType<typeof createAdminClient>)
+    vi.mocked(createAdminClient).mockReturnValue(client as unknown as ReturnType<typeof createAdminClient>)
     await AiReviewPage({ searchParams: sp('07429f85-5b2f-4d92-97bf-5ca186b3651e') })
     expect(notFoundMock).not.toHaveBeenCalled()
   })
@@ -177,7 +272,7 @@ describe('GET /r/ai — null clinic regression (Bug: !inner join → 404)', () =
       session_notes: null,
       clinics: null,
     })
-    vi.mocked(createAdminClient).mockReturnValue(client as ReturnType<typeof createAdminClient>)
+    vi.mocked(createAdminClient).mockReturnValue(client as unknown as ReturnType<typeof createAdminClient>)
     // No ANTHROPIC key → uses hardcoded fallback draft, no AI call
     const result = await AiReviewPage({ searchParams: sp('07429f85-5b2f-4d92-97bf-5ca186b3651e') })
     expect(notFoundMock).not.toHaveBeenCalled()
