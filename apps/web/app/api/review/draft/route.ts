@@ -1,8 +1,9 @@
 // apps/web/app/api/review/draft/route.ts
 //
-// POST { token, notes? } → { draft }
+// POST { token, selectedFacts?, selectedFeelings?, customNotes? } → { draft }
 // token = review_requests.token_jti (UUID from SMS link ?t= param)
-// Generates a pre-written 60-90 word review using Claude Haiku.
+// Generates a 60-90 word review using Claude Haiku based on patient-picked keywords.
+// Legacy: also accepts { token, notes } mapping notes → customNotes.
 
 import { z } from 'zod'
 import { createAnthropic } from '@ai-sdk/anthropic'
@@ -14,6 +15,11 @@ export const maxDuration = 30
 
 const bodySchema = z.object({
   token: z.string().min(1),
+  // New structured-keyword fields (Option C chip UI)
+  selectedFacts: z.array(z.string()).optional(),
+  selectedFeelings: z.array(z.string()).optional(),
+  customNotes: z.string().max(500).optional(),
+  // Legacy field: old client sent { token, notes }. Map to customNotes.
   notes: z.string().max(500).optional(),
 })
 
@@ -68,23 +74,34 @@ export async function POST(req: Request) {
     return Response.json({ error: 'Request expired' }, { status: 410 })
   }
 
+  // Resolve keyword inputs — legacy { notes } maps to customNotes
+  const selectedFacts = parsed.data.selectedFacts ?? []
+  const selectedFeelings = parsed.data.selectedFeelings ?? []
+  const customNotes = (parsed.data.customNotes ?? parsed.data.notes ?? '').trim()
+
+  // Require at least one signal — reject fully empty submissions
+  if (selectedFacts.length === 0 && selectedFeelings.length === 0 && customNotes === '') {
+    return Response.json({ error: 'Pick at least one word to complete your review' }, { status: 400 })
+  }
+
   const apiKey = process.env.ANTHROPIC_API_KEY_WIDGET ?? process.env.ANTHROPIC_API_KEY
   if (!apiKey) return Response.json({ error: 'AI not configured' }, { status: 500 })
 
   const clinicName = typedRow.clinics?.name ?? 'V-Health Rehab Clinic'
-  const therapistName = typedRow.therapist_name ?? 'the therapist'
-  const service = typedRow.service_type ?? 'treatment'
-  const notes = parsed.data.notes ?? 'none'
   const variationHint = VARIATION_HINTS[Math.floor(Math.random() * VARIATION_HINTS.length)]
 
   const prompt = [
     `You are writing a Google Maps review on behalf of a patient who just visited ${clinicName}.`,
     ``,
-    `Therapist: ${therapistName}`,
-    `Service: ${service}`,
-    `Patient hint (if provided): ${notes}`,
+    `The patient picked these facts about their visit:`,
+    `${selectedFacts.join(', ') || '(none picked)'}`,
     ``,
-    `Write a 60-90 word warm, authentic-sounding review. First person. Mention the therapist by name. Mention what they came in for. Sound human, not corporate. No emojis. Output the review text only, no preamble.`,
+    `The patient picked these feelings about their experience:`,
+    `${selectedFeelings.join(', ') || '(none picked)'}`,
+    ``,
+    `Patient's own words (optional): ${customNotes || 'none'}`,
+    ``,
+    `Write a 60-90 word warm, authentic-sounding Google Maps review in first person. Use the facts and feelings the patient picked. Mention specifics. Sound human, not corporate. No emojis. Output the review text only, no preamble.`,
     ``,
     `Style hint: ${variationHint}`,
   ].join('\n')
