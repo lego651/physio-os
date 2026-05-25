@@ -39,7 +39,6 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
     patient_name: string
     therapist_name: string | null
     service_type: string | null
-    session_notes: string | null
     // Left join (no !inner) — clinics may be null if the FK row is missing.
     // All clinic fields are accessed with optional chaining + fallbacks below.
     clinics: { name: string; google_maps_url: string | null; google_place_id: string | null } | null
@@ -47,7 +46,7 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
 
   const { data: row } = await supabase
     .from('review_requests')
-    .select('id, status, expires_at, patient_name, therapist_name, service_type, session_notes, clinics(name, google_maps_url, google_place_id)')
+    .select('id, status, expires_at, patient_name, therapist_name, service_type, clinics(name, google_maps_url, google_place_id)')
     .eq('token_jti', t)
     .single()
 
@@ -70,7 +69,6 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
   const clinicName = typedRow.clinics?.name ?? 'V-Health Rehab Clinic'
   const therapistName = typedRow.therapist_name ?? 'the therapist'
   const service = typedRow.service_type ?? 'treatment'
-  const notes = typedRow.session_notes ?? 'none'
   const variationHint = VARIATION_HINTS[Math.floor(Math.random() * VARIATION_HINTS.length)]
 
   const prompt = [
@@ -78,7 +76,6 @@ export default async function AiReviewPage({ searchParams }: PageProps) {
     ``,
     `Therapist: ${therapistName}`,
     `Service: ${service}`,
-    `Patient hint (if provided): ${notes}`,
     ``,
     `Write a 60-90 word warm, authentic-sounding review. First person. Mention the therapist by name. Mention what they came in for. Sound human, not corporate. No emojis. Output the review text only, no preamble.`,
     ``,
