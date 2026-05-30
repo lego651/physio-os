@@ -1,0 +1,104 @@
+name: Preview Smoke Test
+
+# LED-49 — Approach B. A `pull_request` check that gates merge.
+#
+# Today post-deploy-smoke.mjs runs ONLY after a prod deploy, so a broken
+# SMS/email path ships to V-Health before the smoke catches it. This workflow
+# resolves the PR's Vercel Preview deployment URL (await-preview-url.mjs) and
+# runs the SAME smoke script against it BEFORE merge.
+#
+# Because it is a normal `pull_request` check, it can be marked
+# branch-protection-required, which is what makes "a broken path fails the
+# Preview smoke before merge" actually enforceable.
+#
+# Safety: SMS goes ONLY to SMOKE_TEST_RECIPIENT_PHONE (a verified test number
+# in GitHub secrets — never a real patient); email goes to ALERT_EMAIL. The
+# smoke script never reads patient numbers from the DB. The prod
+# post-deploy-smoke.yml is the backstop and is left untouched.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+# Built-in token only needs to read deployments + the repo checkout.
+permissions:
+  contents: read
+  deployments: read
+
+# Guardrail 2 — a force-push supersedes the in-flight smoke instead of racing
+# it (and stops duplicate sends from a rapid re-push).
+concurrency:
+  group: preview-smoke-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview-smoke:
+    runs-on: ubuntu-latest
+    # The await step has its own ~10-min bounded poll; this is just a backstop
+    # so a wedged job can't hang a PR indefinitely.
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Guardrail 3 — fork PRs receive no secrets, so the smoke would error on
+      # missing Twilio/Resend creds and produce a confusing red check. Detect
+      # the absence and skip with an explicit message instead. Same-repo PRs
+      # (the norm for this solo-founder repo) always have the secrets, so this
+      # skip path is expected only for forks.
+      - name: Check required secrets are present
+        id: secrets
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+          SMOKE_TEST_RECIPIENT_PHONE: ${{ secrets.SMOKE_TEST_RECIPIENT_PHONE }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+        run: |
+          if [ -z "$TWILIO_ACCOUNT_SID" ] || [ -z "$TWILIO_AUTH_TOKEN" ] || \
+             [ -z "$TWILIO_PHONE_NUMBER" ] || [ -z "$SMOKE_TEST_RECIPIENT_PHONE" ] || \
+             [ -z "$RESEND_API_KEY" ]; then
+            echo "::notice::Preview smoke skipped — Twilio/Resend secrets unavailable (fork PR?). Same-repo PRs have these secrets; this skip is expected only for forks."
+            echo "present=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Node
+        if: steps.secrets.outputs.present == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      # Guardrail 1 — bounded poll with a loud timeout. await-preview-url.mjs
+      # polls the GitHub Deployments API for this SHA for up to ~10 min and
+      # fails with "::error::No successful Vercel Preview deployment found..."
+      # on timeout, so a missing/never-built preview can never silently pass.
+      - name: Await Vercel Preview deployment URL
+        if: steps.secrets.outputs.present == 'true'
+        id: preview
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          POLL_TIMEOUT_MS: '600000'
+          POLL_INTERVAL_MS: '15000'
+        run: node .github/scripts/await-preview-url.mjs
+
+      # Same script as the prod backstop — only DEPLOY_URL differs (the resolved
+      # Preview URL). Sends ONLY to the test recipient.
+      - name: Run preview smoke test
+        if: steps.secrets.outputs.present == 'true'
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+          # Test recipient only — never a real patient. Must be a verified
+          # Twilio test number in E.164 format.
+          SMOKE_TEST_RECIPIENT_PHONE: ${{ secrets.SMOKE_TEST_RECIPIENT_PHONE }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          SMOKE_TEST_FROM_EMAIL: ${{ secrets.SMOKE_TEST_FROM_EMAIL }}
+          DEPLOY_URL: ${{ steps.preview.outputs.deploy_url }}
+        run: node .github/scripts/post-deploy-smoke.mjs
