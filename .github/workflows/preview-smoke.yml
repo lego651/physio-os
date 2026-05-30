@@ -1,0 +1,41 @@
+name: Preview Smoke Test
+
+# Runs post-deploy-smoke.mjs against every Vercel Preview deployment
+# (i.e. PR branches — not Production). SMS goes to SMOKE_TEST_RECIPIENT_PHONE
+# (a test number stored in GitHub secrets, never a real patient).
+# Email goes to ALERT_EMAIL (jasonusca@gmail.com — Jason's inbox).
+# The existing post-deploy-smoke.yml (prod smoke) is kept as a backstop.
+
+on:
+  deployment_status: {}
+
+jobs:
+  preview-smoke:
+    # Only run on Vercel Preview deployments that succeeded.
+    # Vercel sets environment to "Preview" (not "Production") for PR deployments.
+    if: >
+      github.event_name == 'deployment_status' &&
+      github.event.deployment_status.state == 'success' &&
+      contains(github.event.deployment_status.environment, 'Preview')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run preview smoke test
+        env:
+          TWILIO_ACCOUNT_SID: ${{ secrets.TWILIO_ACCOUNT_SID }}
+          TWILIO_AUTH_TOKEN: ${{ secrets.TWILIO_AUTH_TOKEN }}
+          TWILIO_PHONE_NUMBER: ${{ secrets.TWILIO_PHONE_NUMBER }}
+          # Test recipient only — never a real patient.
+          # SMOKE_TEST_RECIPIENT_PHONE must be a verified Twilio test number (E.164).
+          SMOKE_TEST_RECIPIENT_PHONE: ${{ secrets.SMOKE_TEST_RECIPIENT_PHONE }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL: ${{ secrets.ALERT_EMAIL }}
+          RESEND_FROM_EMAIL: ${{ secrets.RESEND_FROM_EMAIL }}
+          SMOKE_TEST_FROM_EMAIL: ${{ secrets.SMOKE_TEST_FROM_EMAIL }}
+          # Vercel sets target_url to the Preview deployment URL for this PR.
+          DEPLOY_URL: ${{ github.event.deployment_status.target_url }}
+        run: node .github/scripts/post-deploy-smoke.mjs
