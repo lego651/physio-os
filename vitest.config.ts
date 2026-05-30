@@ -13,6 +13,7 @@ export default defineConfig({
       'apps/*/app/**/*.test.ts',
       'apps/*/__tests__/**/*.test.ts',
       'apps/*/lib/**/__tests__/**/*.test.ts',
+      '.github/scripts/**/*.test.mjs',
     ],
   },
 })
